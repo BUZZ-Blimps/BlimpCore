@@ -74,6 +74,7 @@ struct i2c_smbus_ioctl_data
 } ;
 
 void OPI_IMU::OPI_IMU_Setup(){
+    ref_pressure_found = true;
     const char *device;
     device = "/dev/i2c-3"; 
 
