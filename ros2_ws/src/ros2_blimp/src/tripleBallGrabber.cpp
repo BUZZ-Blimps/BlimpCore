@@ -11,8 +11,8 @@ TripleBallGrabber::TripleBallGrabber() {
 }
 
 void TripleBallGrabber::ballgrabber_init(int servoPin, int motorPin){
-  this->Servo.servo_PIN(servoPin);
-  this->motor.brushless_PIN(motorPin);
+  this->Servo.servo_setup(servoPin);
+  this->motor.brushless_setup(motorPin);
   this->Servo.servo_angle(currentAngle);
   this->motor.brushless_thrust(0);
 }

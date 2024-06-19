@@ -475,21 +475,23 @@ class blimp:public rclcpp::Node
             firstMessageTime = micros()/MICROS_TO_SEC;
 
             // Start Servos
-            Servo_L.servo_setup(0);
-            Servo_R.servo_setup(2);
-            Servo_L.servo_angle(0);
-            Servo_R.servo_angle(180);
+            // Servo_L.servo_setup(0);
+            // Servo_R.servo_setup(2);
+            // Servo_L.servo_angle(0);
+            // Servo_R.servo_angle(180);
 
             // initialize
-            ballGrabber.ballgrabber_init(GATE_S, PWM_G);
-            leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-            rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
+            wiringPiSetup();
+            ballGrabber.ballgrabber_init(8, 10);
+            leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+            // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+            rightGimbal.gimbal_init(R_Yaw, R_Pitch, 16, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
 
             //Start Brushless
-            Brushless_L.brushless_setup(5);
-            Brushless_R.brushless_setup(16);
-            Brushless_L.brushless_thrust(1500);
-            Brushless_R.brushless_thrust(1500);
+        //     Brushless_L.brushless_setup(5);
+        //     Brushless_R.brushless_setup(16);
+        //     Brushless_L.brushless_thrust(1500);
+        //     Brushless_R.brushless_thrust(1500);
         }
         
 private: 
@@ -1361,7 +1363,7 @@ private:
         // debug_msg.data[2] = translationCom;
         // debug_msg.data[3] = forwardCom;
 
-        debug_msg.data = {yawCom, upCom, translationCom, forwardCom};
+        // debug_msg.data = {yawCom, upCom, translationCom, forwardCom};
 
         
 
@@ -1383,7 +1385,7 @@ private:
         // debug_msg.data.data[8] = targets[8];
         // debug_msg.data.size = 9;
 
-        debug_publisher->publish(debug_msg);
+        // debug_publisher->publish(debug_msg);
 
         // //Serial.print(">up current:");
         // //Serial.println(kf.v);
@@ -1559,6 +1561,19 @@ private:
         up_msg = msg.data[1];
         yaw_msg = msg.data[0];
         translation_msg = msg.data[2];
+
+        motorControl.yawLeft = yaw_msg*100;
+        motorControl.upLeft = up_msg*100;
+        motorControl.forwardLeft = forward_msg*100;
+
+        auto debug_msg = std_msgs::msg::Float64MultiArray();
+        debug_msg.data = {motorControl.yawLeft, motorControl.upLeft, translation_msg, motorControl.forwardLeft};
+        debug_publisher->publish(debug_msg);
+
+        bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
+        bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight);
+        leftGimbal.updateGimbal(leftReady && rightReady);
+        rightGimbal.updateGimbal(leftReady && rightReady);
 
         // char motorCommands[100];  // Size depending on the expected maximum length of your combined string
         // sprintf(motorCommands, "Teensy Motor Commands\nYaw: %.2f\nUp: %.2f\nTranslation: %.2f\nForward: %.2f\n", yaw_msg, up_msg, translation_msg, forward_msg);

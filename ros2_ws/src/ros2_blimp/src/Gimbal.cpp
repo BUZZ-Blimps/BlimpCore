@@ -21,12 +21,13 @@ void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadba
   phiPos1 = phiOffset;
   thetaPos = 0;
   servoThreshold = 1000; // (degrees) Defines how close servos must be for brushless motors to activate
-  yawServo.servo_setup(yawPin);
-  yawServo.servo_angle(0);
-  pitchServo.servo_setup(pitchPin);
-  pitchServo.servo_angle(0);
-  motor.brushless_setup(motorPin);
-  motor.brushless_thrust(1500);
+  
+  this->yawServo.servo_setup(yawPin);
+  this->yawServo.servo_angle(0);
+  this->pitchServo.servo_setup(pitchPin);
+  this->pitchServo.servo_angle(0);
+  this->motor.brushless_setup(motorPin);
+  this->motor.brushless_thrust(1500);
 }
 bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward) {
   // if (debug) Serial.println("Corrected Inputs");
