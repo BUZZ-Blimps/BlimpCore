@@ -10,6 +10,7 @@ void brushless::brushless_setup(int PIN){
     wiringPiSetup();
     this->pin = PIN;
 	pinMode(PIN, PWM_OUTPUT);
+    // pwmSetRange(PIN, this->arr);
     pwmSetRange(PIN, this->arr);
 	pwmSetClock(PIN, this->div);
 	pwmWrite(PIN, this->ccr);

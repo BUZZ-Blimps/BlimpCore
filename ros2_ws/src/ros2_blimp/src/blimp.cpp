@@ -142,21 +142,21 @@
 #define BALL_CATCH_THRESHOLD      62000
 
 //**************** TEENSY PINOUT ****************//
-#define L_Pitch                   2                    
-#define L_Yaw                     3              
-#define R_Pitch                   4                
-#define R_Yaw                     5              
+#define L_Pitch                   0                    
+#define L_Yaw                     3   // not changed           
+#define R_Pitch                   2               
+#define R_Yaw                     9 //was 5              
 
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    15                
+#define GATE_S                    8                
 
-#define PWM_R                     6              
-#define PWM_G                     9              
-#define PWM_L                     14              
+#define PWM_R                     5              
+#define PWM_G                     10              
+#define PWM_L                     16              
 
 #define OF_CS                     10              
 //***********************************************//
@@ -483,9 +483,9 @@ class blimp:public rclcpp::Node
             // initialize
             wiringPiSetup();
             ballGrabber.ballgrabber_init(8, 10);
-            leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-            // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-            rightGimbal.gimbal_init(R_Yaw, R_Pitch, 16, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
+            // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+            leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+            rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
 
             //Start Brushless
         //     Brushless_L.brushless_setup(5);
@@ -1378,7 +1378,7 @@ private:
         // debug_msg.data[2] = translationCom;
         // debug_msg.data[3] = forwardCom;
 
-        // debug_msg.data = {yawCom, upCom, translationCom, forwardCom};
+        
 
         
 
@@ -1400,7 +1400,7 @@ private:
         // debug_msg.data.data[8] = targets[8];
         // debug_msg.data.size = 9;
 
-        // debug_publisher->publish(debug_msg);
+        
 
         // //Serial.print(">up current:");
         // //Serial.println(kf.v);
@@ -1436,6 +1436,8 @@ private:
                 // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
+                debug_msg.data = {forwardMotor, -translationMotor, upMotor, yawMotor};
+                // debug_publisher->publish(debug_msg);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
@@ -1586,9 +1588,9 @@ private:
         yaw_msg = msg.data[0];
         translation_msg = msg.data[2];
 
-        motorControl.yawLeft = yaw_msg;
-        motorControl.upLeft = up_msg;
-        motorControl.forwardLeft = forward_msg;
+        // motorControl.yawLeft = yaw_msg;
+        // motorControl.upLeft = up_msg;
+        // motorControl.forwardLeft = forward_msg;
 
         // auto debug_msg = std_msgs::msg::Float64MultiArray();
         // debug_msg.data = {motorControl.yawLeft, motorControl.upLeft, translation_msg, motorControl.forwardLeft};

@@ -1,5 +1,6 @@
 #include "Gimbal.h"
 #include <math.h>
+#include <cstdio>
 // Gimbal::Gimbal(double newDeadband, double newTurnOnCom, double newMinCom, double newMaxCom, double newPhiOffset, double newFilter){
 //   deadband = newDeadband;
 //   turnOnCom = newTurnOnCom;
@@ -124,7 +125,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   phiPos1 = filter*phi + (1-filter)*phiPos1;
   if (abs(thrustf) >= deadband/2.0){ // Turn on motors
     this->yawServo.servo_angle(135);
-    this->pitchServo.servo_angle(phi);
+    this->pitchServo.servo_angle(abs(phi));
     if (!motors_off) {
       nextMotorCom = motorCom(thrustf); //mator mapping from "-1000 - 1000" to "1000 - 2000"
       //prevent overpowering

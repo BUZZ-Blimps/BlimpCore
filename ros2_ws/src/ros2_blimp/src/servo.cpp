@@ -26,7 +26,7 @@ double servo::servo_angle(double angle){
         return this->curr_angle;
     }
     else {
-        printf("Servo angle out of range!");
+        printf("Servo angle out of range!\n");
         return(this->curr_angle);
     }
 }

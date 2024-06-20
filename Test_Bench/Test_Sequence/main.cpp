@@ -12,13 +12,23 @@
 
 #define GIMBAL_DEBUG              false
 #define MOTORS_OFF                false
-#define L_Pitch                   2                    
-#define L_Yaw                     3              
-#define R_Pitch                   4                
-#define R_Yaw                     5  
-#define PWM_R                     6              
-#define PWM_G                     9              
-#define PWM_L                     14  
+#define L_Pitch                   0                    
+#define L_Yaw                     3   // not changed           
+#define R_Pitch                   2               
+#define R_Yaw                     9 //was 5              
+
+#define L_Pitch_FB                23                    
+#define L_Yaw_FB                  22                  
+#define R_Pitch_FB                21                    
+#define R_Yaw_FB                  20                  
+
+#define GATE_S                    8                
+
+#define PWM_R                     5              
+#define PWM_G                     10              
+#define PWM_L                     16              
+
+#define OF_CS                     10 
 #define MIN_MOTOR                 1000
 #define MAX_MOTOR                 2000
 
