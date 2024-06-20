@@ -20,7 +20,7 @@ void servo::servo_PIN(int PIN){
 }
 
 double servo::servo_angle(double angle){
-    if (0 <= angle <= 180){
+    if (0 <= angle && angle <= 180){
         this->curr_angle = (angle*(1.5)) + 160;
         pwmWrite(this->pin, this->curr_angle);
         return this->curr_angle;

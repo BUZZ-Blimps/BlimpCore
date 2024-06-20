@@ -210,6 +210,7 @@ enum gameballType{
 };
 
 //global variables
+double loop_time;
 int auto_state = searching;
 
 //blimp game parameters
@@ -472,7 +473,6 @@ class blimp:public rclcpp::Node
                 500ms, std::bind(&blimp::timer_callback, this));
 
             BerryIMU.OPI_IMU_Setup();
-            firstMessageTime = micros()/MICROS_TO_SEC;
 
             // Start Servos
             // Servo_L.servo_setup(0);
@@ -505,6 +505,8 @@ private:
 
     void imu_callback()
     {
+        // float startTime = micros();
+        loop_time = micros()/MICROS_TO_SEC;
         auto imu_msg = sensor_msgs::msg::Imu();
         //read sensor values and update madgwick
         BerryIMU.IMU_read();
@@ -597,11 +599,16 @@ private:
 
         // kal_vel.predict_vel();
         // kal_vel.update_vel_acc(-accelGCorrection.agx/9.81, -accelGCorrection.agy/9.81);
+        // float endTime = micros();
+        // float netTime = (endTime - startTime)/MICROS_TO_SEC;
+        // publish_log("imu call Back Time:");
+        // publish_log(std::to_string(netTime));
     }
 
 
     void baro_callback()
     {
+        // float startTime = micros();
         auto height_msg = std_msgs::msg::Float64();
         auto z_velocity_msg = std_msgs::msg::Float64();
         // get most current imu values
@@ -636,14 +643,21 @@ private:
         // xekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
         // yekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
         z_velocity_publisher->publish(z_velocity_msg);
+
+        // float endTime = micros();
+        // float netTime = (endTime - startTime)/MICROS_TO_SEC;
+        // publish_log("Baro Call Back Time:");
+        // publish_log(std::to_string(netTime));
     }
 
 
     void state_machine_callback()
     {
+        // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
         double dt = 33/1000;
+        // publish_log("Im in state_machine_callback");
         //control inputs
         float forwardCom = 0.0;
         float upCom = 0.0;
@@ -709,6 +723,7 @@ private:
         //from base station
         //compute blimp_state machine
         if (blimp_state == manual) {
+            // publish_log("Im in state_machine_callback, manual");
             //get manual data
             //all motor commands are between -1 and 1
             //set max yaw command to 120 deg/s
@@ -1401,7 +1416,11 @@ private:
         ballGrabber.update();
 
         // neeed to verify this
-        if (dt < 10 + firstMessageTime) {
+        if (loop_time < 10 + firstMessageTime) {
+            // publish_log("Im in state_machine_callback dt<10+firstMessage");
+            // publish_log(std::to_string(loop_time));
+            // publish_log("Im in state_machine_callback dt<10+firstMessage/firstMessage");
+            // publish_log(std::to_string(firstMessageTime));
             //filter base station data
             baroOffset.filter(baseBaro-BerryIMU.comp_press);
             rollOffset.filter(BerryIMU.gyr_rateXraw);
@@ -1414,6 +1433,7 @@ private:
             rightGimbal.updateGimbal(leftReady && rightReady);
         } else {
             if (blimp_state == manual && !MOTORS_OFF) {
+                // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
@@ -1440,6 +1460,10 @@ private:
                 rightGimbal.updateGimbal(leftReady && rightReady);
             }
         }
+        // float endTime = micros();
+        // float netTime = (endTime - startTime)/MICROS_TO_SEC;
+        // publish_log("State Machine Call Back Time:");
+        // publish_log(std::to_string(netTime));
     }
 
     void publish_log(std::string message) const {
@@ -1562,18 +1586,18 @@ private:
         yaw_msg = msg.data[0];
         translation_msg = msg.data[2];
 
-        motorControl.yawLeft = yaw_msg*100;
-        motorControl.upLeft = up_msg*100;
-        motorControl.forwardLeft = forward_msg*100;
+        motorControl.yawLeft = yaw_msg;
+        motorControl.upLeft = up_msg;
+        motorControl.forwardLeft = forward_msg;
 
-        auto debug_msg = std_msgs::msg::Float64MultiArray();
-        debug_msg.data = {motorControl.yawLeft, motorControl.upLeft, translation_msg, motorControl.forwardLeft};
-        debug_publisher->publish(debug_msg);
+        // auto debug_msg = std_msgs::msg::Float64MultiArray();
+        // debug_msg.data = {motorControl.yawLeft, motorControl.upLeft, translation_msg, motorControl.forwardLeft};
+        // debug_publisher->publish(debug_msg);
 
-        bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
-        bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight);
-        leftGimbal.updateGimbal(leftReady && rightReady);
-        rightGimbal.updateGimbal(leftReady && rightReady);
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
 
         // char motorCommands[100];  // Size depending on the expected maximum length of your combined string
         // sprintf(motorCommands, "Teensy Motor Commands\nYaw: %.2f\nUp: %.2f\nTranslation: %.2f\nForward: %.2f\n", yaw_msg, up_msg, translation_msg, forward_msg);
@@ -1686,6 +1710,7 @@ int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<blimp>());
+  firstMessageTime = micros()/MICROS_TO_SEC;
   rclcpp::shutdown();
   return 0;
 }
