@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "OPI_IMU.h"
+#include "iostream"
 
 #include "servo.h"
 #include "brushless.h"
@@ -32,6 +33,8 @@
 #define MIN_MOTOR                 1000
 #define MAX_MOTOR                 2000
 
+using namespace std;
+
 int main(){
     servo Servo_L;
     servo Servo_R;
@@ -45,32 +48,25 @@ int main(){
     Brushless_R.brushless_setup(16);
     Brushless_L.brushless_thrust(1500);
     Brushless_R.brushless_thrust(1500);
-
-    OPI_IMU imu;
-    imu.OPI_IMU_Setup();
+    int thrust = 1500;
+    int new_thrust = 1500;
+    // OPI_IMU imu;
+    // imu.OPI_IMU_Setup();
 
     Gimbal leftGimbal;
     Gimbal rightGimbal;
 
-    delay(5000);
-
-    printf("Initializing Gimbals");
-    leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-    rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
-
-    delay(5000);
-
-    printf("Readying Gimbals");
-    bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
-    bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
     
     delay(5000);
     while(1){
-
-        	Brushless_L.brushless_thrust(1700);
-            Brushless_R.brushless_thrust(1700);
-
-        delay(3000);
+        cout<<"Thrust value: "<<endl;
+        cin>>new_thrust;
+        if (new_thrust != thrust){
+            thrust = new_thrust;
+        }
+        printf("thrust: %d\n", thrust);
+        Brushless_L.brushless_thrust(thrust);
+        Brushless_R.brushless_thrust(thrust);
     }
     return(1);
 }
