@@ -143,9 +143,9 @@
 
 //**************** TEENSY PINOUT ****************//
 #define L_Pitch                   0                    
-#define L_Yaw                     3   // not changed           
+#define L_Yaw                     3   //not used, not changed           
 #define R_Pitch                   2               
-#define R_Yaw                     9 //was 5              
+#define R_Yaw                     9 //not used, was 5              
 
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
