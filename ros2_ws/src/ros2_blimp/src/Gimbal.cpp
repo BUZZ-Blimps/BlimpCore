@@ -63,11 +63,16 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\t");
   // if (debug) Serial.println(phi4);
   // if (debug) Serial.println();
-  // printf("Thrust: %f", thrust);
-  // printf("Phi1: %f", phi1);
-  // printf("Phi2: %f", phi2);
-  // printf("Phi3: %f", phi3);
-  // printf("Phi4: %f", phi4);
+  if (phiOffset == 45){
+    printf("Left: ");
+  } else {
+    printf("Right: ");
+  }
+  printf("Thrust: %.1f ", thrust);
+  printf("Phi1: %.1f ", phi1);
+  printf("Phi2: %.1f ", phi2);
+  printf("Phi3: %.1f ", phi3);
+  printf("Phi4: %0.1f \n", phi4);
   double thetaOffset = 135;
   theta1 += thetaOffset;
   theta2 += thetaOffset;
@@ -102,6 +107,11 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   bool sol2 = theta2 > 0 && theta2 < 180 && phi2 > 0 && phi2 < 180;
   bool sol3 = theta3 > 0 && theta3 < 180 && phi3 > 0 && phi3 < 180;
   bool sol4 = theta4 > 0 && theta4 < 180 && phi4 > 0 && phi4 < 180;
+
+  // bool sol1 =  phi1 > 0 && phi1 < 180;
+  // bool sol2 =  phi2 > 0 && phi2 < 180;
+  // bool sol3 =  phi3 > 0 && phi3 < 180;
+  // bool sol4 =  phi4 > 0 && phi4 < 180;
     if (sol1) {
       printf("First Solution: ");
       theta = theta1;

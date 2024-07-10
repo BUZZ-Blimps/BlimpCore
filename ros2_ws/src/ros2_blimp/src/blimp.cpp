@@ -1435,7 +1435,7 @@ private:
                 // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
-                debug_msg.data = {forwardMotor, -translationMotor, upMotor, yawMotor};
+                debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
                 debug_publisher->publish(debug_msg);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
