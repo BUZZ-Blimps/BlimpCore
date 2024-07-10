@@ -35,34 +35,34 @@
 int main(){
     servo Servo_L;
     servo Servo_R;
-    Servo_L.servo_setup(0);
-    Servo_R.servo_setup(2);
-    Servo_L.servo_angle(0);
-    Servo_R.servo_angle(180);
+    Servo_L.servo_setup(2);
+    Servo_R.servo_setup(0);
+    Servo_L.servo_angle(180);
+    Servo_R.servo_angle(0);
     brushless Brushless_L;
     brushless Brushless_R;
-    Brushless_L.brushless_setup(5);
-    Brushless_R.brushless_setup(16);
+    Brushless_L.brushless_setup(16);
+    Brushless_R.brushless_setup(5);
     Brushless_L.brushless_thrust(1500);
     Brushless_R.brushless_thrust(1500);
 
-    OPI_IMU imu;
-    imu.OPI_IMU_Setup();
+    // OPI_IMU imu;
+    // imu.OPI_IMU_Setup();
 
-    Gimbal leftGimbal;
-    Gimbal rightGimbal;
+    // Gimbal leftGimbal;
+    // Gimbal rightGimbal;
 
-    delay(5000);
+    // delay(5000);
 
-    printf("Initializing Gimbals");
-    leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-    rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
+    // printf("Initializing Gimbals");
+    // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+    // rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
 
-    delay(5000);
+    // delay(5000);
 
-    printf("Readying Gimbals");
-    bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
-    bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
+    // printf("Readying Gimbals");
+    // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
+    // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
     
     delay(5000);
     while(1){
@@ -71,8 +71,8 @@ int main(){
 		for(float i=0; i<=180; i++){
 			float val = i;
 			printf("Servo angle: %f\n", val);
-			Servo_L.servo_angle(i);
-            Servo_R.servo_angle(180 - i);
+			Servo_L.servo_angle(180 - i);
+            Servo_R.servo_angle(i);
 			delay(5);
         }
 
@@ -83,8 +83,8 @@ int main(){
 		for(float i=0; i<=180; i++){
 			float val = i;
 			printf("Servo angle: %f\n", 180 - val);
-			Servo_L.servo_angle(180 - i);
-            Servo_R.servo_angle(i);
+			Servo_L.servo_angle(i);
+            Servo_R.servo_angle(180 - i);
 			delay(5);
         }
         delay(3000);
@@ -142,7 +142,7 @@ int main(){
 
         printf("Going wild in 1 second...\n");
 		delay(1000);
-		for(float i=0; i<=30; i++){
+		for(float i=0; i<=20; i++){
             int lb = 10;
             int ub = 170;
             int Lval = rand() % (ub - lb + 1) + lb;
