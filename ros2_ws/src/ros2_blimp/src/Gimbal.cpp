@@ -39,9 +39,9 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\tUp: ");
   // if (debug) Serial.println(up);
   double thrust = sqrt(pow(yaw,2)+pow(up,2)+pow(forward,2));
-  double theta1 = atan2(yaw,forward)*180/pi;
+  double theta1 = atan2(yaw,forward+0.0001)*180/pi;
   double phi1 = asin(up/thrust)*180/pi;
-  double theta2 = atan2(-yaw,-forward)*180/pi;
+  double theta2 = atan2(-yaw,-forward+0.0001)*180/pi;
   double phi2 = asin(-up/thrust)*180/pi;
   double theta3 = theta1;
   double phi3 = phi1-180;

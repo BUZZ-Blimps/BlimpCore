@@ -142,7 +142,7 @@
 #define BALL_CATCH_THRESHOLD      62000
 
 //**************** TEENSY PINOUT ****************//
-#define L_Pitch                   2                    
+#define L_Pitch                   10 // was 2                    
 #define L_Yaw                     3   //not used, not changed           
 #define R_Pitch                   0               
 #define R_Yaw                     9 //not used, was 5              
@@ -152,11 +152,11 @@
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    8                
+#define GATE_S                    99  // was 8              
 
 #define PWM_R                     5              
-#define PWM_G                     10              
-#define PWM_L                     16              
+#define PWM_G                     98   // was10           
+#define PWM_L                     2      //was 16        
 
 #define OF_CS                     10              
 //***********************************************//
