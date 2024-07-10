@@ -87,56 +87,14 @@ int main(){
             Servo_R.servo_angle(180 - i);
 			delay(5);
         }
-        delay(3000);
 
-
-
-        printf("Forward thrust in 1 second...\n");
-		delay(1000);
-		for(float i=1500; i<=1700; i+=10){
-			float val = i;
-			printf("Brushless thrust: %f\n", val);
-			Brushless_L.brushless_thrust(i);
-            Brushless_R.brushless_thrust(i);
-			delay(10);
-        }
-        delay(2000);
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-
-
-
-        printf("Backward thrust in 1 second...\n");
-		delay(1000);
-		for(float i=1500; i>=1300; i-=10){
-			float val = i;
-			printf("Brushless thrust: %f\n", val);
-			Brushless_L.brushless_thrust(i);
-            Brushless_R.brushless_thrust(i);
-			delay(10);
-        }
-        delay(2000);
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-
-
-
-        printf("Box gonna fly in 1 second...\n");
-        delay(1000);
-        Servo_L.servo_angle(115);
-        Servo_R.servo_angle(180 - 115);
-		for(float i=1500; i<=1700; i+=10){
-            printf("Brushless thrust: %f\n", i);
-            Brushless_L.brushless_thrust(i);
-            Brushless_R.brushless_thrust(i);
-            delay(20);
-        }
         delay(500);
-		Servo_L.servo_angle(0);
-        Servo_R.servo_angle(180);
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-		delay(1000);
+        printf("simming gimbal\n");
+        delay(1000);
+        Servo_L.servo_angle(135);
+        delay(100);
+        Servo_R.servo_angle(45);
+        delay(5000);
 
 
 
@@ -165,11 +123,12 @@ int main(){
 
 
         printf("Resetting in 3 seconds...\n");
+        delay(3000);
         Servo_L.servo_angle(0);
         Servo_R.servo_angle(180);
         Brushless_L.brushless_thrust(1500);
         Brushless_R.brushless_thrust(1500);
-        delay(3000);
+        delay(1000);
     }
     return(1);
 }

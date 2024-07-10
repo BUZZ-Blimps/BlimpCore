@@ -26,7 +26,7 @@ void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadba
   this->yawServo.servo_setup(yawPin);
   this->yawServo.servo_angle(0);
   this->pitchServo.servo_setup(pitchPin);
-  this->pitchServo.servo_angle(0);
+  this->pitchServo.servo_angle(phiOffset);
   this->motor.brushless_setup(motorPin);
   this->motor.brushless_thrust(1500);
 }
@@ -63,6 +63,11 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\t");
   // if (debug) Serial.println(phi4);
   // if (debug) Serial.println();
+  // printf("Thrust: %f", thrust);
+  // printf("Phi1: %f", phi1);
+  // printf("Phi2: %f", phi2);
+  // printf("Phi3: %f", phi3);
+  // printf("Phi4: %f", phi4);
   double thetaOffset = 135;
   theta1 += thetaOffset;
   theta2 += thetaOffset;
@@ -88,34 +93,43 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\t");
   // if (debug) Serial.println(phi4);
   // if (debug) Serial.println();
-  double theta = theta1;
-  double phi = phi1;
+  // double theta = theta1;
+  // double phi = phi1;
+  double theta;
+  double phi;
   double thrustf = thrust*sqrt(2);
   bool sol1 = theta1 > 0 && theta1 < 180 && phi1 > 0 && phi1 < 180;
   bool sol2 = theta2 > 0 && theta2 < 180 && phi2 > 0 && phi2 < 180;
   bool sol3 = theta3 > 0 && theta3 < 180 && phi3 > 0 && phi3 < 180;
   bool sol4 = theta4 > 0 && theta4 < 180 && phi4 > 0 && phi4 < 180;
-  if (sol1) {
-    //Serial.println("First Solution");
-    theta = theta1;
-    phi = phi1;
-    thrustf = thrust*sqrt(2);
-  } else if (sol2) {
-    //Serial.println("Second Solution");
-    theta = theta2;
-    phi = phi2;
-    thrustf = -thrust*sqrt(2);
-  } else if (sol3) {
-    //Serial.println("Third Solution");
-    theta = theta3;
-    phi = phi3;
-    thrustf = -thrust*sqrt(2);
-  } else if (sol4) {
-    //Serial.println("Fourth Solution");
-    theta = theta4;
-    phi = phi4;
-    thrustf = thrust*sqrt(2);
-  }
+    if (sol1) {
+      printf("First Solution: ");
+      theta = theta1;
+      phi = phi1;
+      thrustf = thrust*sqrt(2);
+    } else if (sol2) {
+      // Serial.println("Second Solution");
+      printf("Second Solution: ");
+      theta = theta2;
+      phi = phi2;
+      thrustf = -thrust*sqrt(2);
+    } else if (sol3) {
+      // Serial.println("Third Solution");
+      printf("Third Solution: ");
+      theta = theta3;
+      phi = phi3;
+      thrustf = -thrust*sqrt(2);
+    } else if (sol4) {
+      // Serial.println("Fourth Solution");
+      printf("Fourth Solution: ");
+      theta = theta4;
+      phi = phi4;
+      thrustf = thrust*sqrt(2);
+    } else {
+       printf("No Solution: ");
+      theta = theta1;
+      phi = phi1;
+    }
   // if (debug) Serial.print(theta);
   // if (debug) Serial.print("\t");
   // if (debug) Serial.print(phi);
@@ -123,9 +137,11 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.println(thrustf);
   thetaPos = filter*theta + (1-filter)*thetaPos;
   phiPos1 = filter*phi + (1-filter)*phiPos1;
+
   if (abs(thrustf) >= deadband/2.0){ // Turn on motors
     this->yawServo.servo_angle(135);
-    this->pitchServo.servo_angle(abs(phi));
+    printf("%.1f\n",phi);
+    this->pitchServo.servo_angle((phi));
     if (!motors_off) {
       nextMotorCom = motorCom(thrustf); //mator mapping from "-1000 - 1000" to "1000 - 2000"
       //prevent overpowering
@@ -140,9 +156,10 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
     }
      return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
    } else {
-        nextMotorCom=motorCom(0);
-  //    this->motor.brushless_thrust(motorCom(0)); //write 1500
-     return true; // Anti blocking mechanism
+      // printf("Idle: %.1f\n",phi);
+      nextMotorCom=motorCom(0);
+      this->motor.brushless_thrust(motorCom(0)); //write 1500
+      return true; // Anti blocking mechanism
    }
 }
 void Gimbal::updateGimbal(bool ready){ // Actual turn on command for brushless motors

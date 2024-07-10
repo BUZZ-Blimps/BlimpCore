@@ -142,9 +142,9 @@
 #define BALL_CATCH_THRESHOLD      62000
 
 //**************** TEENSY PINOUT ****************//
-#define L_Pitch                   0                    
+#define L_Pitch                   2                    
 #define L_Yaw                     3   //not used, not changed           
-#define R_Pitch                   2               
+#define R_Pitch                   0               
 #define R_Yaw                     9 //not used, was 5              
 
 #define L_Pitch_FB                23                    
@@ -472,8 +472,6 @@ class blimp:public rclcpp::Node
             timer_ = this->create_wall_timer(
                 500ms, std::bind(&blimp::timer_callback, this));
 
-            BerryIMU.OPI_IMU_Setup();
-
             // Start Servos
             // Servo_L.servo_setup(0);
             // Servo_R.servo_setup(2);
@@ -481,6 +479,7 @@ class blimp:public rclcpp::Node
             // Servo_R.servo_angle(180);
 
             // initialize
+            BerryIMU.OPI_IMU_Setup();
             wiringPiSetup();
             ballGrabber.ballgrabber_init(8, 10);
             // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
@@ -1437,7 +1436,7 @@ private:
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 debug_msg.data = {forwardMotor, -translationMotor, upMotor, yawMotor};
-                // debug_publisher->publish(debug_msg);
+                debug_publisher->publish(debug_msg);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
