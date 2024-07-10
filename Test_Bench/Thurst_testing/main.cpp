@@ -67,6 +67,7 @@ int main(){
         printf("thrust: %d\n", thrust);
         Brushless_L.brushless_thrust(thrust);
         Brushless_R.brushless_thrust(thrust);
+        delay(1000);
     }
     return(1);
 }
