@@ -12,9 +12,9 @@
 
 #define GIMBAL_DEBUG              false
 #define MOTORS_OFF                false
-#define L_Pitch                   0                    
+#define L_Pitch                   10                    
 #define L_Yaw                     3   // not changed           
-#define R_Pitch                   2               
+#define R_Pitch                   0               
 #define R_Yaw                     9 //was 5              
 
 #define L_Pitch_FB                23                    
@@ -25,8 +25,8 @@
 #define GATE_S                    8                
 
 #define PWM_R                     5              
-#define PWM_G                     10              
-#define PWM_L                     16              
+#define PWM_G                     16              
+#define PWM_L                     2              
 
 #define OF_CS                     10 
 #define MIN_MOTOR                 1000
@@ -35,14 +35,14 @@
 int main(){
     servo Servo_L;
     servo Servo_R;
-    Servo_L.servo_setup(2);
-    Servo_R.servo_setup(0);
+    Servo_L.servo_setup(L_Pitch);
+    Servo_R.servo_setup(R_Pitch);
     Servo_L.servo_angle(180);
     Servo_R.servo_angle(0);
     brushless Brushless_L;
     brushless Brushless_R;
-    Brushless_L.brushless_setup(16);
-    Brushless_R.brushless_setup(5);
+    Brushless_L.brushless_setup(PWM_L);
+    Brushless_R.brushless_setup(PWM_R);
     Brushless_L.brushless_thrust(1500);
     Brushless_R.brushless_thrust(1500);
 
