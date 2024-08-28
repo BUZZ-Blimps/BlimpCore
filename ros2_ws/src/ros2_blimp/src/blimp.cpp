@@ -147,6 +147,13 @@
 #define R_Pitch                   0               
 #define R_Yaw                     9 //not used, was 5              
 
+// New PCB Layout
+// #define L_Pitch                   5                 
+// #define L_Yaw                     3 //not used
+// #define R_Pitch                   0               
+// #define R_Yaw                     9 //not used          
+
+
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
 #define R_Pitch_FB                21                    
@@ -158,7 +165,22 @@
 #define PWM_G                     98   // was10           
 #define PWM_L                     2      //was 16        
 
-#define OF_CS                     10              
+// New PCB Layout
+// #define GATE_S                    2              
+
+// #define PWM_R                     10              
+// #define PWM_G                     8          
+// #define PWM_L                     16   
+
+// Alternative Controls (4 Brushless - 1 Servo)):
+// #define PWM_RU                   5
+// #define PWM_RF                   10
+// #define PWM_LU                   0
+// #define PWM_LF                   16
+// #define Gate_S                   2
+// #define PWM_G                    8
+
+#define OF_CS                     10    
 //***********************************************//
 
 //constants
@@ -421,12 +443,12 @@ using std::placeholders::_1;
 
 //The following names can be commented/uncommented based on the blimp that is used
 // Define the name of the blimp/robot
-//  std::string blimpNameSpace = "BurnCreamBlimp";
-//std::string blimpNameSpace = "SillyAhBlimp";
-//std::string blimpNameSpace = "TurboBlimp";
-//std::string blimpNameSpace = "GameChamberBlimp";
-std::string blimpNameSpace = "GravyLongWayBlimp";
-// std::string blimpNameSpace = "SuperBeefBlimp";
+//  std::string blimpNameSpace = "BurnCream";
+//std::string blimpNameSpace = "SillyAh";
+//std::string blimpNameSpace = "Turbo";
+std::string blimpNameSpace = "GameChamber";
+// std::string blimpNameSpace = "GravyLongWay";
+// std::string blimpNameSpace = "SuperBeef";
 
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
@@ -437,6 +459,7 @@ class blimp:public rclcpp::Node
         blimp():Node(blimpNameSpace), count_(0){
             // create publishers (7 right now)
             identity_publisher = this->create_publisher<std_msgs::msg::String>("/identify", 10);
+            heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("/heartbeat", 10);
             imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>((blimpNameSpace + "/imu").c_str(), 10);
             debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/debug").c_str(), 10);
             height_publisher = this->create_publisher<std_msgs::msg::Float64>((blimpNameSpace + "/height").c_str(), 10);
@@ -446,14 +469,14 @@ class blimp:public rclcpp::Node
 
             //create subscribers (10 right now)
             //Base station
-            auto_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/auto").c_str(), 10, std::bind(&blimp::auto_subscription_callback, this, _1));
-            baseBarometer_subscription = this->create_subscription<std_msgs::msg::Float64>((blimpNameSpace + "/baseBarometer").c_str(), 10, std::bind(&blimp::baro_subscription_callback, this, _1));
-            calibrateBarometer_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/calibrateBarometer").c_str(), 10, std::bind(&blimp::calibrateBarometer_subscription_callback, this, _1));
-            grabber_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/grabbing").c_str(), 10, std::bind(&blimp::grab_subscription_callback, this, _1));
+            auto_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/mode").c_str(), 10, std::bind(&blimp::auto_subscription_callback, this, _1)); //was auto
+            baseBarometer_subscription = this->create_subscription<std_msgs::msg::Float64>(("Barometer/reading"), 10, std::bind(&blimp::baro_subscription_callback, this, _1));
+            calibrateBarometer_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/calibrate_barometer").c_str(), 10, std::bind(&blimp::calibrateBarometer_subscription_callback, this, _1));
+            grabber_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/catching").c_str(), 10, std::bind(&blimp::grab_subscription_callback, this, _1));
             shooter_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/shooting").c_str(), 10, std::bind(&blimp::shoot_subscription_callback, this, _1));
-            motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/motorCommands").c_str(), 10, std::bind(&blimp::motor_subscription_callback, this, _1)); 
+            motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/motor_commands").c_str(), 10, std::bind(&blimp::motor_subscription_callback, this, _1)); 
             kill_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/killed").c_str(), 10, std::bind(&blimp::kill_subscription_callback, this, _1));
-            goal_color_subscription = this->create_subscription<std_msgs::msg::Int64>((blimpNameSpace + "/goal_color").c_str(), 10, std::bind(&blimp::goal_color_subscription_callback, this, _1));
+            goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/goal_color").c_str(), 10, std::bind(&blimp::goal_color_subscription_callback, this, _1));
             
             // // Offboard ML
             targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
@@ -1684,6 +1707,7 @@ private:
 
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr identity_publisher;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr heartbeat_publisher;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr height_publisher;
@@ -1698,7 +1722,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr shooter_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr motor_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr kill_subscription;
-    rclcpp::Subscription<std_msgs::msg::Int64>::SharedPtr goal_color_subscription;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_color_subscription;
 
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
