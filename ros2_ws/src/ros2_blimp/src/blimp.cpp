@@ -459,7 +459,7 @@ class blimp:public rclcpp::Node
         blimp():Node(blimpNameSpace), count_(0){
             // create publishers (7 right now)
             identity_publisher = this->create_publisher<std_msgs::msg::String>("/identify", 10);
-            heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("/heartbeat", 10);
+            heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>((blimpNameSpace + "/heartbeat").c_str(), 10);
             imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>((blimpNameSpace + "/imu").c_str(), 10);
             debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/debug").c_str(), 10);
             height_publisher = this->create_publisher<std_msgs::msg::Float64>((blimpNameSpace + "/height").c_str(), 10);
@@ -492,8 +492,8 @@ class blimp:public rclcpp::Node
             timer_state_machine = this->create_wall_timer(
             33ms, std::bind(&blimp::state_machine_callback, this));
 
-            timer_ = this->create_wall_timer(
-                500ms, std::bind(&blimp::timer_callback, this));
+            timer_heartbeat = this->create_wall_timer(
+                500ms, std::bind(&blimp::heartbeat_callback, this));
 
             // Start Servos
             // Servo_L.servo_setup(0);
@@ -523,6 +523,12 @@ private:
         auto identity_msg = std_msgs::msg::String();
         identity_msg.data = blimpNameSpace;
         identity_publisher->publish(identity_msg);
+    }
+
+    void heartbeat_callback() {
+        auto heartbeat_msg = std_msgs::msg::Bool();
+        heartbeat_msg.data = true;
+        heartbeat_publisher->publish(heartbeat_msg);
     }
 
     void imu_callback()
@@ -1628,7 +1634,7 @@ private:
         // publish_log(motorCommands);
     }
 
-    void goal_color_subscription_callback(const std_msgs::msg::Int64 & msg) const
+    void goal_color_subscription_callback(const std_msgs::msg::Bool & msg) const
     {
         // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
 
@@ -1703,7 +1709,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_imu;
     rclcpp::TimerBase::SharedPtr timer_baro;
     rclcpp::TimerBase::SharedPtr timer_state_machine;
-    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::TimerBase::SharedPtr timer_heartbeat;
 
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr identity_publisher;
