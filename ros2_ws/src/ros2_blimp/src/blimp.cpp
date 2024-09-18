@@ -11,6 +11,7 @@
 
 //Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
+#include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -87,8 +88,10 @@
 
 
 #define GAME_BALL_CLOSURE_COM     180  //approaching at 20% throttle cap
-#define GAME_BALL_APPROACH_ANGLE  40  //approach magic number (TODO: reset)
-#define GAME_BaLL_X_OFFSET        80   //offset magic number (TODO: reset)
+// #define GAME_BALL_APPROACH_ANGLE  40  //approach magic number (TODO: reset)
+// #define GAME_BaLL_X_OFFSET        80   //offset magic number (TODO: reset)
+#define GAME_BALL_APPROACH_ANGLE  320
+#define GAME_BaLL_X_OFFSET        320   //offset magic number (TODO: reset)
 
 #define CATCHING_FORWARD_COM      350  //catching at 50% throttle 
 #define CATCHING_UP_COM           50  //damp out pitch
@@ -209,7 +212,8 @@ enum blimpState {
     lost,
 };
 
-int blimp_state = lost;
+// int blimp_state = lost;
+int blimp_state = autonomous;
 
 enum grabberState {
     opened,
@@ -233,7 +237,7 @@ enum gameballType{
 
 //global variables
 double loop_time;
-int auto_state = searching;
+int auto_state = approach;
 
 //blimp game parameters
 int blimpColor = BLIMP_COLOR;
@@ -326,7 +330,8 @@ float goalYawDirection = -1;
 //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
 //1000 means object is not present
 std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
-std::vector<double> targets = {1000.0, 1000.0, 1000.0};
+// std::vector<double> targets = {1000.0, 1000.0, 1000.0};
+std::vector<double> targets = {-1.0, -1.0, -1.0};
 std::vector<int64_t> pixels = {1000, 1000, 0, 1000, 1000, 0, 1000, 1000, 0};
 
 
@@ -479,7 +484,8 @@ class blimp:public rclcpp::Node
             goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/goal_color").c_str(), 10, std::bind(&blimp::goal_color_subscription_callback, this, _1));
             
             // // Offboard ML
-            targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
+            // targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
+            targets_subscription = this->create_subscription<geometry_msgs::msg::Point>("/object_detection", 10, std::bind(&blimp::targets_subscription_callback, this, _1));
             pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>((blimpNameSpace + "/pixels").c_str(), 10, std::bind(&blimp::pixels_subscription_callback, this, _1));
             avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/avoidance").c_str(), 10, std::bind(&blimp::avoidance_subscription_callback, this, _1));
 
@@ -829,7 +835,7 @@ private:
             std::vector<double> detected_target;
 
             //if a target is seen
-            if (targets[2] != 1000){
+            if (targets[2] != -1.0){
                 float rawZ = targets[2]; // distance
                 tx = xFilter.filter(static_cast<float>(targets[0]));
                 ty = yFilter.filter(static_cast<float>(targets[1]));
@@ -1076,11 +1082,11 @@ private:
                     break;
                 }case approach: {
                     // max time to approach
-                    if (approachTimeMax < millis() - approachTimeStart) {
-                        auto_state = searching;
-                        // searching timer
-                        searchingTimeStart = millis();
-                    }
+                    // if (approachTimeMax < millis() - approachTimeStart) {
+                    //     auto_state = searching;
+                    //     // searching timer
+                    //     searchingTimeStart = millis();
+                    // }
 
                     //check if target is still valid
                     if (detected_target.size() > 0) {
@@ -1114,7 +1120,7 @@ private:
 
                             //check if the catching mode should be triggered
                             if (tz < BALL_CATCH_TRIGGER) {
-                                auto_state = catching;
+                                // auto_state = catching;
 
                                 //start catching timer
                                 catchTimeStart = millis();
@@ -1659,15 +1665,18 @@ private:
         }
     }
 
-    void targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
+    void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
     {
         // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
 
         // object of interest with xyz (3 elements in total)
-        for (size_t i = 0; i < 3; ++i) {
-            // targets[i] = msg.data.data[i];
-            targets[i] = msg.data[i];
-        }
+        // for (size_t i = 0; i < 3; ++i) {
+        //     // targets[i] = msg.data.data[i];
+        //     targets[i] = msg.data[i];
+        // }
+        targets[0] = msg.x;
+        targets[1] = msg.y;
+        targets[2] = msg.z;
     }
 
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray & msg) const
@@ -1730,7 +1739,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr kill_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_color_subscription;
 
-    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr targets_subscription;
+    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
 

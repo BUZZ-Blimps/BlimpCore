@@ -68,11 +68,11 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   } else {
     printf("Right: ");
   }
-  printf("Thrust: %.1f ", thrust);
-  printf("Phi1: %.1f ", phi1);
-  printf("Phi2: %.1f ", phi2);
-  printf("Phi3: %.1f ", phi3);
-  printf("Phi4: %0.1f \n", phi4);
+  printf("Pitch: %.1f ", up);
+  printf("Yaw: %.1f ", yaw);
+  // printf("Phi2: %.1f ", phi2);
+  // printf("Phi3: %.1f ", phi3);
+  // printf("Phi4: %0.1f \n", phi4);
   double thetaOffset = 135;
   theta1 += thetaOffset;
   theta2 += thetaOffset;
@@ -112,34 +112,34 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // bool sol2 =  phi2 > 0 && phi2 < 180;
   // bool sol3 =  phi3 > 0 && phi3 < 180;
   // bool sol4 =  phi4 > 0 && phi4 < 180;
-    if (sol1) {
-      printf("First Solution: ");
-      theta = theta1;
-      phi = phi1;
-      thrustf = thrust*sqrt(2);
-    } else if (sol2) {
-      // Serial.println("Second Solution");
-      printf("Second Solution: ");
-      theta = theta2;
-      phi = phi2;
-      thrustf = -thrust*sqrt(2);
-    } else if (sol3) {
-      // Serial.println("Third Solution");
-      printf("Third Solution: ");
-      theta = theta3;
-      phi = phi3;
-      thrustf = -thrust*sqrt(2);
-    } else if (sol4) {
-      // Serial.println("Fourth Solution");
-      printf("Fourth Solution: ");
-      theta = theta4;
-      phi = phi4;
-      thrustf = thrust*sqrt(2);
-    } else {
-       printf("No Solution: ");
-      theta = theta1;
-      phi = phi1;
-    }
+    // if (sol1) {
+    //   printf("First Solution: ");
+    //   theta = theta1;
+    //   phi = phi1;
+    //   thrustf = thrust*sqrt(2);
+    // } else if (sol2) {
+    //   // Serial.println("Second Solution");
+    //   printf("Second Solution: ");
+    //   theta = theta2;
+    //   phi = phi2;
+    //   thrustf = -thrust*sqrt(2);
+    // } else if (sol3) {
+    //   // Serial.println("Third Solution");
+    //   printf("Third Solution: ");
+    //   theta = theta3;
+    //   phi = phi3;
+    //   thrustf = -thrust*sqrt(2);
+    // } else if (sol4) {
+    //   // Serial.println("Fourth Solution");
+    //   printf("Fourth Solution: ");
+    //   theta = theta4;
+    //   phi = phi4;
+    //   thrustf = thrust*sqrt(2);
+    // } else {
+    //    printf("No Solution: ");
+    //   theta = theta1;
+    //   phi = phi1;
+    // }
   // if (debug) Serial.print(theta);
   // if (debug) Serial.print("\t");
   // if (debug) Serial.print(phi);
