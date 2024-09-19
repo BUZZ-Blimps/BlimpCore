@@ -527,7 +527,8 @@ private:
     void timer_callback() {
         // RCLC_UNUSED(last_call_time);
         auto identity_msg = std_msgs::msg::String();
-        identity_msg.data = blimpNameSpace;
+        // identity_msg.data = blimpNameSpace;
+        identity_msg.data = std::to_string(auto_state);
         identity_publisher->publish(identity_msg);
     }
 
@@ -1089,6 +1090,7 @@ private:
                     // }
 
                     //check if target is still valid
+                    
                     if (detected_target.size() > 0) {
                         //seeing a target
                         //add memory
@@ -1111,6 +1113,7 @@ private:
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
                         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
+                        publish_log(("yawcom: " + std::to_string(yawCom)).c_str());
                         forwardCom = GAME_BALL_CLOSURE_COM;
                         translationCom = 0;
 
@@ -1143,15 +1146,15 @@ private:
                             translationCom = 0;
                     } 
                     // after two seconds of losing the target, the target is still not detected
-                    else {
-                        //no target, look for another
-                        //maybe add some memory
-                        auto_state = searching;
-                        // searching timer
-                        searchingTimeStart = millis();
-                        ballGrabber.closeGrabber(blimp_state);
-                        searchYawDirection = searchDirection();  //randomize the search direction
-                    }
+                    // else {
+                    //     //no target, look for another
+                    //     //maybe add some memory
+                    //     auto_state = searching;
+                    //     // searching timer
+                    //     searchingTimeStart = millis();
+                    //     ballGrabber.closeGrabber(blimp_state);
+                    //     searchYawDirection = searchDirection();  //randomize the search direction
+                    // }
 
                     break;
                 }case catching: {

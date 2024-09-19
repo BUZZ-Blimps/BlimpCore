@@ -68,8 +68,9 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   } else {
     printf("Right: ");
   }
-  printf("Pitch: %.1f ", up);
-  printf("Yaw: %.1f ", yaw);
+  printf(" Pitch: %.1f ", up);
+  printf(" Yaw: %.1f ", yaw);
+  printf(" Forward: %.1f \n", forward);
   // printf("Phi2: %.1f ", phi2);
   // printf("Phi3: %.1f ", phi3);
   // printf("Phi4: %0.1f \n", phi4);
@@ -150,7 +151,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
 
   if (abs(thrustf) >= deadband/2.0){ // Turn on motors
     this->yawServo.servo_angle(135);
-    printf("%.1f\n",phi);
+    // printf("%.1f\n",phi);
     this->pitchServo.servo_angle((phi));
     if (!motors_off) {
       nextMotorCom = motorCom(thrustf); //mator mapping from "-1000 - 1000" to "1000 - 2000"
