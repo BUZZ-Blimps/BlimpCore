@@ -88,45 +88,45 @@ int main(){
 			delay(30);
         }
 
-        // printf("Testing Brushless...\n");
-		// delay(1000);
-		// for(float i=1500; i<=1700; i++){
-		// 	float val = i;
-		// 	printf("Brushless Thrust: %f\n", val);
-        //     Brushless_L.brushless_thrust(i);
-		// 	delay(20);
-        // }
-        // Brushless_L.brushless_thrust(1500);
+        printf("Testing Brushless...\n");
+		delay(1000);
+		for(float i=1500; i<=1700; i++){
+			float val = i;
+			printf("Brushless Thrust: %f\n", val);
+            Brushless_L.brushless_thrust(i);
+			delay(20);
+        }
+        Brushless_L.brushless_thrust(1500);
 
-    //     printf("Sweeping up in 1 second...\n");
-	// 	delay(1000);
-	// 	for(float i=0; i<=180; i++){
-	// 		float val = i;
-	// 		printf("Servo angle: %f\n", val);
-	// 		Servo_L.servo_angle(180 - i);
-    //         Servo_R.servo_angle(i);
-	// 		delay(5);
-    //     }
+        printf("Sweeping up in 1 second...\n");
+		delay(1000);
+		for(float i=0; i<=180; i++){
+			float val = i;
+			printf("Servo angle: %f\n", val);
+			Servo_L.servo_angle(180 - i);
+            Servo_R.servo_angle(i);
+			delay(5);
+        }
 
 
 
-    //     printf("Sweeping down in 1 second...\n");
-	// 	delay(1000);
-	// 	for(float i=0; i<=180; i++){
-	// 		float val = i;
-	// 		printf("Servo angle: %f\n", 180 - val);
-	// 		Servo_L.servo_angle(i);
-    //         Servo_R.servo_angle(180 - i);
-	// 		delay(5);
-    //     }
+        printf("Sweeping down in 1 second...\n");
+		delay(1000);
+		for(float i=0; i<=180; i++){
+			float val = i;
+			printf("Servo angle: %f\n", 180 - val);
+			Servo_L.servo_angle(i);
+            Servo_R.servo_angle(180 - i);
+			delay(5);
+        }
 
-    //     delay(500);
-    //     printf("simming gimbal\n");
-    //     delay(1000);
-    //     Servo_L.servo_angle(135);
-    //     delay(100);
-    //     Servo_R.servo_angle(45);
-    //     delay(5000);
+        delay(500);
+        printf("simming gimbal\n");
+        delay(1000);
+        Servo_L.servo_angle(135);
+        delay(100);
+        Servo_R.servo_angle(45);
+        delay(5000);
 
 
 
