@@ -176,8 +176,8 @@
 #define GATE_S                    2  // was 8              
 
 #define PWM_R                     8              
-#define PWM_G                     16   // was10           
-#define PWM_L                     10      //was 16        
+#define PWM_G                     10   // was10           
+#define PWM_L                     16     //was 16        
 
 
 #define OF_CS                     10    
