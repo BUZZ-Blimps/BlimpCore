@@ -142,43 +142,43 @@
 #define BALL_CATCH_THRESHOLD      62000
 
 //**************** TEENSY PINOUT ****************//
-#define L_Pitch                   10 // was 2                    
+//old pcb
+// #define L_Pitch                   10 // was 2                    
+// #define L_Yaw                     3   //not used, not changed           
+// #define R_Pitch                   0               
+// #define R_Yaw                     9 //not used, was 5                    
+
+// #define L_Pitch_FB                23                    
+// #define L_Yaw_FB                  22                  
+// #define R_Pitch_FB                21                    
+// #define R_Yaw_FB                  20                  
+
+// #define GATE_S                    99  // was 8              
+
+// #define PWM_R                     5              
+// #define PWM_G                     98   // was10           
+// #define PWM_L                     2      //was 16        
+
+
+// #define OF_CS                     10    
+
+//new pcb
+#define L_Pitch                   5 // was 2                    
 #define L_Yaw                     3   //not used, not changed           
 #define R_Pitch                   0               
-#define R_Yaw                     9 //not used, was 5              
-
-// New PCB Layout
-// #define L_Pitch                   5                 
-// #define L_Yaw                     3 //not used
-// #define R_Pitch                   0               
-// #define R_Yaw                     9 //not used          
-
+#define R_Yaw                     9 //not used, was 5                    
 
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    99  // was 8              
+#define GATE_S                    2  // was 8              
 
-#define PWM_R                     5              
-#define PWM_G                     98   // was10           
-#define PWM_L                     2      //was 16        
+#define PWM_R                     8              
+#define PWM_G                     16   // was10           
+#define PWM_L                     10      //was 16        
 
-// New PCB Layout
-// #define GATE_S                    2              
-
-// #define PWM_R                     10              
-// #define PWM_G                     8          
-// #define PWM_L                     16   
-
-// Alternative Controls (4 Brushless - 1 Servo)):
-// #define PWM_RU                   5
-// #define PWM_RF                   10
-// #define PWM_LU                   0
-// #define PWM_LF                   16
-// #define Gate_S                   2
-// #define PWM_G                    8
 
 #define OF_CS                     10    
 //***********************************************//
