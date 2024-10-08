@@ -23,7 +23,7 @@ double brushless::brushless_thrust(double thrust){
         double pwm_val = 5.0/100.0*thrust;
         pwmWrite(this->pin, pwm_val);
 
-	printf("Writing %.2f to motor", pwm_val);
+	// printf("Writing %.2f to motor", pwm_val);
 
         return this->curr_thrust;
     } else {

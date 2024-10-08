@@ -75,11 +75,11 @@ int main() {
 
      delay(1000);
 
-    Brushless_L.brushless_thrust(1600);
-    Brushless_R.brushless_thrust(1600);
-    Brushless_G.brushless_thrust(1600);
+    Brushless_L.brushless_thrust(1500);
+    Brushless_R.brushless_thrust(1500);
+    Brushless_G.brushless_thrust(1500);
 
-    delay(2000);
+    delay(1000);
 
     // printf("Initializing Gimbals");
     // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
@@ -115,6 +115,8 @@ int main() {
     // Brushless_G.brushless_thrust(1500);
     // delay(1000);
 
+
+
     while(1) {
 
 /**
@@ -148,7 +150,6 @@ int main() {
         Brushless_L.brushless_thrust(1500);
         Brushless_R.brushless_thrust(1500);
 
-
         printf("Testing Gate Brushless...\n");
         delay(1000);
         for(int i=1500; i<=1700; i++){
@@ -157,7 +158,6 @@ int main() {
             delay(20);
         }
         Brushless_G.brushless_thrust(1500);
-
 
         printf("Sweeping RL servo up in 1 second...\n");
 	 	delay(1000);
