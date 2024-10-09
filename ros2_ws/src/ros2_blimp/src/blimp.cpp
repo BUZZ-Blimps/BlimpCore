@@ -487,9 +487,9 @@ class blimp:public rclcpp::Node
             
             // // Offboard ML
             
-            // targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
+            targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
 
-            targets_subscription = this->create_subscription<geometry_msgs::msg::Point>("/object_detection", 10, std::bind(&blimp::targets_subscription_callback, this, _1));
+            // targets_subscription = this->create_subscription<geometry_msgs::msg::Point>("/object_detection", 10, std::bind(&blimp::targets_subscription_callback, this, _1));
             pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>((blimpNameSpace + "/pixels").c_str(), 10, std::bind(&blimp::pixels_subscription_callback, this, _1));
             avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/avoidance").c_str(), 10, std::bind(&blimp::avoidance_subscription_callback, this, _1));
 
@@ -694,6 +694,7 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
+        debug_msg.data.resize(4);
         double dt = 33/1000;
         // publish_log("Im in state_machine_callback");
         //control inputs
@@ -1114,6 +1115,8 @@ private:
 
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
+                        debug_msg.data[0] = tx;
+                        debug_msg.data[1] = yawCom;
                         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
                         forwardCom = GAME_BALL_CLOSURE_COM;
                         translationCom = 0;
@@ -1375,7 +1378,7 @@ private:
         //hyperbolic tan for yaw "filtering"
         float deadband = 5; // deadband for filteration
         yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
-
+        debug_msg.data[2] = yawMotor;
         if (abs(yawCom-yawRateFilter.last) < deadband) {
             
             yawMotor = 0;
@@ -1385,7 +1388,8 @@ private:
             yawMotor = tanh(yawMotor)*abs(yawMotor);
 
         }
-
+        debug_msg.data[3] = yawMotor;
+        debug_publisher->publish(debug_msg);
         //TO DO: improve velocity control
         // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
         // What's up motor? :)
@@ -1474,8 +1478,8 @@ private:
                 // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
-                debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
-                debug_publisher->publish(debug_msg);
+                // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
+                // debug_publisher->publish(debug_msg);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
@@ -1669,21 +1673,39 @@ private:
         }
     }
 
-    void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
+    // void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
+    // {
+    //     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+
+    //     // object of interest with xyz (3 elements in total)
+    //     // for (size_t i = 0; i < 3; ++i) {
+    //     //     // targets[i] = msg.data.data[i];
+    //     //     targets[i] = msg.data[i];
+    //     // }
+
+    //     targets[0] = msg.x;
+
+    //     targets[1] = msg.y;
+
+    //     targets[2] = msg.z;
+
+    // }
+
+        void targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
     {
         // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
 
         // object of interest with xyz (3 elements in total)
-        // for (size_t i = 0; i < 3; ++i) {
-        //     // targets[i] = msg.data.data[i];
-        //     targets[i] = msg.data[i];
-        // }
+        for (size_t i = 0; i < 3; ++i) {
+            // targets[i] = msg.data.data[i];
+            targets[i] = msg.data[i];
+        }
 
-        targets[0] = msg.x;
+        // targets[0] = msg.x;
 
-        targets[1] = msg.y;
+        // targets[1] = msg.y;
 
-        targets[2] = msg.z;
+        // targets[2] = msg.z;
 
     }
 
@@ -1747,7 +1769,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr kill_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_color_subscription;
 
-    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr targets_subscription;
+    // rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr targets_subscription;
+    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
 
