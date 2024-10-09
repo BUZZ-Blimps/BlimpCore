@@ -98,27 +98,27 @@ int main(){
         // }
         // Brushless_L.brushless_thrust(1500);
 
-    //     printf("Sweeping up in 1 second...\n");
-	// 	delay(1000);
-	// 	for(float i=0; i<=180; i++){
-	// 		float val = i;
-	// 		printf("Servo angle: %f\n", val);
-	// 		Servo_L.servo_angle(180 - i);
-    //         Servo_R.servo_angle(i);
-	// 		delay(5);
-    //     }
+        printf("Sweeping up in 1 second...\n");
+		delay(1000);
+		for(float i=0; i<=180; i++){
+			float val = i;
+			printf("Servo angle: %f\n", val);
+			Servo_L.servo_angle(180 - i);
+            Servo_R.servo_angle(i);
+			delay(5);
+        }
 
 
 
-    //     printf("Sweeping down in 1 second...\n");
-	// 	delay(1000);
-	// 	for(float i=0; i<=180; i++){
-	// 		float val = i;
-	// 		printf("Servo angle: %f\n", 180 - val);
-	// 		Servo_L.servo_angle(i);
-    //         Servo_R.servo_angle(180 - i);
-	// 		delay(5);
-    //     }
+        printf("Sweeping down in 1 second...\n");
+		delay(1000);
+		for(float i=0; i<=180; i++){
+			float val = i;
+			printf("Servo angle: %f\n", 180 - val);
+			Servo_L.servo_angle(i);
+            Servo_R.servo_angle(180 - i);
+			delay(5);
+        }
 
     //     delay(500);
     //     printf("simming gimbal\n");
@@ -154,13 +154,13 @@ int main(){
 
 
 
-    //     printf("Resetting in 3 seconds...\n");
-    //     delay(3000);
-    //     Servo_L.servo_angle(0);
-    //     Servo_R.servo_angle(180);
-    //     Brushless_L.brushless_thrust(1500);
-    //     Brushless_R.brushless_thrust(1500);
-    //     delay(1000);
+        printf("Resetting in 3 seconds...\n");
+        delay(3000);
+        Servo_L.servo_angle(0);
+        Servo_R.servo_angle(180);
+        //Brushless_L.brushless_thrust(1500);
+        //Brushless_R.brushless_thrust(1500);
+        delay(1000);
     }
     return(1);
 }
