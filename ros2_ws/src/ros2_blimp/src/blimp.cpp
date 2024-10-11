@@ -694,7 +694,7 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
-        debug_msg.data.resize(4);
+        debug_msg.data.resize(7);
         double dt = 33/1000;
         // publish_log("Im in state_machine_callback");
         //control inputs
@@ -1389,7 +1389,7 @@ private:
 
         }
         debug_msg.data[3] = yawMotor;
-        debug_publisher->publish(debug_msg);
+        // debug_publisher->publish(debug_msg);
         //TO DO: improve velocity control
         // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
         // What's up motor? :)
@@ -1415,11 +1415,11 @@ private:
         // debug_msg.data.data[3] = forwardCom;
         // debug_msg.data.size = 4;
 
-        // debug_msg.data[0] = yawCom;
-        // debug_msg.data[1] = upCom;
-        // debug_msg.data[2] = translationCom;
-        // debug_msg.data[3] = forwardCom;
-
+        // debug_msg.data[4] = yawCom;
+        debug_msg.data[4] = upCom;
+        debug_msg.data[5] = translationCom;
+        debug_msg.data[6] = forwardCom;
+        debug_publisher->publish(debug_msg);
         
 
         
@@ -1630,6 +1630,9 @@ private:
         yaw_msg = msg.data[0];
         translation_msg = msg.data[2];
 
+        // debug_msg.data[5] = forward_msg
+        // debug_msg.data[6] = up_msg
+        // debug_msg.data[7] = translation_msg
         // motorControl.yawLeft = yaw_msg;
         // motorControl.upLeft = up_msg;
         // motorControl.forwardLeft = forward_msg;
