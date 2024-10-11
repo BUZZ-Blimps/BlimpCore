@@ -68,11 +68,11 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   } else {
     printf("Right: ");
   }
-  printf("Thrust: %.1f ", thrust);
-  printf("Phi1: %.1f ", phi1);
-  printf("Phi2: %.1f ", phi2);
-  printf("Phi3: %.1f ", phi3);
-  printf("Phi4: %0.1f \n", phi4);
+  // printf("Thrust: %.1f ", thrust);
+  // printf("Phi1: %.1f ", phi1);
+  // printf("Phi2: %.1f ", phi2);
+  // printf("Phi3: %.1f ", phi3);
+  // printf("Phi4: %0.1f \n", phi4);
   double thetaOffset = 135;
   theta1 += thetaOffset;
   theta2 += thetaOffset;

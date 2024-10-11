@@ -6,7 +6,7 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <numeric>
 #include "rclcpp/rclcpp.hpp"
 
 //Message type includes
@@ -694,8 +694,8 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
-        debug_msg.data.resize(7);
-        double dt = 33/1000;
+        debug_msg.data.resize(8);
+        double dt = 33/1000; // check this!! make sure its 30Hz
         // publish_log("Im in state_machine_callback");
         //control inputs
         float forwardCom = 0.0;
@@ -837,7 +837,7 @@ private:
             // float area = 0;
 
             //new target (empty target)
-            std::vector<double> detected_target;
+            std::vector<double> detected_target = {0.0, 0.0, 0.0};
 
             //if a target is seen
             if (targets[2] != -1){
@@ -1094,7 +1094,7 @@ private:
                     }
 
                     //check if target is still valid
-                    if (detected_target.size() > 0) {
+                    if (std::accumulate(detected_target.begin(), detected_target.end(), 0.0) > 0.0) {
                         //seeing a target
                         //add memory
                         temp_tx = tx;
@@ -1116,7 +1116,8 @@ private:
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
                         debug_msg.data[0] = tx;
-                        debug_msg.data[1] = yawCom;
+                        debug_msg.data[1] = ty;
+                        debug_msg.data[2] = yawCom;
                         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
                         forwardCom = GAME_BALL_CLOSURE_COM;
                         translationCom = 0;
@@ -1143,7 +1144,7 @@ private:
                         //if target is lost within 1 second
                         //remember the previous info about where the ball is 
                     }
-                    else if((millis()-catchMemoryTimer) < 1000 && detected_target.size() == 0){
+                    else if((millis()-catchMemoryTimer) < 1000 && std::accumulate(detected_target.begin(), detected_target.end(), 0.0) == 0.0){
                             yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
                             upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);  
                             forwardCom = GAME_BALL_CLOSURE_COM;
@@ -1378,7 +1379,7 @@ private:
         //hyperbolic tan for yaw "filtering"
         float deadband = 5; // deadband for filteration
         yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
-        debug_msg.data[2] = yawMotor;
+        debug_msg.data[3] = yawMotor;
         if (abs(yawCom-yawRateFilter.last) < deadband) {
             
             yawMotor = 0;
@@ -1388,7 +1389,7 @@ private:
             yawMotor = tanh(yawMotor)*abs(yawMotor);
 
         }
-        debug_msg.data[3] = yawMotor;
+        debug_msg.data[4] = yawMotor;
         // debug_publisher->publish(debug_msg);
         //TO DO: improve velocity control
         // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
@@ -1416,9 +1417,9 @@ private:
         // debug_msg.data.size = 4;
 
         // debug_msg.data[4] = yawCom;
-        debug_msg.data[4] = upCom;
-        debug_msg.data[5] = translationCom;
-        debug_msg.data[6] = forwardCom;
+        debug_msg.data[5] = upCom;
+        debug_msg.data[6] = translationCom;
+        debug_msg.data[7] = forwardCom;
         debug_publisher->publish(debug_msg);
         
 
