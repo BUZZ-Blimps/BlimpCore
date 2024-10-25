@@ -694,8 +694,9 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
-        debug_msg.data.resize(8);
+        debug_msg.data.resize(10);
         double dt = 33/1000; // check this!! make sure its 30Hz
+        debug_msg.data[9] = dt;
         // publish_log("Im in state_machine_callback");
         //control inputs
         float forwardCom = 0.0;
@@ -1378,6 +1379,7 @@ private:
 
         //hyperbolic tan for yaw "filtering"
         float deadband = 5; // deadband for filteration
+        debug_msg.data[8] = yawCom;
         yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
         debug_msg.data[3] = yawMotor;
         if (abs(yawCom-yawRateFilter.last) < deadband) {
@@ -1389,7 +1391,6 @@ private:
             yawMotor = tanh(yawMotor)*abs(yawMotor);
 
         }
-        debug_msg.data[4] = yawMotor;
         // debug_publisher->publish(debug_msg);
         //TO DO: improve velocity control
         // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
@@ -1417,13 +1418,18 @@ private:
         // debug_msg.data.size = 4;
 
         // debug_msg.data[4] = yawCom;
-        debug_msg.data[5] = upCom;
-        debug_msg.data[6] = translationCom;
-        debug_msg.data[7] = forwardCom;
-        debug_publisher->publish(debug_msg);
-        
 
+        // if (abs(floor(upMotor)) > abs(floor(yawMotor))){
+        //     yawCom = 0;
+        // } else{
+        //     upMotor = 0;
+        // }
         
+        debug_msg.data[4] = yawMotor;
+        debug_msg.data[5] = upMotor;
+        debug_msg.data[6] = translationMotor;
+        debug_msg.data[7] = forwardMotor;
+        debug_publisher->publish(debug_msg);
 
         // debug_msg.data.data[0] = forward_msg;
         // debug_msg.data.data[1] = yaw_msg;

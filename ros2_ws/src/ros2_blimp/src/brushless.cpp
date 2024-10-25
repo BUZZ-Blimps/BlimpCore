@@ -21,7 +21,7 @@ double brushless::brushless_thrust(double thrust){
     // printf("Writing %.2f to motor", pwm_val);
         return this->curr_thrust;
     } else {
-        printf("Thrust out of range!\n");
+        printf("Thrust out of range! %.1f:\n", thrust);
         return(this->curr_thrust);
     }
 }

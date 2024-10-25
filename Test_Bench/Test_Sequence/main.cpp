@@ -79,7 +79,7 @@ int main() {
     Brushless_R.brushless_thrust(1500);
     Brushless_G.brushless_thrust(1500);
 
-    delay(1000);
+    // delay(1000);
 
     // printf("Initializing Gimbals");
     // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
@@ -119,25 +119,24 @@ int main() {
 
     while(1) {
 
-/**
-        printf("Sweeping gate up in 1 second...\n");
-		delay(1000);
-		for(float i=0; i<=45; i++){
-			float val = i;
-			printf("Servo angle: %f\n", val);
-          Servo_G.servo_angle(i);
-			delay(30);
-        }
 
-        printf("Sweeping gate down in 1 second...\n");
-		delay(1000);
-		for(float i=45; i>=0; i--){
-			float val = i;
-		printf("Servo angle: %f\n", val);
-            Servo_G.servo_angle(i);
-			delay(30);
-        }
-**/
+        // printf("Sweeping gate up in 1 second...\n");
+		// delay(1000);
+		// for(float i=0; i<=180; i++){
+		// 	float val = i;
+		// 	printf("Servo angle: %f\n", val);
+        //   Servo_G.servo_angle(i);
+		// 	delay(30);
+        // }
+
+        // printf("Sweeping gate down in 1 second...\n");
+		// delay(1000);
+		// for(float i=180; i>=0; i--){
+		// 	float val = i;
+		// printf("Servo angle: %f\n", val);
+        //     Servo_G.servo_angle(i);
+		// 	delay(30);
+        // }
 
         printf("Testing R/L Brushless...\n");
         delay(1000);
@@ -145,11 +144,26 @@ int main() {
             printf("Brushless Thrust: %d\n", i);
             Brushless_L.brushless_thrust(i);
             Brushless_R.brushless_thrust(i);
+            Brushless_G.brushless_thrust(i);
             delay(20);
         }
         Brushless_L.brushless_thrust(1500);
         Brushless_R.brushless_thrust(1500);
+        Brushless_G.brushless_thrust(1500);
 
+        delay(1000);
+        printf("Testing R/L Brushless backwards...\n");
+        delay(1000);
+        for(int i=1500; i>=1300; i--) {
+            printf("Brushless Thrust: %d\n", i);
+            Brushless_L.brushless_thrust(i);
+            Brushless_R.brushless_thrust(i);
+            Brushless_G.brushless_thrust(i);
+            delay(20);
+        }  
+        Brushless_L.brushless_thrust(1500);
+        Brushless_R.brushless_thrust(1500);
+        Brushless_G.brushless_thrust(1500);
         printf("Testing Gate Brushless...\n");
         delay(1000);
         for(int i=1500; i<=1700; i++){
@@ -213,13 +227,16 @@ int main() {
 
 
 
-    //     printf("Resetting in 3 seconds...\n");
-    //     delay(3000);
-    //     Servo_L.servo_angle(0);
-    //     Servo_R.servo_angle(180);
-    //     Brushless_L.brushless_thrust(1500);
-    //     Brushless_R.brushless_thrust(1500);
-    //     delay(1000);
+        printf("Resetting in 3 seconds...\n");
+        delay(3000);
+        Servo_L.servo_angle(0);
+        Servo_R.servo_angle(180);
+        Servo_G.servo_angle(180);
+        // Brushless_L.brushless_thrust(1500);
+        // Brushless_R.brushless_thrust(1500);
+        // Brushless_G.brushless_thrust(1500);
+
+        delay(3000);
     }
     return(1);
 }

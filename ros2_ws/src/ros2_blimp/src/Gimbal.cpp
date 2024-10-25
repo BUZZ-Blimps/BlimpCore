@@ -31,6 +31,35 @@ void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadba
   this->motor.brushless_thrust(1500);
 }
 bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward) {
+
+  /*
+  // Assuming yaw = 0
+  yaw = 0;
+  double theta = 0;
+
+  if(phiOffset == 45){
+    // left gimbal
+    forward = -forward;
+  }else{
+    // right gimbal
+  }
+
+  double phi = atan2(up,forward)*180/pi;
+  double thrust = sqrt(pow(up,2)+pow(forward,2));
+
+  if (0 <= phi && phi <= 180){
+    thrustf = thrust * sqrt(2);
+  }else if (-180 <= phi && phi < 0){
+    phi = phi + 180;
+    thrustf = -thrust * sqrt(2);
+  }else{
+    // Should not happen
+    printf("atan2 error: phi = %.1f deg\n", phi);
+  }
+  */
+
+
+  
   // if (debug) Serial.println("Corrected Inputs");
   // if (debug) Serial.print("Forward: ");
   // if (debug) Serial.print(forward);
@@ -68,11 +97,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   } else {
     printf("Right: ");
   }
-  // printf("Thrust: %.1f ", thrust);
-  // printf("Phi1: %.1f ", phi1);
-  // printf("Phi2: %.1f ", phi2);
-  // printf("Phi3: %.1f ", phi3);
-  // printf("Phi4: %0.1f \n", phi4);
+
   double thetaOffset = 135;
   theta1 += thetaOffset;
   theta2 += thetaOffset;
@@ -82,6 +107,21 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   phi2 += phiOffset;
   phi3 += phiOffset;
   phi4 += phiOffset;
+
+  printf("yaw: %.1f ", yaw);
+  printf("up: %.1f ", up);
+  printf("forward: %0.1f \n", forward);
+
+  printf("Thrust: %.1f ", thrust);
+  printf("Phi1: %.1f ", phi1);
+  printf("Phi2: %.1f ", phi2);
+  printf("Phi3: %.1f ", phi3);
+  printf("Phi4: %0.1f \n", phi4);
+
+  printf("Theta1: %.1f ", theta1);
+  printf("Theta2: %.1f ", theta2);
+  printf("Theta3: %.1f ", theta3);
+  printf("Theta4: %0.1f \n", theta4);
   // if (debug) Serial.print("Shifted Solutions");
   // if (debug) Serial.print(theta1);
   // if (debug) Serial.print("\t");
@@ -136,7 +176,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
       phi = phi4;
       thrustf = thrust*sqrt(2);
     } else {
-       printf("No Solution: ");
+       printf("No Solution: \n");
       theta = theta1;
       phi = phi1;
     }
@@ -145,6 +185,8 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print(phi);
   // if (debug) Serial.print("\t");
   // if (debug) Serial.println(thrustf);
+
+
   thetaPos = filter*theta + (1-filter)*thetaPos;
   phiPos1 = filter*phi + (1-filter)*phiPos1;
 
@@ -162,13 +204,13 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
       }
     }else{
       nextMotorCom=motorCom(0);
-      this->motor.brushless_thrust(motorCom(0)); //write 1500
+      // this->motor.brushless_thrust(motorCom(0)); //write 1500
     }
      return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
    } else {
       // printf("Idle: %.1f\n",phi);
       nextMotorCom=motorCom(0);
-      this->motor.brushless_thrust(motorCom(0)); //write 1500
+      // this->motor.brushless_thrust(motorCom(0)); //write 1500
       return true; // Anti blocking mechanism
    }
 }
@@ -202,6 +244,6 @@ double Gimbal::motorCom(double command) {
         adjustedCom = 1500;
     }
     // Serial.println(adjustedCom);
-    this->motor.brushless_thrust(adjustedCom);
+    // this->motor.brushless_thrust(adjustedCom);
     return adjustedCom;
 }
