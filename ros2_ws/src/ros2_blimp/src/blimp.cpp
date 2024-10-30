@@ -694,8 +694,9 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
-        debug_msg.data.resize(10);
-        double dt = 33/1000; // check this!! make sure its 30Hz
+        debug_msg.data.resize(14);
+        // double dt = 33/1000; // check this!! make sure its 30Hz
+        double dt = 0.0; // dt=0  =>  PID->P
         debug_msg.data[9] = dt;
         // publish_log("Im in state_machine_callback");
         //control inputs
@@ -1429,7 +1430,7 @@ private:
         debug_msg.data[5] = upMotor;
         debug_msg.data[6] = translationMotor;
         debug_msg.data[7] = forwardMotor;
-        debug_publisher->publish(debug_msg);
+        
 
         // debug_msg.data.data[0] = forward_msg;
         // debug_msg.data.data[1] = yaw_msg;
@@ -1487,6 +1488,12 @@ private:
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
                 // debug_publisher->publish(debug_msg);
+                debug_msg.data[10] = motorControl.upLeft;
+                debug_msg.data[11] = motorControl.forwardLeft;
+                debug_msg.data[12] = motorControl.upRight;
+                debug_msg.data[13] = motorControl.forwardRight;
+                debug_publisher->publish(debug_msg);
+
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
