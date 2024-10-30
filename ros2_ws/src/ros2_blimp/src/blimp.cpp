@@ -194,6 +194,7 @@
 #define MAX_MOTOR                 2000
 
 
+
 enum autoState {
     searching,
     approach,
@@ -1498,6 +1499,7 @@ private:
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
                 rightGimbal.updateGimbal(leftReady && rightReady);
+                if ((int)(leftGimbal.motor.get_thrust())){}
             } else if (blimp_state == autonomous && !MOTORS_OFF) {
                 motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);

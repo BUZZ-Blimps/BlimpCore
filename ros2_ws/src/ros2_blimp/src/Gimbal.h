@@ -9,6 +9,8 @@ class Gimbal {
     bool readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward);
     void updateGimbal(bool ready);
     double servoThreshold;
+    brushless motor;
+    double prev_thrust = 0.0;
 
     private:
     double motorCom(double command);
@@ -25,7 +27,7 @@ class Gimbal {
     //attach to pin
     servo yawServo;
     servo pitchServo;
-    brushless motor;
+    // brushless motor;
 
     double thetaPos;
     double phiPos1;

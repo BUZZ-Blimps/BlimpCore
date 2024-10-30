@@ -95,11 +95,12 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\t");
   // if (debug) Serial.println(phi4);
   // if (debug) Serial.println();
-  if (phiOffset == 45){
-    printf("Left: ");
-  } else {
-    printf("Right: ");
-  }
+
+  // if (phiOffset == 45){
+  //   printf("Left: ");
+  // } else {
+  //   printf("Right: ");
+  // }
 
   double thetaOffset = 135;
   theta1 += thetaOffset;
@@ -151,41 +152,41 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   bool sol3 = theta3 > 0 && theta3 < 180 && phi3 > 0 && phi3 < 180;
   bool sol4 = theta4 > 0 && theta4 < 180 && phi4 > 0 && phi4 < 180;
 
-  printf("Before Thrustf: %.1f ", thrustf);
+  // printf("Before Thrustf: %.1f ", thrustf);
   // bool sol1 =  phi1 > 0 && phi1 < 180;
   // bool sol2 =  phi2 > 0 && phi2 < 180;
   // bool sol3 =  phi3 > 0 && phi3 < 180;
   // bool sol4 =  phi4 > 0 && phi4 < 180;
     if (sol1) {
-      printf("First Solution: ");
+      // printf("First Solution: ");
       theta = theta1;
       phi = phi1;
       thrustf = thrust*sqrt(2);
     } else if (sol2) {
       // Serial.println("Second Solution");
-      printf("Second Solution: ");
+      // printf("Second Solution: ");
       theta = theta2;
       phi = phi2;
       thrustf = -thrust*sqrt(2);
     } else if (sol3) {
       // Serial.println("Third Solution");
-      printf("Third Solution: ");
+      // printf("Third Solution: ");
       theta = theta3;
       phi = phi3;
       thrustf = -thrust*sqrt(2);
     } else if (sol4) {
       // Serial.println("Fourth Solution");
-      printf("Fourth Solution: ");
+      // printf("Fourth Solution: ");
       theta = theta4;
       phi = phi4;
       thrustf = thrust*sqrt(2);
     } else {
-       printf("No Solution: \n");
+      //  printf("No Solution: \n");
       theta = theta1;
       phi = phi1;
     }
 
-    printf("After Thrustf: %.1f \n", thrustf);
+    // printf("After Thrustf: %.1f \n", thrustf);
   // if (debug) Serial.print(theta);
   // if (debug) Serial.print("\t");
   // if (debug) Serial.print(phi);
@@ -222,7 +223,19 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
 }
 void Gimbal::updateGimbal(bool ready){ // Actual turn on command for brushless motors
   if (ready){
-    this->motor.brushless_thrust(nextMotorCom);
+    if (this->prev_thrust >= 1000){ //checks if its wiriting for the first time
+      printf("FIRST TIME\n");
+      if(abs(motor.get_thrust() - nextMotorCom) > 100){
+        this->motor.brushless_thrust(nextMotorCom);
+        this->prev_thrust = nextMotorCom;
+      }
+
+    } else {
+      printf("WRONG\n");
+      this->motor.brushless_thrust(nextMotorCom);
+      this->prev_thrust = nextMotorCom;
+    }
+    
     // Serial.println(nextMotorCom);
   }else {
     this->motor.brushless_thrust(motorCom(0));
