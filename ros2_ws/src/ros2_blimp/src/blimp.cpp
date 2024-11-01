@@ -514,7 +514,7 @@ class blimp:public rclcpp::Node
             // initialize
             BerryIMU.OPI_IMU_Setup();
             wiringPiSetup();
-            ballGrabber.ballgrabber_init(2, 10);
+            ballGrabber.ballgrabber_init(GATE_S, PWM_G);
             // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
             leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
             rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
