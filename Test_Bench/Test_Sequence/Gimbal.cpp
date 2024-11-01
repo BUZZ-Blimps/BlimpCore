@@ -23,8 +23,8 @@ void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadba
   thetaPos = 0;
   servoThreshold = 1000; // (degrees) Defines how close servos must be for brushless motors to activate
   
-  this->yawServo.servo_setup(yawPin);
-  this->yawServo.servo_angle(0);
+  // this->yawServo.servo_setup(yawPin);
+  // this->yawServo.servo_angle(0);
   this->pitchServo.servo_setup(pitchPin);
   this->pitchServo.servo_angle(phiOffset);
   this->motor.brushless_setup(motorPin);
@@ -197,7 +197,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   phiPos1 = filter*phi + (1-filter)*phiPos1;
 
   if (abs(thrustf) >= deadband/2.0){ // Turn on motors
-    this->yawServo.servo_angle(135);
+    // this->yawServo.servo_angle(135);
     // printf("%.1f\n",phi);
     this->pitchServo.servo_angle((phi));
     if (!motors_off) {
@@ -212,7 +212,8 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
       nextMotorCom=motorCom(0);
       // this->motor.brushless_thrust(motorCom(0)); //write 1500
     }
-     return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
+    //  return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
+    return (abs(pitchServo.get_angle()-phi)<1000);
    } else {
       // printf("Idle: %.1f\n",phi);
       nextMotorCom=motorCom(0);

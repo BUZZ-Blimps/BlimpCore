@@ -156,17 +156,37 @@ int main() {
 		// 	delay(30);
         // }
 
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-        Brushless_G.brushless_thrust(1500);
+        // Brushless_L.brushless_thrust(1500);
+        // Brushless_R.brushless_thrust(1500);
+        // Brushless_G.brushless_thrust(1500);
 
-        bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -320.0, -0.0);
-        bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 320.0, -0.0);
-        leftGimbal.updateGimbal(leftReady && rightReady);
-        rightGimbal.updateGimbal(leftReady && rightReady);
+        //Back Thrust
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -320.0, -0.0);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 320.0, -0.0);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
+
+        //Down Thrust
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -0.0, -320.0);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -0.0, -320.0);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
+
+        
+        //Up Thrust 
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -0.0, 320.0);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -0.0, 320.0);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
+
+        // Forward Thrust
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 500.0, -0.0);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -500.0, -0.0);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
 
 
-        delay(3000);
+        delay(33);
 
     //     printf("Testing R/L Brushless...\n");
     //     delay(1000);
