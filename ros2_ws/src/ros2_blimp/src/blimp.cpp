@@ -1116,7 +1116,7 @@ private:
                         // }
 
                         //move toward the balloon
-                        yawCom = xPID.calculate(tx, GAME_BaLL_X_OFFSET, dt/1000); 
+                        yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
                         yawCom = yawCom * -1;
                         yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
                         debug_msg.data[0] = tx;
