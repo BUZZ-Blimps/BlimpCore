@@ -842,7 +842,7 @@ private:
             std::vector<double> detected_target = {0.0, 0.0, 0.0};
 
             //if a target is seen
-            if (targets[2] != -1){
+            if (targets[0] != 0){
                 float rawZ = targets[2]; // distance
                 tx = xFilter.filter(static_cast<float>(targets[0]));
                 ty = yFilter.filter(static_cast<float>(targets[1]));
@@ -858,8 +858,8 @@ private:
                 
             } else {
                 // no target, set to default value
-                xFilter.filter(0);
-                yFilter.filter(0);
+                xFilter.filter(GAME_BaLL_X_OFFSET);
+                yFilter.filter(GAME_BaLL_X_OFFSET);
                 zFilter.filter(4);
                 // areaFilter.filter(0);
             }
@@ -1117,10 +1117,12 @@ private:
 
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
+                        yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
                         debug_msg.data[0] = tx;
                         debug_msg.data[1] = ty;
-                        debug_msg.data[2] = yawCom;
+                        // debug_msg.data[2] = yawCom;
                         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
+                        upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;
                         forwardCom = GAME_BALL_CLOSURE_COM;
                         translationCom = 0;
 
@@ -1146,12 +1148,14 @@ private:
                         //if target is lost within 1 second
                         //remember the previous info about where the ball is 
                     }
-                    else if((millis()-catchMemoryTimer) < 1000 && std::accumulate(detected_target.begin(), detected_target.end(), 0.0) == 0.0){
-                            yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
-                            upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);  
-                            forwardCom = GAME_BALL_CLOSURE_COM;
-                            translationCom = 0;
-                    } 
+                    // else if((millis()-catchMemoryTimer) < 1000 && std::accumulate(detected_target.begin(), detected_target.end(), 0.0) == 0.0){
+                    //         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
+                    //         yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
+                    //         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);
+                    //         upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;  
+                    //         forwardCom = GAME_BALL_CLOSURE_COM;
+                    //         translationCom = 0;
+                    // } 
                     // after two seconds of losing the target, the target is still not detected
                     else {
                         //no target, look for another
@@ -1380,7 +1384,7 @@ private:
 
         //hyperbolic tan for yaw "filtering"
         float deadband = 5; // deadband for filteration
-        debug_msg.data[8] = yawCom;
+        debug_msg.data[2] = yawCom;
         yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
         debug_msg.data[3] = yawMotor;
         if (abs(yawCom-yawRateFilter.last) < deadband) {
@@ -1499,13 +1503,17 @@ private:
                 leftGimbal.updateGimbal(leftReady && rightReady);
                 rightGimbal.updateGimbal(leftReady && rightReady);
             } else if (blimp_state == autonomous && !MOTORS_OFF) {
+                debug_msg.data[10] = motorControl.upLeft;
+                debug_msg.data[11] = motorControl.forwardLeft;
+                debug_msg.data[12] = motorControl.upRight;
+                debug_msg.data[13] = motorControl.forwardRight;
                 motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight); 
                 leftGimbal.updateGimbal(leftReady && rightReady);
                 rightGimbal.updateGimbal(leftReady && rightReady);
             } else if(MOTORS_OFF){
-                motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
+                motorControl.update(0,0,0,0,0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight); 
                 leftGimbal.updateGimbal(leftReady && rightReady);
@@ -1522,6 +1530,7 @@ private:
         // float netTime = (endTime - startTime)/MICROS_TO_SEC;
         // publish_log("State Machine Call Back Time:");
         // publish_log(std::to_string(netTime));
+        debug_publisher->publish(debug_msg);
     }
 
     void publish_log(std::string message) const {

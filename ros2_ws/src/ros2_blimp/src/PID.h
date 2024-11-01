@@ -22,9 +22,9 @@ class PID
         // Returns the manipulated variable given a setpoint and current process value
         double calculate(double setpoint, double pv, double dt);
         void reset();
+        double _kp;
 
     private:
-        double _kp;
         double _ki;
         double _kd;
         double _error;
