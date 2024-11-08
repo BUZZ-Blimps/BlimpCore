@@ -253,7 +253,7 @@ float pitch = 0;
 float yaw = 0;
 float roll = 0;
 
-float rotation = 0;
+float rotation = 180;
 float ground_pressure = 0;
 
 //timers for state machine
