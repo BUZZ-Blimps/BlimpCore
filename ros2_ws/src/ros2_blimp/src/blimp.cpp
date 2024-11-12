@@ -769,7 +769,7 @@ private:
             //all motor commands are between -1 and 1
             //set max yaw command to 120 deg/s
 
-            yawCom = yaw_msg*120;
+            yawCom = -yaw_msg*120;
 
             if (USE_EST_VELOCITY_IN_MANUAL == true){
                 //set max velocities 2 m/s
@@ -1117,7 +1117,7 @@ private:
 
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
-                        yawCom = yawCom * -1;
+                        // yawCom = yawCom * -1;
                         yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
                         debug_msg.data[0] = tx;
                         debug_msg.data[1] = ty;
