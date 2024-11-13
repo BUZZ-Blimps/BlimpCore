@@ -6,11 +6,14 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <numeric>
 #include "rclcpp/rclcpp.hpp"
 
 //Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
+
+#include <geometry_msgs/msg/point.hpp>
+
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -87,8 +90,8 @@
 
 
 #define GAME_BALL_CLOSURE_COM     180  //approaching at 20% throttle cap
-#define GAME_BALL_APPROACH_ANGLE  40  //approach magic number (TODO: reset)
-#define GAME_BaLL_X_OFFSET        80   //offset magic number (TODO: reset)
+#define GAME_BALL_APPROACH_ANGLE  320  //approach magic number (TODO: reset)
+#define GAME_BaLL_X_OFFSET        320   //offset magic number (TODO: reset)
 
 #define CATCHING_FORWARD_COM      350  //catching at 50% throttle 
 #define CATCHING_UP_COM           50  //damp out pitch
@@ -211,6 +214,8 @@ enum blimpState {
 
 int blimp_state = lost;
 
+// int blimp_state = manual;
+
 enum grabberState {
     opened,
     closed,
@@ -233,7 +238,7 @@ enum gameballType{
 
 //global variables
 double loop_time;
-int auto_state = searching;
+int auto_state = approach;
 
 //blimp game parameters
 int blimpColor = BLIMP_COLOR;
@@ -326,7 +331,9 @@ float goalYawDirection = -1;
 //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
 //1000 means object is not present
 std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
-std::vector<double> targets = {1000.0, 1000.0, 1000.0};
+// std::vector<double> targets = {1000.0, 1000.0, 1000.0};
+
+std::vector<double> targets = {-1.0, -1.0, -1.0};
 std::vector<int64_t> pixels = {1000, 1000, 0, 1000, 1000, 0, 1000, 1000, 0};
 
 
@@ -479,7 +486,10 @@ class blimp:public rclcpp::Node
             goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>((blimpNameSpace + "/goal_color").c_str(), 10, std::bind(&blimp::goal_color_subscription_callback, this, _1));
             
             // // Offboard ML
+            
             targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/targets").c_str(), 10, std::bind(&blimp::targets_subscription_callback, this, _1));
+
+            // targets_subscription = this->create_subscription<geometry_msgs::msg::Point>("/object_detection", 10, std::bind(&blimp::targets_subscription_callback, this, _1));
             pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>((blimpNameSpace + "/pixels").c_str(), 10, std::bind(&blimp::pixels_subscription_callback, this, _1));
             avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>((blimpNameSpace + "/avoidance").c_str(), 10, std::bind(&blimp::avoidance_subscription_callback, this, _1));
 
@@ -504,7 +514,7 @@ class blimp:public rclcpp::Node
             // initialize
             BerryIMU.OPI_IMU_Setup();
             wiringPiSetup();
-            ballGrabber.ballgrabber_init(8, 10);
+            ballGrabber.ballgrabber_init(GATE_S, PWM_G);
             // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
             leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
             rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
@@ -684,7 +694,10 @@ private:
         // float startTime = micros();
         auto state_machine_msg = std_msgs::msg::Int64();
         auto debug_msg = std_msgs::msg::Float64MultiArray();
-        double dt = 33/1000;
+        debug_msg.data.resize(14);
+        // double dt = 33/1000; // check this!! make sure its 30Hz
+        double dt = 0.0; // dt=0  =>  PID->P
+        debug_msg.data[9] = dt;
         // publish_log("Im in state_machine_callback");
         //control inputs
         float forwardCom = 0.0;
@@ -786,7 +799,7 @@ private:
                     catches = 0;
 
                     //go back to searching
-                    auto_state = searching;
+                    // auto_state = searching;
                     // searching timer
                     searchingTimeStart = millis();
                     searchYawDirection = searchDirection();  //randomize the search direction
@@ -826,10 +839,10 @@ private:
             // float area = 0;
 
             //new target (empty target)
-            std::vector<double> detected_target;
+            std::vector<double> detected_target = {0.0, 0.0, 0.0};
 
             //if a target is seen
-            if (targets[2] != 1000){
+            if (targets[0] != 0){
                 float rawZ = targets[2]; // distance
                 tx = xFilter.filter(static_cast<float>(targets[0]));
                 ty = yFilter.filter(static_cast<float>(targets[1]));
@@ -845,8 +858,8 @@ private:
                 
             } else {
                 // no target, set to default value
-                xFilter.filter(0);
-                yFilter.filter(0);
+                xFilter.filter(GAME_BaLL_X_OFFSET);
+                yFilter.filter(GAME_BaLL_X_OFFSET);
                 zFilter.filter(4);
                 // areaFilter.filter(0);
             }
@@ -1077,13 +1090,13 @@ private:
                 }case approach: {
                     // max time to approach
                     if (approachTimeMax < millis() - approachTimeStart) {
-                        auto_state = searching;
+                        // auto_state = searching;
                         // searching timer
                         searchingTimeStart = millis();
                     }
 
                     //check if target is still valid
-                    if (detected_target.size() > 0) {
+                    if (std::accumulate(detected_target.begin(), detected_target.end(), 0.0) > 0.0) {
                         //seeing a target
                         //add memory
                         temp_tx = tx;
@@ -1104,7 +1117,13 @@ private:
 
                         //move toward the balloon
                         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
+                        // yawCom = yawCom * -1;
+                        yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
+                        debug_msg.data[0] = tx;
+                        debug_msg.data[1] = ty;
+                        // debug_msg.data[2] = yawCom;
                         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
+                        upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;
                         forwardCom = GAME_BALL_CLOSURE_COM;
                         translationCom = 0;
 
@@ -1114,7 +1133,7 @@ private:
 
                             //check if the catching mode should be triggered
                             if (tz < BALL_CATCH_TRIGGER) {
-                                auto_state = catching;
+                                // auto_state = catching;
 
                                 //start catching timer
                                 catchTimeStart = millis();
@@ -1130,21 +1149,23 @@ private:
                         //if target is lost within 1 second
                         //remember the previous info about where the ball is 
                     }
-                    else if((millis()-catchMemoryTimer) < 1000 && detected_target.size() == 0){
-                            yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
-                            upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);  
-                            forwardCom = GAME_BALL_CLOSURE_COM;
-                            translationCom = 0;
-                    } 
+                    // else if((millis()-catchMemoryTimer) < 1000 && std::accumulate(detected_target.begin(), detected_target.end(), 0.0) == 0.0){
+                    //         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
+                    //         yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
+                    //         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);
+                    //         upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;  
+                    //         forwardCom = GAME_BALL_CLOSURE_COM;
+                    //         translationCom = 0;
+                    // } 
                     // after two seconds of losing the target, the target is still not detected
                     else {
                         //no target, look for another
                         //maybe add some memory
-                        auto_state = searching;
+                        // auto_state = searching;
                         // searching timer
-                        searchingTimeStart = millis();
-                        ballGrabber.closeGrabber(blimp_state);
-                        searchYawDirection = searchDirection();  //randomize the search direction
+                        // searchingTimeStart = millis();
+                        // ballGrabber.closeGrabber(blimp_state);
+                        // searchYawDirection = searchDirection();  //randomize the search direction
                     }
 
                     break;
@@ -1364,8 +1385,9 @@ private:
 
         //hyperbolic tan for yaw "filtering"
         float deadband = 5; // deadband for filteration
+        debug_msg.data[2] = yawCom;
         yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
-
+        debug_msg.data[3] = yawMotor;
         if (abs(yawCom-yawRateFilter.last) < deadband) {
             
             yawMotor = 0;
@@ -1375,7 +1397,7 @@ private:
             yawMotor = tanh(yawMotor)*abs(yawMotor);
 
         }
-
+        // debug_publisher->publish(debug_msg);
         //TO DO: improve velocity control
         // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
         // What's up motor? :)
@@ -1401,13 +1423,18 @@ private:
         // debug_msg.data.data[3] = forwardCom;
         // debug_msg.data.size = 4;
 
-        // debug_msg.data[0] = yawCom;
-        // debug_msg.data[1] = upCom;
-        // debug_msg.data[2] = translationCom;
-        // debug_msg.data[3] = forwardCom;
+        // debug_msg.data[4] = yawCom;
 
+        // if (abs(floor(upMotor)) > abs(floor(yawMotor))){
+        //     yawCom = 0;
+        // } else{
+        //     upMotor = 0;
+        // }
         
-
+        debug_msg.data[4] = yawMotor;
+        debug_msg.data[5] = upMotor;
+        debug_msg.data[6] = translationMotor;
+        debug_msg.data[7] = forwardMotor;
         
 
         // debug_msg.data.data[0] = forward_msg;
@@ -1464,20 +1491,30 @@ private:
                 // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
                 //forward, translation, up, yaw, roll
                 if (!ZERO_MODE) motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
-                debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
+                // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
+                // debug_publisher->publish(debug_msg);
+                debug_msg.data[10] = motorControl.upLeft;
+                debug_msg.data[11] = motorControl.forwardLeft;
+                debug_msg.data[12] = motorControl.upRight;
+                debug_msg.data[13] = motorControl.forwardRight;
                 debug_publisher->publish(debug_msg);
+
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, motorControl.upRight, motorControl.forwardRight);
                 leftGimbal.updateGimbal(leftReady && rightReady);
                 rightGimbal.updateGimbal(leftReady && rightReady);
             } else if (blimp_state == autonomous && !MOTORS_OFF) {
+                debug_msg.data[10] = motorControl.upLeft;
+                debug_msg.data[11] = motorControl.forwardLeft;
+                debug_msg.data[12] = motorControl.upRight;
+                debug_msg.data[13] = motorControl.forwardRight;
                 motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight); 
                 leftGimbal.updateGimbal(leftReady && rightReady);
                 rightGimbal.updateGimbal(leftReady && rightReady);
             } else if(MOTORS_OFF){
-                motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
+                motorControl.update(0,0,0,0,0);
                 bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawLeft, motorControl.upLeft, motorControl.forwardLeft);
                 bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.yawRight, motorControl.upRight, motorControl.forwardRight); 
                 leftGimbal.updateGimbal(leftReady && rightReady);
@@ -1494,6 +1531,7 @@ private:
         // float netTime = (endTime - startTime)/MICROS_TO_SEC;
         // publish_log("State Machine Call Back Time:");
         // publish_log(std::to_string(netTime));
+        debug_publisher->publish(debug_msg);
     }
 
     void publish_log(std::string message) const {
@@ -1616,6 +1654,9 @@ private:
         yaw_msg = msg.data[0];
         translation_msg = msg.data[2];
 
+        // debug_msg.data[5] = forward_msg
+        // debug_msg.data[6] = up_msg
+        // debug_msg.data[7] = translation_msg
         // motorControl.yawLeft = yaw_msg;
         // motorControl.upLeft = up_msg;
         // motorControl.forwardLeft = forward_msg;
@@ -1659,7 +1700,25 @@ private:
         }
     }
 
-    void targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
+    // void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
+    // {
+    //     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+
+    //     // object of interest with xyz (3 elements in total)
+    //     // for (size_t i = 0; i < 3; ++i) {
+    //     //     // targets[i] = msg.data.data[i];
+    //     //     targets[i] = msg.data[i];
+    //     // }
+
+    //     targets[0] = msg.x;
+
+    //     targets[1] = msg.y;
+
+    //     targets[2] = msg.z;
+
+    // }
+
+        void targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
     {
         // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
 
@@ -1668,6 +1727,13 @@ private:
             // targets[i] = msg.data.data[i];
             targets[i] = msg.data[i];
         }
+
+        // targets[0] = msg.x;
+
+        // targets[1] = msg.y;
+
+        // targets[2] = msg.z;
+
     }
 
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray & msg) const
@@ -1730,6 +1796,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr kill_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr goal_color_subscription;
 
+    // rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
