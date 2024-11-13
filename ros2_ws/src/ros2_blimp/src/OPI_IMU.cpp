@@ -176,7 +176,6 @@ void OPI_IMU::IMU_read(){
     MagXraw = -magRaw[1];
     MagZraw = magRaw[2];
 
-
     //Gyroscope Output
     out = wiringPiI2CReadRegBlock(LSM6DSL, LSM6DSL_OUT_X_L_G, 6, buff); 
     if (out == -1) {
@@ -193,10 +192,13 @@ void OPI_IMU::IMU_read(){
     gyr_rateYraw =  (double)gyrRaw[0] * GYRO_GAIN;
     gyr_rateXraw = -(double)gyrRaw[1] * GYRO_GAIN;
     gyr_rateZraw =  (double)gyrRaw[2] * GYRO_GAIN;
+    //---------------------------------------------------------------------------------------
+}
 
+void OPI_IMU::baro_read() {
     //Barometer and Temperature Sensor Output
     //Starts with the PRESS_XLSB_7_0 output register then will read the remainig five
-    out = wiringPiI2CReadRegBlock(BM388, PRESS_XLSB_7_0, 6, buff); 
+    int out = wiringPiI2CReadRegBlock(BM388, PRESS_XLSB_7_0, 6, buff); 
     if (out == -1) {
         printf("BM388 PRESS_XLSB_7_0 I2C not working\n");
     }
@@ -223,8 +225,6 @@ void OPI_IMU::IMU_read(){
     alt = 44330 * (1 - pow((comp_press / ref_ground_press), (1 / 5.255))); //In meters
 
     // alt = comp_press;  // plus something from base station
-
-    //---------------------------------------------------------------------------------------
 }
 
 void OPI_IMU::IMU_ROTATION(float rotation_angle){  //current: 180 degrees z axis rotation
@@ -295,14 +295,16 @@ static inline int i2c_smbus_access_bl (int fd, char rw, uint8_t command, int siz
   return ioctl (fd, I2C_SMBUS, &args) ;
 }
 
-int OPI_IMU::wiringPiI2CReadRegBlock (int fd, int reg, int num_bytes, uint8_t *buff)
+int OPI_IMU::wiringPiI2CReadRegBlock(int fd, int reg, int num_bytes, uint8_t *buff)
 {
-  union i2c_smbus_data data;
-  if (i2c_smbus_access_bl (fd, I2C_SMBUS_READ, reg, 6, &data))
-    return -1 ;
-  else
-	for (int i = 0; i < num_bytes; i++) {
-		buff[i] = data.block[i + 1];
-	}
-    return data.block[0]; //first element is length of block array
+    union i2c_smbus_data data;
+    if (i2c_smbus_access_bl (fd, I2C_SMBUS_READ, reg, 6, &data)) {
+        return -1;
+    } else {
+        for (int i = 0; i < num_bytes; i++) {
+            buff[i] = data.block[i + 1];
+        }
+
+        return data.block[0]; //first element is length of block array
+    }
 }

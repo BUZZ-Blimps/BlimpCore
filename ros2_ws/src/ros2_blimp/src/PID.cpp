@@ -3,6 +3,18 @@
 
 using namespace std;
 
+PID::PID():
+    _kp(0),
+    _ki(0),
+    _kd(0),
+    _error(0),
+    _pre_error(0),
+    _integral(0),
+    _i_limit(0),
+    _d_limit(0),
+    _limit_output(false)
+{}
+
 /**
  * Implementation
  */

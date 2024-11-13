@@ -245,7 +245,6 @@ private:
     rclcpp::TimerBase::SharedPtr timer_state_machine;
     rclcpp::TimerBase::SharedPtr timer_heartbeat;
 
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr identity_publisher;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr heartbeat_publisher;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher;
@@ -271,7 +270,15 @@ private:
     size_t count_;
     std::string blimp_name_;
 
-    void timer_callback();
+    std_msgs::msg::Bool heartbeat_msg_;
+    sensor_msgs::msg::Imu imu_msg_;
+
+    //Auto PID control (output fed into manual controller)
+    PID xPID_;   //TODO:retune these 0.162 for pixel PID
+    PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
+    PID zPID_;   //not used for now due to baro reading malfunction
+    PID yawPID_; //can also tune kd with a little overshoot induced
+
     void heartbeat_callback();
     void imu_callback();
     void baro_callback();
@@ -289,6 +296,7 @@ private:
     void targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg);
     float searchDirection();
+    bool load_pid_config();
 };
 
 #endif

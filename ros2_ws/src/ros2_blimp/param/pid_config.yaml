@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    x_p: 2.0
+    x_i: 0.0
+    x_d: 0.0
+    y_p: 2.0
+    y_i: 0.0
+    y_d: 0.0
+    z_p: 2.0
+    z_i: 0.0
+    z_d: 0.0
+    yaw_p: 0.7
+    yaw_i: 0.08
+    yaw_d: 0.01

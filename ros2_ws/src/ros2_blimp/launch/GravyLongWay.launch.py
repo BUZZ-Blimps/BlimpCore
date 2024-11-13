@@ -12,6 +12,9 @@ def generate_launch_description():
         executable='ros2_blimp_node',
         name='ros2_blimp_node',
         namespace='GravyLongWay',
+        parameters=[
+            os.path.join(get_package_share_directory('ros2_blimp'), 'param', 'pid_config.yaml')
+        ],
         output='screen'
     )
 

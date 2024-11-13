@@ -10,8 +10,11 @@ class PID
         // dt -  loop interval time
         // max - maximum value of manipulated variable
         // min - minimum value of manipulated variable
+        PID();
         PID(double kp, double ki, double kd);
         ~PID();
+
+        // void setGains(double kp, double ki, double kd);
         void setOutputLimits(double min, double max);
         void setILimit(double iLimit);
         void setDLimit(double dLimit);
@@ -22,9 +25,9 @@ class PID
         // Returns the manipulated variable given a setpoint and current process value
         double calculate(double setpoint, double pv, double dt);
         void reset();
-        double _kp;
-
+        
     private:
+        double _kp;
         double _ki;
         double _kd;
         double _error;

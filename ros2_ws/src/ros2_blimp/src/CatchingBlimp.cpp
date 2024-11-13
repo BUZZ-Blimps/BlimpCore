@@ -142,7 +142,6 @@ bool check = false;
 // auto pixels_msg = std_msgs::msg::Float64MultiArray();
 
 //String messages
-// auto identity_msg = std_msgs::msg::String();
 // auto log_msg = std_msgs::msg::String();
 
 //sensor message
@@ -162,11 +161,13 @@ OPI_IMU BerryIMU;
 Madgwick_Filter madgwick;
 BaroAccKF kf;
 AccelGCorrection accelGCorrection;
+
+//NOT USED
 // Optical_Flow Flow;
-Kalman_Filter_Tran_Vel_Est kal_vel;
+// Kalman_Filter_Tran_Vel_Est kal_vel;
 // OpticalEKF xekf(DIST_CONSTANT, GYRO_X_CONSTANT, GYRO_YAW_CONSTANT);
 // OpticalEKF yekf(DIST_CONSTANT, GYRO_Y_CONSTANT, 0);
-GyroEKF gyroEKF;
+// GyroEKF gyroEKF;
 
 //Gimbal leftGimbal(yawPin, pitchPin, motorPin, newDeadband, newTurnOnCom, newMinCom, newMaxCom);
 MotorControl motorControl;
@@ -174,14 +175,8 @@ Gimbal leftGimbal;
 Gimbal rightGimbal;
 
 //Manual PID control
-PID verticalPID(350, 0, 0);  //not used for now due to baro reading malfunction
-PID yawPID(12.0, 0, 0);  //can also tune kd with a little overshoot induced
 PID forwardPID(300, 0, 0);  //not used
 PID translationPID(300, 0, 0); //not used
-
-//Auto PID control (output fed into manual controller)
-PID yPID(0.8,0,0);    //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
-PID xPID(0.035,0,0);       //TODO:retune these 0.162 for pixel PID
 
 //Goal positioning controller
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
@@ -226,7 +221,17 @@ float lastOpticalLoopTick = 0.0;
 CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
+    heartbeat_msg_.data = true;
             
+    //Load PID config from params
+    if (load_pid_config()) {
+        RCLCPP_INFO(this->get_logger(), "PID configuration loaded.");
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "PID configuration not provided. Exiting.");
+        rclcpp::shutdown();
+        return;
+    }
+
     firstMessageTime = micros()/MICROS_TO_SEC;
 
     // Start Servos
@@ -244,7 +249,6 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
 
     // create publishers (7 right now)
-    identity_publisher = this->create_publisher<std_msgs::msg::String>("/identify", 10);
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
     imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
     debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>("debug", 10);
@@ -271,12 +275,16 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
+    //100Hz IMU timer
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_callback, this));
 
+    //50Hz barometer timer
     timer_baro = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::baro_callback, this));
 
+    //33Hz state machine timer
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
 
+    //2Hz heartbeat timer
     timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_callback, this));
 
     //Start Brushless
@@ -286,24 +294,15 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     //     Brushless_R.brushless_thrust(1500);
 }
 
-//timer call back
-void CatchingBlimp::timer_callback() {
-    auto identity_msg = std_msgs::msg::String();
-    identity_msg.data = blimp_name_;
-    identity_publisher->publish(identity_msg);
-}
-
 void CatchingBlimp::heartbeat_callback() {
-    auto heartbeat_msg = std_msgs::msg::Bool();
-    heartbeat_msg.data = true;
-    heartbeat_publisher->publish(heartbeat_msg);
+    heartbeat_publisher->publish(heartbeat_msg_);
 }
 
 void CatchingBlimp::imu_callback()
 {
     // float startTime = micros();
     loop_time = micros()/MICROS_TO_SEC;
-    auto imu_msg = sensor_msgs::msg::Imu();
+    
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
     BerryIMU.IMU_ROTATION(rotation); // Rotate IMU
@@ -314,27 +313,25 @@ void CatchingBlimp::imu_callback()
     // imu_msg.header.frame_id.size = strlen(imu_msg.header.frame_id.data);
     // imu_msg.header.frame_id.capacity = BUFFER_LEN;
 
-    unsigned int now = micros();
-    imu_msg.header.stamp.sec = (unsigned int)((double)now/1000000);
-    imu_msg.header.stamp.nanosec = (now % 1000000) * 1000;
+    imu_msg_.header.stamp = this->get_clock()->now();
 
     //Estimated body orentation (quaternion)
-    imu_msg.orientation.w = madgwick.q1;
-    imu_msg.orientation.x = madgwick.q2;
-    imu_msg.orientation.y = madgwick.q3;
-    imu_msg.orientation.z = madgwick.q4;
+    imu_msg_.orientation.w = madgwick.q1;
+    imu_msg_.orientation.x = madgwick.q2;
+    imu_msg_.orientation.y = madgwick.q3;
+    imu_msg_.orientation.z = madgwick.q4;
 
     //Estimated body frame angular velocity from gyro
-    imu_msg.angular_velocity.x = BerryIMU.gyr_rateXraw;
-    imu_msg.angular_velocity.y = BerryIMU.gyr_rateYraw;
-    imu_msg.angular_velocity.z = BerryIMU.gyr_rateZraw;
+    imu_msg_.angular_velocity.x = BerryIMU.gyr_rateXraw;
+    imu_msg_.angular_velocity.y = BerryIMU.gyr_rateYraw;
+    imu_msg_.angular_velocity.z = BerryIMU.gyr_rateZraw;
 
     //Estimated body frame acceleration from accelerometer
-    imu_msg.linear_acceleration.x = BerryIMU.AccXraw;
-    imu_msg.linear_acceleration.y = BerryIMU.AccYraw;
-    imu_msg.linear_acceleration.z = BerryIMU.AccZraw;
+    imu_msg_.linear_acceleration.x = BerryIMU.AccXraw;
+    imu_msg_.linear_acceleration.y = BerryIMU.AccYraw;
+    imu_msg_.linear_acceleration.z = BerryIMU.AccZraw;
 
-    imu_publisher->publish(imu_msg);
+    imu_publisher->publish(imu_msg_);
 
     //get orientation from madgwick
     pitch = madgwick.pitch_final;
@@ -349,7 +346,7 @@ void CatchingBlimp::imu_callback()
     kf.predict(dt);
     // xekf.predict(dt);
     // yekf.predict(dt);
-    gyroEKF.predict(dt);
+    // gyroEKF.predict(dt);
 
     //pre filter accel before updating vertical velocity kalman filter
     verticalAccelFilter.filter(accelGCorrection.agz);
@@ -401,14 +398,14 @@ void CatchingBlimp::imu_callback()
     // publish_log(std::to_string(netTime));
 }
 
-
 void CatchingBlimp::baro_callback()
 {
     // float startTime = micros();
     auto height_msg = std_msgs::msg::Float64();
     auto z_velocity_msg = std_msgs::msg::Float64();
-    // get most current imu values
-    BerryIMU.IMU_read();
+
+    // get most current barometer values
+    BerryIMU.baro_read();
 
     //update kalman with uncorreced barometer data
     kf.updateBaro(BerryIMU.alt);
@@ -434,7 +431,6 @@ void CatchingBlimp::baro_callback()
     // }else{
     //   z_velocity_msg.data = 0;
     // }
-
 
     // xekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
     // yekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
@@ -873,14 +869,17 @@ void CatchingBlimp::state_machine_callback()
                     // }
 
                     //move toward the balloon
-                    yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
+                    yawCom = xPID_.calculate(GAME_BaLL_X_OFFSET, tx, dt/1000); 
                     // yawCom = yawCom * -1;
-                    yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
+                    // yawCom = (yawCom / (xPID_._kp * GAME_BaLL_X_OFFSET))*120;
+
                     debug_msg.data[0] = tx;
                     debug_msg.data[1] = ty;
                     // debug_msg.data[2] = yawCom;
-                    upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
-                    upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;
+                    upCom = -yPID_.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt/1000);  
+
+                    // upCom = (upCom / (yPID_._kp * GAME_BaLL_X_OFFSET))*500;
+
                     forwardCom = GAME_BALL_CLOSURE_COM;
                     translationCom = 0;
 
@@ -907,10 +906,10 @@ void CatchingBlimp::state_machine_callback()
                     //remember the previous info about where the ball is 
                 }
                 // else if((millis()-catchMemoryTimer) < 1000 && std::accumulate(detected_target.begin(), detected_target.end(), 0.0) == 0.0){
-                //         yawCom = xPID.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
-                //         yawCom = (yawCom / (xPID._kp * GAME_BaLL_X_OFFSET))*120;
-                //         upCom = -yPID.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);
-                //         upCom = (upCom / (yPID._kp * GAME_BaLL_X_OFFSET))*500;  
+                //         yawCom = xPID_.calculate(GAME_BaLL_X_OFFSET, temp_tx, dt/1000); 
+                //         yawCom = (yawCom / (xPID_._kp * GAME_BaLL_X_OFFSET))*120;
+                //         upCom = -yPID_.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt/1000);
+                //         upCom = (upCom / (yPID_._kp * GAME_BaLL_X_OFFSET))*500;  
                 //         forwardCom = GAME_BALL_CLOSURE_COM;
                 //         translationCom = 0;
                 // } 
@@ -1042,8 +1041,8 @@ void CatchingBlimp::state_machine_callback()
                 break;
             } case approachGoal: {
                 if (detected_target.size() > 0 && catches >= TOTAL_ATTEMPTS) {
-                    yawCom = xPID.calculate(GOAL_X_OFFSET, tx, dt);
-                    upCom = -yPID.calculate(GOAL_APPROACH_ANGLE, ty, dt);
+                    yawCom = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
+                    upCom = -yPID_.calculate(GOAL_APPROACH_ANGLE, ty, dt);
                     forwardCom = GOAL_CLOSURE_COM;
 
                     if ((tz < GOAL_DISTANCE_TRIGGER && goalColor == orange) || (tz < GOAL_DISTANCE_TRIGGER && goalColor == yellow)) {
@@ -1141,9 +1140,9 @@ void CatchingBlimp::state_machine_callback()
     float translationMotor = 0.0;
 
     //hyperbolic tan for yaw "filtering"
-    float deadband = 5; // deadband for filteration
+    float deadband = 2.0; // deadband for filteration
     debug_msg.data[2] = yawCom;
-    yawMotor = yawPID.calculate(yawCom, yawRateFilter.last, dt);  
+    yawMotor = yawPID_.calculate(yawCom, yawRateFilter.last, dt);  
     debug_msg.data[3] = yawMotor;
     if (abs(yawCom-yawRateFilter.last) < deadband) {
         
@@ -1156,7 +1155,7 @@ void CatchingBlimp::state_machine_callback()
     }
     // debug_publisher->publish(debug_msg);
     //TO DO: improve velocity control
-    // upMotor = verticalPID.calculate(upCom, kf.v, dt); //up velocity from barometer
+    // upMotor = zPID___.calculate(upCom, kf.v, dt); //up velocity from barometer
     // What's up motor? :)
     upMotor = upCom;
 
@@ -1526,4 +1525,52 @@ float CatchingBlimp::searchDirection() {
         binary = -1.0;
     }
     return binary;
+}
+
+// //Auto PID control (output fed into manual controller)
+// PID yPID_(0.8,0,0);    //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
+// PID xPID_(0.035,0,0);  //TODO:retune these 0.162 for pixel PID
+// PID zPID_(350, 0, 0);  //not used for now due to baro reading malfunction
+// PID yawPID_(12.0, 0, 0);  //can also tune kd with a little overshoot induced
+
+bool CatchingBlimp::load_pid_config() {
+    //PID gains
+    this->declare_parameter("x_p", 0.0);
+    this->declare_parameter("x_i", 0.0);
+    this->declare_parameter("x_d", 0.0);
+    this->declare_parameter("y_p", 0.0);
+    this->declare_parameter("y_i", 0.0);
+    this->declare_parameter("y_d", 0.0);
+    this->declare_parameter("z_p", 0.0);
+    this->declare_parameter("z_i", 0.0);
+    this->declare_parameter("z_d", 0.0);
+    this->declare_parameter("yaw_p", 0.0);
+    this->declare_parameter("yaw_i", 0.0);
+    this->declare_parameter("yaw_d", 0.0);
+    
+    double x_p, x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d;
+    if (
+        this->get_parameter("x_p", x_p) &&
+        this->get_parameter("x_i", x_i) &&
+        this->get_parameter("x_d", x_d) &&
+        this->get_parameter("y_p", y_p) &&
+        this->get_parameter("y_i", y_i) &&
+        this->get_parameter("y_d", y_d) &&
+        this->get_parameter("z_p", z_p) &&
+        this->get_parameter("z_i", z_i) &&
+        this->get_parameter("z_d", z_d) &&
+        this->get_parameter("yaw_p", yaw_p) &&
+        this->get_parameter("yaw_i", yaw_i) &&
+        this->get_parameter("yaw_d", yaw_d) 
+    ){
+        //Set gains
+        xPID_ = PID(x_p, x_i, x_d);
+        yPID_ = PID(y_p, y_i, y_d);
+        zPID_ = PID(z_p, z_i, z_d);
+        yawPID_ = PID(yaw_p, yaw_i, yaw_d);
+
+        return true;
+    } else {
+        return false;
+    }
 }

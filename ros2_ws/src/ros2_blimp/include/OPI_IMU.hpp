@@ -18,6 +18,7 @@ class OPI_IMU
   public:
     void OPI_IMU_Setup();
     void IMU_read();
+    void baro_read();
     void IMU_ROTATION(float rotation_angle);
     int LIS3MDL;
     int LSM6DSL;
