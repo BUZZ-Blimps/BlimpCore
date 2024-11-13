@@ -1292,7 +1292,6 @@ void CatchingBlimp::state_machine_callback()
 
 void CatchingBlimp::publish_log(std::string message) const {
     auto log_msg = std_msgs::msg::String();
-
     log_msg.data = message;
     log_publisher->publish(log_msg);
     // RCSOFTCHECK(rcl_publish(&log_publisher, &log_msg, NULL));
@@ -1324,15 +1323,10 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
     if (calibrateBaro == true) {
         baroCalibrationOffset = BerryIMU.comp_press - baseBaro;
 
-        std::string floatAsString = std::to_string(BerryIMU.comp_press);
-        const char* floatAsConstCharPtr = floatAsString.c_str();
-        publish_log(floatAsConstCharPtr);
-        std::string floatAsString2 = std::to_string(baseBaro);
-        const char* floatAsConstCharPtr2 = floatAsString2.c_str();
-        publish_log(floatAsConstCharPtr2);
-        std::string floatAsString3 = std::to_string(baroCalibrationOffset);
-        const char* floatAsConstCharPtr3 = floatAsString3.c_str();
-        publish_log(floatAsConstCharPtr3);
+        publish_log(BerryIMU.comp_press);
+        publish_log(baseBaro);
+        publish_log(baroCalibrationOffset);
+        
         publish_log("Calibrating Barometer");
     }
 }
