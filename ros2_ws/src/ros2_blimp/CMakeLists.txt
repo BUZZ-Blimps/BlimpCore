@@ -14,23 +14,24 @@ find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 set(
-    SOURCE_FILES 
-    src/AccelGCorrection.cpp 
-    src/BangBang.cpp 
-    src/baro_acc_kf.cpp 
-    src/OPI_IMU.cpp 
-    src/brushless.cpp 
-    src/EMAFilter.cpp 
-    src/Gimbal.cpp 
-    src/gyro_ekf.cpp 
-    src/Kalman_Filter_Tran_Vel_Est.cpp 
-    src/Madgwick_Filter.cpp 
-    src/MotorControl.cpp 
-    src/optical_ekf.cpp 
-    src/PID.cpp 
-    src/servo.cpp 
+    SOURCE_FILES
+    src/AccelGCorrection.cpp
+    src/BangBang.cpp
+    src/baro_acc_kf.cpp
+    src/OPI_IMU.cpp
+    src/brushless.cpp
+    src/EMAFilter.cpp
+    src/Gimbal.cpp
+    src/gyro_ekf.cpp
+    src/Kalman_Filter_Tran_Vel_Est.cpp
+    src/Madgwick_Filter.cpp
+    src/MotorControl.cpp
+    src/optical_ekf.cpp
+    src/PID.cpp
+    src/servo.cpp
     src/tripleBallGrabber.cpp 
-    src/blimp.cpp
+    src/CatchingBlimp.cpp
+    src/catching_blimp_node.cpp
 )
 
 add_executable(
@@ -58,6 +59,16 @@ target_link_libraries(${PROJECT_NAME}_node Eigen3::Eigen wiringPi)
 install(
     TARGETS ${PROJECT_NAME}_node
     DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+    DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}/
+)
+
+install(
+    DIRECTORY param
+    DESTINATION share/${PROJECT_NAME}/
 )
 
 ament_package()
