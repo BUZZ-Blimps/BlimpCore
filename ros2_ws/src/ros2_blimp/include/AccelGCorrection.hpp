@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ACCEL_G_CORRECTION_HPP
+#define ACCEL_G_CORRECTION_HPP
+
 #include <eigen3/Eigen/Dense>
 
 using namespace Eigen;
@@ -17,5 +19,7 @@ class AccelGCorrection {
     float agz = 0;
 
     private:
-    Eigen::Vector3f g;
+        Eigen::Vector3f g;
 };
+
+#endif

@@ -1,4 +1,4 @@
-#include "EMAFilter.h"
+#include "EMAFilter.hpp"
 #include <math.h>
 
 EMAFilter::EMAFilter(double newAlpha) {

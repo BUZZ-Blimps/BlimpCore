@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <numeric>
-#include "rclcpp/rclcpp.hpp"
+#include <rclcpp/rclcpp.hpp>
 
 //Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
@@ -24,19 +24,20 @@
 #include <std_msgs/msg/int64_multi_array.hpp>
 
 //Includes for main.cpp
-#include "MotorControl.h"
-#include "OPI_IMU.h"
-#include "Madgwick_Filter.h"
-#include "baro_acc_kf.h"
-#include "accelGCorrection.h"
-#include "PID.h"
-#include "EMAFilter.h"
-#include "Kalman_Filter_Tran_Vel_Est.h"
-#include "BangBang.h"
-#include "optical_ekf.h"
-#include "gyro_ekf.h"
-#include "tripleBallGrabber.h"
-#include "Gimbal.h"
+#include "MotorControl.hpp"
+#include "OPI_IMU.hpp"
+#include "Madgwick_Filter.hpp"
+#include "baro_acc_kf.hpp"
+#include "AccelGCorrection.hpp"
+#include "PID.hpp"
+#include "EMAFilter.hpp"
+#include "Kalman_Filter_Tran_Vel_Est.hpp"
+#include "BangBang.hpp"
+#include "optical_ekf.hpp"
+#include "gyro_ekf.hpp"
+#include "tripleBallGrabber.hpp"
+#include "Gimbal.hpp"
+
 #include <wiringPi.h>
 
 //blimp mode
@@ -1806,9 +1807,9 @@ private:
 
 int main(int argc, char * argv[])
 {
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<blimp>());
-  firstMessageTime = micros()/MICROS_TO_SEC;
-  rclcpp::shutdown();
-  return 0;
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<blimp>());
+    firstMessageTime = micros()/MICROS_TO_SEC;
+    rclcpp::shutdown();
+    return 0;
 }

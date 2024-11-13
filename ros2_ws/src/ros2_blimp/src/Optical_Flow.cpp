@@ -6,7 +6,7 @@
 //TX pin 14
 //RX pin 15
 #include <math.h>
-#include "Optical_Flow.h"
+#include "Optical_Flow.hpp"
 #define FOOTER 0xAA
 #define HEADER 0xFE
 #include <iterator>

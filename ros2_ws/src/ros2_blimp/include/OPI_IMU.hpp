@@ -1,8 +1,17 @@
 /*
  BerryIMU_v3.h 
 */
+
+#ifndef OPI_IMU_HPP
+#define OPI_IMU_HPP
+
 #include <stdint.h>
-#pragma once
+#include <wiringPi.h>
+#include <wiringPiI2C.h>
+
+#include "LSM6DSL.hpp"
+#include "LIS3MDL.hpp"
+#include "BM388.hpp"
 
 class OPI_IMU
 {
@@ -58,3 +67,5 @@ class OPI_IMU
     float PAR_P10;
     float PAR_P11;
 };
+
+#endif

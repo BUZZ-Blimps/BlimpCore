@@ -1,4 +1,4 @@
-#include "optical_ekf.h"
+#include "optical_ekf.hpp"
 
 OpticalEKF::OpticalEKF(float a_new, float b1_new, float b2_new) {
     this->a = a_new;

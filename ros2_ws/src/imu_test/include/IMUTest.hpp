@@ -10,6 +10,6 @@ private:
 	OPI_IMU BerryIMU;
 public:
 	IMUTest();
-}
+};
 
 #endif
