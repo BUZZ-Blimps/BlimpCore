@@ -4,3 +4,12 @@ This repository houses the code that will directly power the OrangePi onboard a 
 To-Do:
 - [ ] break out the Test Bench into the Test Bench Repo
 - [ ] build out Wiki
+
+To launch catching blimp node on Orange Pi as root after sourcing ros2_ws:
+```
+ros2 launch ros2_blimp [Blimp Name].launch.py
+```
+For example,
+```
+ros2 launch ros2_blimp GameChamber.launch.py
+```
