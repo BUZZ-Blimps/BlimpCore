@@ -1,4 +1,4 @@
-#include "MotorControl.h"
+#include "MotorControl.hpp"
 
 void MotorControl::update(double forward, double translation, double up, double yaw, double roll) {
   this->forwardLeft = -(forward - yaw);

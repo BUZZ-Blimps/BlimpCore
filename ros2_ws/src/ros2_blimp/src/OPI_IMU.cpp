@@ -17,9 +17,7 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
-#include "LSM6DSL.h"
-#include "LIS3MDL.h"
-#include "BM388.h"
+
 #include <math.h>
 #include "eigen3/Eigen/Dense"
 // #include "BasicLinearAlgebra.h"
@@ -28,10 +26,8 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <asm/ioctl.h>
-#include "OPI_IMU.h"
 
-#include <wiringPi.h>
-#include <wiringPiI2C.h>
+#include "OPI_IMU.hpp"
 
 #define I2C_SLAVE	0x0703
 #define I2C_SMBUS	0x0720	/* SMBus-level access */

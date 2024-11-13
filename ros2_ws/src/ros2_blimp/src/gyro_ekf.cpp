@@ -1,4 +1,4 @@
-#include "gyro_ekf.h"
+#include "gyro_ekf.hpp"
 
 GyroEKF::GyroEKF() {
     this->Qkp <<0.000001,0,0,0,0,0,0,0,0,

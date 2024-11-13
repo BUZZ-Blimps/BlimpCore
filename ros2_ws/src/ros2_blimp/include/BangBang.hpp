@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BANG_BANG_HPP
+#define BANG_BANG_HPP
 
 class BangBang {
     public:
@@ -9,3 +10,5 @@ class BangBang {
     float deadBand;
     float centeringCom;
 };
+
+#endif

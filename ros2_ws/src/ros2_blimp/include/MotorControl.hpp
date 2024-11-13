@@ -1,6 +1,7 @@
-#pragma once
+#ifndef MOTOR_CONTROL_HPP
+#define MOTOR_CONTROL_HPP
 
-#include "EMAFilter.h"
+#include "EMAFilter.hpp"
 
 class MotorControl {
     public:
@@ -12,3 +13,5 @@ class MotorControl {
         double forwardLeft = 0;
         double forwardRight = 0;
 };
+
+#endif

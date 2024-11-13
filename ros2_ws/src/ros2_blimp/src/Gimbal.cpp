@@ -1,6 +1,8 @@
-#include "Gimbal.h"
 #include <math.h>
 #include <cstdio>
+
+#include "Gimbal.hpp"
+
 // Gimbal::Gimbal(double newDeadband, double newTurnOnCom, double newMinCom, double newMaxCom, double newPhiOffset, double newFilter){
 //   deadband = newDeadband;
 //   turnOnCom = newTurnOnCom;
@@ -30,6 +32,7 @@ void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadba
   this->motor.brushless_setup(motorPin);
   this->motor.brushless_thrust(1500);
 }
+
 bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward) {
 
   /*

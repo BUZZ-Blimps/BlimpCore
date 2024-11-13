@@ -1,4 +1,5 @@
-#include "baro_acc_kf.h"
+#include "baro_acc_kf.hpp"
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

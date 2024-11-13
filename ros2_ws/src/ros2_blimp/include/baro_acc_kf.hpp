@@ -1,4 +1,6 @@
-#pragma once
+#ifndef BARO_ACC_KF
+#define BARO_ACC_KF
+
 #include <Eigen/Dense>
 
 class BaroAccKF {
@@ -20,3 +22,5 @@ class BaroAccKF {
   float lastAccelTime = 0.0;
   
 };
+
+#endif
