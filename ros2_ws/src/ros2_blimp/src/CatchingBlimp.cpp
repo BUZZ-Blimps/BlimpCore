@@ -1299,10 +1299,10 @@ void CatchingBlimp::publish_log(std::string message) const {
     // RCSOFTCHECK(rcl_publish(&log_publisher, &log_msg, NULL));
 }
 
-void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-    if (msg.data) {
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+    if (msg->data) {
         if (blimp_state == manual) {
             publish_log("Activating Auto Mode");
         }
@@ -1315,10 +1315,10 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool & msg) 
     }
 }
 
-void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-    calibrateBaro = msg.data;
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+    calibrateBaro = msg->data;
     const char * boolAsConstCharPtr = calibrateBaro ? "true" : "false";
 
     // Barometer Calibration
@@ -1338,10 +1338,10 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
     }
 }
 
-void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64 & msg) const
+void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-    baseBaro = msg.data;
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+    baseBaro = msg->data;
 
     //heartbeat
     //update last message time
@@ -1355,24 +1355,24 @@ void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64 & ms
 
 }
 
-void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
-    if (grabCom == 0 && msg.data) {
+    if (grabCom == 0 && msg->data) {
         grabCom = 1;
         publish_log("Going for a catch...");
-    } else if (grabCom == 1 && !msg.data) {
+    } else if (grabCom == 1 && !msg->data) {
         grabCom = 0;
         publish_log("Hopefully I got a balloon!");
     }
 }
 
-void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
-    if (msg.data == true) {
+    if (msg->data == true) {
         publish_log("I'm ded xD");
         motorControl.update(0,0,0,0,0);
         bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0, 0);
@@ -1382,33 +1382,33 @@ void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool & msg) 
     }
 }
 
-void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
-    if (shootCom == 0 && msg.data) {
+    if (shootCom == 0 && msg->data) {
         shootCom = 1;
         publish_log("I'm shooting my shot...");
-    } else if (shootCom == 1 && !msg.data) {
+    } else if (shootCom == 1 && !msg->data) {
         shootCom = 0;
         publish_log("What a shot!");
     }
 }
 
-void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
+void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     //commands from basestation
-    // forward_msg = msg.data.data[3];
-    // up_msg = msg.data.data[1];
-    // yaw_msg = msg.data.data[0];
-    // translation_msg = msg.data.data[2];
+    // forward_msg = msg->data.data[3];
+    // up_msg = msg->data.data[1];
+    // yaw_msg = msg->data.data[0];
+    // translation_msg = msg->data.data[2];
 
-    forward_msg = msg.data[3];
-    up_msg = msg.data[1];
-    yaw_msg = msg.data[0];
-    translation_msg = msg.data[2];
+    forward_msg = msg->data[3];
+    up_msg = msg->data[1];
+    yaw_msg = msg->data[0];
+    translation_msg = msg->data[2];
 
     // debug_msg.data[5] = forward_msg
     // debug_msg.data[6] = up_msg
@@ -1431,11 +1431,11 @@ void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64Mult
     // publish_log(motorCommands);
 }
 
-void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool & msg) const
+void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
-    int goal_color = msg.data;
+    int goal_color = msg->data;
     if (goalColor != orange && goal_color == 0) {
         goalColor = orange;
         publish_log("Goal Color changed to Orange");
@@ -1445,62 +1445,62 @@ void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool &
     }
 }
 
-void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
+void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     //3 objects with xyz (9 elements in total)
     for (size_t i = 0; i < 9; ++i) {
-        // avoidance[i] = msg.data.data[i];
-        avoidance[i] = msg.data[i];
+        // avoidance[i] = msg->data.data[i];
+        avoidance[i] = msg->data[i];
     }
 }
 
 // void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
 // {
-//     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+//     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
 //     // object of interest with xyz (3 elements in total)
 //     // for (size_t i = 0; i < 3; ++i) {
-//     //     // targets[i] = msg.data.data[i];
-//     //     targets[i] = msg.data[i];
+//     //     // targets[i] = msg->data.data[i];
+//     //     targets[i] = msg->data[i];
 //     // }
 
-//     targets[0] = msg.x;
+//     targets[0] = msg->x;
 
-//     targets[1] = msg.y;
+//     targets[1] = msg->y;
 
-//     targets[2] = msg.z;
+//     targets[2] = msg->z;
 
 // }
 
-void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
+void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     // object of interest with xyz (3 elements in total)
     for (size_t i = 0; i < 3; ++i) {
-        // targets[i] = msg.data.data[i];
-        targets[i] = msg.data[i];
+        // targets[i] = msg->data.data[i];
+        targets[i] = msg->data[i];
     }
 
-    // targets[0] = msg.x;
+    // targets[0] = msg->x;
 
-    // targets[1] = msg.y;
+    // targets[1] = msg->y;
 
-    // targets[2] = msg.z;
+    // targets[2] = msg->z;
 
 }
 
-void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray & msg) const
+void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg)
 {
     auto pixels_msg = msg;
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     //3 objects with xyz (9 elements in total)
     for (size_t i = 0; i < 9; ++i) {
-        //pixels[i] = pixels_msg.data.data[i];
-        pixels[i] = pixels_msg.data[i];
+        //pixels[i] = pixels_msg->data.data[i];
+        pixels[i] = pixels_msg->data[i];
     }
 }
 

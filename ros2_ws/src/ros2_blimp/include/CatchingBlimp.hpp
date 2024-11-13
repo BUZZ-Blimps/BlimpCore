@@ -277,17 +277,17 @@ private:
     void baro_callback();
     void state_machine_callback();
     void publish_log(std::string message) const;
-    void auto_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void calibrateBarometer_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void baro_subscription_callback(const std_msgs::msg::Float64 & msg) const;
-    void grab_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void kill_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void shoot_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void motor_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const;
-    void goal_color_subscription_callback(const std_msgs::msg::Bool & msg) const;
-    void avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const;
-    void targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const;
-    void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray & msg) const;
+    void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg);
+    void grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void shoot_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
+    void goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
+    void targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
+    void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg);
     float searchDirection();
 };
 

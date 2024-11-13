@@ -1,4 +1,6 @@
-#pragma once
+#ifndef BRUSHLESS_HPP
+#define BRUSHLESS_HPP
+
 #include "wiringPi.h"
 
 class brushless{
@@ -17,3 +19,5 @@ class brushless{
 	unsigned int div;
 	unsigned int div_stepping;
 };
+
+#endif

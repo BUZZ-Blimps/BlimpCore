@@ -2,7 +2,9 @@
  Madgwick_Filter.h 
 */
 
-#pragma once
+#ifndef MADGWICK_FILTER_HPP
+#define MADGWICK_FILTER_HPP
+
 #include "vector"
 
 class Madgwick_Filter
@@ -26,3 +28,5 @@ class Madgwick_Filter
     double init_time;
     double t_interval;
 };
+
+#endif

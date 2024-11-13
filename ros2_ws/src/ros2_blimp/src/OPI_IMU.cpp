@@ -52,6 +52,12 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #define I2C_SMBUS_BLOCK_MAX	32	/* As specified in SMBus standard */	
 #define I2C_SMBUS_I2C_BLOCK_MAX	32	/* Not specified but we use same structure */
 
+//Gyro gains by FSR setting
+// #define GYRO_GAIN (4.375/1000.0) // 125 DPS FSR
+#define GYRO_GAIN (8.75/1000.0)  // 250 DPS FSR
+// #define GYRO_GAIN (17.5/1000.0)  // 500 DPS FSR
+// #define GYRO_GAIN (35/1000.0)    // 1000 DPS FSR
+// #define GYRO_GAIN (70.0/1000.0)  // 2000 DPS FSR
 
 // Structures used in the ioctl() calls
 union i2c_smbus_data
@@ -81,6 +87,12 @@ void OPI_IMU::OPI_IMU_Setup(){
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL8_XL, 0b11001000);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C, 0b01000100);
+
+    //Uncomment desired gyro ODR/FSR setting
+    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000010); //104Hz ODR, 125 DPS FSR
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000000); //104Hz ODR, 250 DPS FSR
+    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100); //3.3kHz ODR, 2000 DPS FSR
+
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100);
 
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG1, 0b11011100);     // Temp sesnor enabled, High performance, ODR 80 Hz, FAST ODR disabled and Selft test disabled.
@@ -127,8 +139,6 @@ void OPI_IMU::OPI_IMU_Setup(){
 	PAR_P9 = NVM_PAR_P9_val / pow(2, 48);
 	PAR_P10 = NVM_PAR_P10_val / pow(2, 48);
 	PAR_P11 = NVM_PAR_P11_val / pow(2, 65);
-
-
 }
 
 void OPI_IMU::IMU_read(){
@@ -180,10 +190,9 @@ void OPI_IMU::IMU_read(){
     if (gyrRaw[2] >= 32768) gyrRaw[2] = gyrRaw[2] - 65536;
 
     //Convert Gyro raw to degrees per second updated (deg/s)
-    gyr_rateYraw = (gyrRaw[0] * 70) / 1000.0;
-    gyr_rateXraw = -(gyrRaw[1] * 70) / 1000.0;
-    gyr_rateZraw = (gyrRaw[2] * 70) / 1000.0;
-    
+    gyr_rateYraw =  (double)gyrRaw[0] * GYRO_GAIN;
+    gyr_rateXraw = -(double)gyrRaw[1] * GYRO_GAIN;
+    gyr_rateZraw =  (double)gyrRaw[2] * GYRO_GAIN;
 
     //Barometer and Temperature Sensor Output
     //Starts with the PRESS_XLSB_7_0 output register then will read the remainig five

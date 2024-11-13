@@ -1,4 +1,5 @@
-#pragma once
+#ifndef OPTICAL_EKF_HPP
+#define OPTICAL_EKF_HPP
 
 #include "Eigen/Dense"
 
@@ -35,3 +36,5 @@ class OpticalEKF {
   float gyroZR = 0.1;
   float accelXR = 0.001;
 };
+
+#endif

@@ -1,6 +1,8 @@
-#pragma once
-#include "servo.h"
-#include "brushless.h"
+#ifndef SERVO_WRAPPER_HPP
+#define SERVO_WRAPPER_HPP
+
+#include "servo.hpp"
+#include "brushless.hpp"
 
 class ServoWrapper{
     public:
@@ -22,3 +24,5 @@ class ServoWrapper{
     brushless motor;
 
 };
+
+#endif

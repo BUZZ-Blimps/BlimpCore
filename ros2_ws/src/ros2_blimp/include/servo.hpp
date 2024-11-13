@@ -1,13 +1,14 @@
-#pragma once
+#ifndef SERVO_HPP
+#define SERVO_HPP
+
 #include "wiringPi.h"
 
-class servo{
+class servo {
     public:
     void servo_setup(int PIN);
     double servo_angle(double angle);
     void servo_PIN(int PIN);
     double get_angle();
-
 
     private:
     double curr_angle;
@@ -17,3 +18,5 @@ class servo{
 	unsigned int div;
 	unsigned int div_stepping;
 };
+
+#endif

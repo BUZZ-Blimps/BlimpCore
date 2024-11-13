@@ -19,8 +19,7 @@ PID::PID(double kp, double ki, double kd) :
 {
 }
 
-PID::~PID(){
-}
+PID::~PID(){}
 
 void PID::setOutputLimits(double min, double max) {
     _out_min = min;

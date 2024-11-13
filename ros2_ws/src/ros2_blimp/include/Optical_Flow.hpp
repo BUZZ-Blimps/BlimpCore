@@ -1,7 +1,8 @@
 /*
  Optical_Flow.h - Library that will output the flow rate and surface quality content 
 */
-#pragma once
+#ifndef OPTICAL_FLOW_HPP
+#define OPTICAL_FLOW_HPP
 
 #define HWSERIAL Serial3
 #include <wiringPi.h>
@@ -26,3 +27,5 @@ class Optical_Flow
     std::vector<uint8_t> buffer;
   
 };
+
+#endif
