@@ -1323,10 +1323,10 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
     if (calibrateBaro == true) {
         baroCalibrationOffset = BerryIMU.comp_press - baseBaro;
 
-        publish_log(BerryIMU.comp_press);
-        publish_log(baseBaro);
-        publish_log(baroCalibrationOffset);
-        
+        publish_log(std::to_string(BerryIMU.comp_press));
+        publish_log(std::to_string(baseBaro));
+        publish_log(std::to_string(baroCalibrationOffset));
+
         publish_log("Calibrating Barometer");
     }
 }
