@@ -6,10 +6,14 @@
 #include <iostream>
 
 BaroAccKF::BaroAccKF() {
-  this->Xkp  <<0,
-               0,
-               0,
-               0;
+  reset();
+}
+
+void BaroAccKF::reset() {
+  this->Xkp  << 0,
+                0,
+                0,
+                0;
                
   this->Pkp   <<2,0,0,0,
                0,2,0,0,
@@ -65,7 +69,7 @@ void BaroAccKF::updateBaro(float baro) {
 
 //////////////////////////////////
 /////////// QUESTION /////////////
-//////////////////////////////////  
+//////////////////////////////////
   
   Eigen::Vector4f K = Pkp*(H.transpose())*S_inv;
   Xkp = Xkp+K*V;

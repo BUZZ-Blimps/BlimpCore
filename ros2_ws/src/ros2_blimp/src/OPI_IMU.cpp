@@ -84,7 +84,10 @@ void OPI_IMU::OPI_IMU_Setup(){
     LSM6DSL = wiringPiI2CSetupInterface(device, LSM6DSL_ADDRESS);
     BM388 = wiringPiI2CSetupInterface(device, BM388_ADDRESS);
 
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111);
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111); //3.3kHz, 
+    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001111); //104 Hz 
+    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000); //104 Hz, +/- 4G,
+
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL8_XL, 0b11001000);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C, 0b01000100);
 

@@ -71,29 +71,29 @@ volatile unsigned long pulseInTimeBegin = micros();
 volatile unsigned long pulseInTimeEnd = micros();
 volatile bool newPulseDurationAvailable = false;
 const u_int8_t interruptPin = 22;
-float z_distance_m = 0;
+double z_distance_m = 0;
 
 //avoidence data
 int quadrant = 10;
 
 //base station baro
-float baseBaro = 0.0;
+double baseBaro = 0.0;
 
 //base station calibrate baro
 bool calibrateBaro = false;
 
 //base station baro offset
-float baroCalibrationOffset = 0.0;
+double baroCalibrationOffset = 0.0;
 
 //direction from last ball search
 bool wasUp = true;
 
 //corrected baro
-float actualBaro = 0.0;
+double actualBaro = 0.0;
 
-float searchYawDirection = -1;
+double searchYawDirection = -1;
 
-float goalYawDirection = -1;
+double goalYawDirection = -1;
 
 // char log_buf[BUFFER_LEN];
 
@@ -204,10 +204,10 @@ EMAFilter rollOffset(0.5);
 TripleBallGrabber ballGrabber;
 
 //timing global variables for each update loop
-float lastSensorFastLoopTick = 0.0;
-float lastStateLoopTick = 0.0;
-float lastBaroLoopTick = 0.0;
-float lastOpticalLoopTick = 0.0;
+double lastSensorFastLoopTick = 0.0;
+double lastStateLoopTick = 0.0;
+double lastBaroLoopTick = 0.0;
+double lastOpticalLoopTick = 0.0;
 
 //The following names can be commented/uncommented based on the blimp that is used
 // Define the name of the blimp/robot
@@ -260,7 +260,7 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     //create subscribers (10 right now)
     //Base station
     auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", 10, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
-    baseBarometer_subscription = this->create_subscription<std_msgs::msg::Float64>("Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
+    baseBarometer_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
     calibrateBarometer_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", 10, std::bind(&CatchingBlimp::calibrateBarometer_subscription_callback, this, _1));
     grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", 10, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
     shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", 10, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
@@ -300,6 +300,9 @@ void CatchingBlimp::heartbeat_callback() {
 
 void CatchingBlimp::imu_callback()
 {
+    rclcpp::Time now = this->get_clock()->now();
+    double dt = (now-imu_msg_.header.stamp).seconds();
+
     // float startTime = micros();
     loop_time = micros()/MICROS_TO_SEC;
     
@@ -313,7 +316,7 @@ void CatchingBlimp::imu_callback()
     // imu_msg.header.frame_id.size = strlen(imu_msg.header.frame_id.data);
     // imu_msg.header.frame_id.capacity = BUFFER_LEN;
 
-    imu_msg_.header.stamp = this->get_clock()->now();
+    imu_msg_.header.stamp = now;
 
     //Estimated body orentation (quaternion)
     imu_msg_.orientation.w = madgwick.q1;
@@ -342,17 +345,19 @@ void CatchingBlimp::imu_callback()
     accelGCorrection.updateData(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw, pitch, roll);
 
     //run the prediction step of the vertical velecity kalman filter
-    double dt = 10/1000;
     kf.predict(dt);
+
     // xekf.predict(dt);
     // yekf.predict(dt);
     // gyroEKF.predict(dt);
 
     //pre filter accel before updating vertical velocity kalman filter
-    verticalAccelFilter.filter(accelGCorrection.agz);
+    // verticalAccelFilter.filter(accelGCorrection.agz);
 
     //update vertical velocity kalman filter acceleration
-    kf.updateAccel(verticalAccelFilter.last);
+    // kf.updateAccel(verticalAccelFilter.last);
+
+    kf.updateAccel(accelGCorrection.agz);
 
     //update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
@@ -407,22 +412,28 @@ void CatchingBlimp::baro_callback()
     // get most current barometer values
     BerryIMU.baro_read();
 
-    //update kalman with uncorreced barometer data
-    kf.updateBaro(BerryIMU.alt);
-
     //compute the corrected height with base station baro data and offset
     if (baseBaro != 0) {
         actualBaro = 44330 * (1 - pow(((BerryIMU.comp_press - baroCalibrationOffset)/baseBaro), (1/5.255))); // In meters Base Baro is the pressure
 
         //publish Height
-        height_msg.data = actualBaro;
+        // height_msg.data = actualBaro;
         // height_msg.data = BerryIMU.comp_press;  //only for debug
+        height_msg.data = kf.x;
         height_publisher->publish(height_msg);
+
+        //update kalman with corrected barometer data
+        kf.updateBaro(actualBaro);
 
     } else {
         actualBaro = 1000;
+
+        //update kalman with uncorrected barometer data
+        kf.updateBaro(BerryIMU.alt);
     }
 
+    // RCLCPP_INFO(this->get_logger(), "Raw: %.2f, Comp: %.2f, offset: %.2f, base: %.2f, cal: %.2f", BerryIMU.pressRaw, BerryIMU.comp_press, baroCalibrationOffset, baseBaro, actualBaro);
+    // RCLCPP_INFO(this->get_logger(), "Raw: %.2f, Comp: %.2f, Temp: %.2f", BerryIMU.pressRaw, BerryIMU.comp_press, BerryIMU.comp_temp);
     // Add Z Velocity to a Message and Publish
     z_velocity_msg.data = kf.v;
 
@@ -1321,7 +1332,12 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
 
     // Barometer Calibration
     if (calibrateBaro == true) {
+        //Read latest pressure value
+        BerryIMU.baro_read();
         baroCalibrationOffset = BerryIMU.comp_press - baseBaro;
+
+        //Reset (zero) kalman filter
+        kf.reset();
 
         publish_log(std::to_string(BerryIMU.comp_press));
         publish_log(std::to_string(baseBaro));
@@ -1333,7 +1349,8 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
 
 void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+    // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
+
     baseBaro = msg->data;
 
     //heartbeat
