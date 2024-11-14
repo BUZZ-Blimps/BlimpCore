@@ -241,8 +241,8 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     // Servo_R.servo_angle(180);
 
     // initialize
-    BerryIMU.OPI_IMU_Setup();
     wiringPiSetup();
+    BerryIMU.OPI_IMU_Setup();
     ballGrabber.ballgrabber_init(GATE_S, PWM_G);
     // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
     leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
@@ -1361,8 +1361,6 @@ void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::Sha
     if (blimp_state == lost) {
         blimp_state = manual;
     }
-
-
 }
 
 void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
