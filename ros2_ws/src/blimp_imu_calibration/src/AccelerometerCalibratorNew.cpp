@@ -33,6 +33,7 @@ void AccelerometerCalibrator::take_sample(){
     // Attempt to take a proper sample until success
     bool success = false;
     while(!success){
+        for(int i=0; i<3; i++) sample_out[i] = 0;
 
         float mean[] = {0, 0, 0};
         float sum_squared_deviations[] = {0, 0, 0};
@@ -231,6 +232,7 @@ void AccelerometerCalibrator::compute_calibration(){
         float cost_delta = cost-cost_previous;
         cost_previous = cost;
         _print("Iteration " + std::to_string(iteration) + ", cost=" + std::to_string(cost) + ", cost_delta=" + std::to_string(cost_delta) + "\n");
+        _print("\tGradient Norm=" + std::to_string((Jr.transpose() * r).norm()) + "\n");
         if(abs(cost_delta) <= eps){
             _print("Stopping.\n");
             break;
