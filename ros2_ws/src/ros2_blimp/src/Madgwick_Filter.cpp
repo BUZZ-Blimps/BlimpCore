@@ -14,23 +14,17 @@ Madgwick_Filter::Madgwick_Filter() {
 }
 
 //Output
-void Madgwick_Filter::Madgwick_Update(double gyr_rateXraw, double gyr_rateYraw, double gyr_rateZraw, double AccXraw, double AccYraw, double AccZraw) {
+void Madgwick_Filter::Madgwick_Update(double gx, double gy, double gz, double ax, double ay, double az) {
   //Time Interval
   double final_time = micros();
   t_interval = (final_time - init_time) / 1000000; //in seconds
-  init_time = micros();
-  double gx = gyr_rateXraw;
-  double gy = gyr_rateYraw;
-  double gz = gyr_rateZraw;
+  init_time = final_time;
 
   //Gravity, gyro, and accel quaterions
   std::vector<double> g_W = {0, 0, 0, 1}; //May need to make neg depending on orientation
   std::vector<double> gyro_I = {0, gx * (M_PI / 180), gy * (M_PI / 180), gz * (M_PI / 180)}; // in rad/s(converted from deg/s)
   //std::vector<double> gyro_I = {0, -gy * (M_PI / 180), gx * (M_PI / 180), gz * (M_PI / 180)}; // in rad/s(converted from deg/s) for changed coordniates
 
-  double ax = AccXraw;
-  double ay = AccYraw;
-  double az = AccZraw;
   double mag_accel = sqrtf(pow(ax, 2) + pow(ay, 2) + pow(az, 2));
   std::vector<double> a_I = {0, ax / mag_accel, ay / mag_accel, az / mag_accel}; //Normalized Accel
   //std::vector<double> a_I = {0, -ay / mag_accel, ax / mag_accel, az / mag_accel}; //Normalized Accel for changed cordinates
@@ -143,7 +137,8 @@ std::vector<double> Madgwick_Filter::update_quat(double Gyr_RateX, double Gyr_Ra
   double del_f4 = 4.0f * q2q2 * q4 - _2q2 * a_I[1] + 4.0f * q3q3 * q4 - _2q3 * a_I[2];
 
   //Tunable parameter
-  double beta = .033; //from the original article
+  // double beta = .033; //from the original article
+  double beta = 0.75;
 
   double del_f_norm = sqrtf(pow(del_f1, 2) + pow(del_f2, 2) + pow(del_f3, 2) + pow(del_f4, 2));
   std::vector<double> del_q_est = { -beta*(del_f1 / del_f_norm),

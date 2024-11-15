@@ -17,6 +17,7 @@ add_executable(
     src/IMUTest.cpp
     src/OPI_IMU.cpp
     src/ZEstimator.cpp
+    src/Madgwick_Filter.cpp
     src/imu_test_node.cpp
 )
 

@@ -7,6 +7,8 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
+    
+
     catching_blimp_cmd = Node(
         package='ros2_blimp',
         executable='ros2_blimp_node',
