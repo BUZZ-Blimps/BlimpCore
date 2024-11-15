@@ -1,4 +1,4 @@
-#include "tripleBallGrabber.h"
+#include "tripleBallGrabber.hpp"
 #include <math.h>
 // #include "catching_blimp.h"
 

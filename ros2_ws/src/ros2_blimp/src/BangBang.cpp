@@ -1,4 +1,4 @@
-#include "BangBang.h"
+#include "BangBang.hpp"
 
 BangBang::BangBang(float newDeadBand, float newCenteringCom) {
     this->deadBand = newDeadBand;

@@ -1,4 +1,4 @@
-#include "accelGCorrection.h"
+#include "AccelGCorrection.hpp"
 
 AccelGCorrection::AccelGCorrection() {
     // Serial.println("Starting correction");

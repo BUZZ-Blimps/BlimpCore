@@ -2,7 +2,7 @@
   Kalman_Filter_Tran_Vel_Est.cpp - Library that will output the flow rate and surface quality content
 */
 
-#include "Kalman_Filter_Tran_Vel_Est.h"
+#include "Kalman_Filter_Tran_Vel_Est.hpp"
 #include "vector"
 #include <wiringPi.h>
 

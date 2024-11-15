@@ -1,7 +1,8 @@
-#pragma once
+#ifndef TRIPLE_BALL_GRABBER_HPP
+#define TRIPLE_BALL_GRABBER_HPP
 
-#include "servo.h"
-#include "brushless.h"
+#include "servo.hpp"
+#include "brushless.hpp"
 
 class TripleBallGrabber {  
   public:
@@ -33,3 +34,5 @@ class TripleBallGrabber {
     const int state_open = 1;
     const int state_shooting = 2;
 };
+
+#endif

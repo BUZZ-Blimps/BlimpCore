@@ -1,4 +1,4 @@
-#include "ServoWrapper.h"
+#include "ServoWrapper.hpp"
 
 void ServoWrapper::attach(int servoPin){
     lastMotorPos=0; // degrees from start
