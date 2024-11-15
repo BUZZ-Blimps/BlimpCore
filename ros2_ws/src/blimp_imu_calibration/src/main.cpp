@@ -5,7 +5,7 @@
 #include <math.h>
 
 #include "OPI_IMU.hpp"
-#include "AccelerometerCalibrator.hpp"
+#include "AccelerometerCalibratorNew.hpp"
 
 OPI_IMU imu;
 AccelerometerCalibrator calibrator;
@@ -37,7 +37,7 @@ int main(){
     imu.OPI_IMU_Setup();
     calibrator.init(func_sample_accelerometer_hardware_long, func_print, func_delay_ms);
 
-    int num_samples = 10;
+    int num_samples = 20;
 
     std::cout << "Beginning calibration with " << std::to_string(num_samples) << " samples." << std::endl;
     std::cout << "To take a new sample, put the IMU in a new rotation and press ENTER when it is still. DO NOT MOVE IT." << std::endl;

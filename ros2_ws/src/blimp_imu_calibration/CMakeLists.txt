@@ -7,13 +7,20 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 add_executable(
     ${PROJECT_NAME}_node
     src/main.cpp
-    src/AccelerometerCalibrator.cpp
+    src/AccelerometerCalibratorNew.cpp
     src/OPI_IMU.cpp
 )
+
+ament_target_dependencies(
+    ${PROJECT_NAME}_node
+    Eigen3
+)
+
 
 target_include_directories(
     ${PROJECT_NAME}_node PUBLIC
@@ -21,16 +28,11 @@ target_include_directories(
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME}_node wiringPi)
+target_link_libraries(${PROJECT_NAME}_node Eigen3::Eigen wiringPi)
 
 install(
     TARGETS ${PROJECT_NAME}_node
     DESTINATION lib/${PROJECT_NAME}
 )
-
-# install(
-#     DIRECTORY launch
-#     DESTINATION share/${PROJECT_NAME}/
-# )
 
 ament_package()

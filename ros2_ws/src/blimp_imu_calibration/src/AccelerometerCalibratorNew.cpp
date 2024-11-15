@@ -1,5 +1,6 @@
-#include "AccelerometerCalibrator.hpp"
+#include "AccelerometerCalibratorNew.hpp"
 #include <math.h>
+#include <eigen3/Eigen/Dense>
 
 AccelerometerCalibrator::AccelerometerCalibrator(){
     initialized = false;
@@ -78,7 +79,7 @@ void AccelerometerCalibrator::take_sample(){
             // _print("x=" + std::to_string(x) + ",  mean[0]=" + std::to_string(mean[0]) + ",  sum_squared_deviations[0]=" + std::to_string(sum_squared_deviations[0]) + "\n");
             // for(int j=0; j<3; j++) _print(std::to_string(j)+"="+std::to_string(accelerometer_reading_float[j])+",  mean="+std::to_string(mean[j])+"\n");
         }
-        for(int i=0; i<3; i++) variance[i] = sum_squared_deviations[i]/(num_samples_to_average - 1);
+        // for(int i=0; i<3; i++) variance[i] = sum_squared_deviations[i]/(num_samples_to_average - 1);
 
         // Calculate variances
         for (int i = 0; i < 3; i++) {
@@ -91,9 +92,9 @@ void AccelerometerCalibrator::take_sample(){
             // _print(std::to_string(sum_squares[i]));
             // _print(" Sum, squared: ");
             // _print(std::to_string(sum_squared));
-            _print(" Variance: ");
-            _print(std::to_string(variance[i]));
-            _print("\n");
+            // _print(" Variance: ");
+            // _print(std::to_string(variance[i]));
+            // _print("\n");
         }
 
         // Starting collecting real samples, but filter out outliers using the calculated variance
@@ -186,7 +187,62 @@ void AccelerometerCalibrator::clear_samples(){
 }
 
 void AccelerometerCalibrator::compute_calibration(){
-    calibrate_model();
+    // calibrate_model();
+
+    int num_samples = _samples.size()/3;
+
+    // Init beta
+    for(int i=0; i<3; i++) beta[i] = 0;
+    for(int i=3; i<6; i++) beta[i] = 1;
+
+    // Begin iterating
+    int max_num_iterations = 40;
+    float cost_previous = 1E8;
+    float eps = 1E-5;
+    for(int iteration = 0; iteration<max_num_iterations; iteration++){
+
+        // Calculate Jacobian and residual
+        Eigen::MatrixXd Jr(num_samples, 6);
+        Eigen::VectorXd r(num_samples);
+
+        for(int i=0; i<num_samples; i++){
+            float x = _samples[3*i+0];
+            float y = _samples[3*i+1];
+            float z = _samples[3*i+2];
+
+            Jr(i,0) = 2*(x - beta[0])*pow(beta[3],2);
+            Jr(i,1) = 2*(y - beta[1])*pow(beta[4],2);
+            Jr(i,2) = 2*(z - beta[2])*pow(beta[5],2);
+            Jr(i,3) = -2*pow(x - beta[0],2)*beta[3];
+            Jr(i,4) = -2*pow(y - beta[1],2)*beta[4];
+            Jr(i,5) = -2*pow(z - beta[2],2)*beta[5];
+            r(i) = 1 - pow(x - beta[0],2)*pow(beta[3],2) - pow(y - beta[1],2)*pow(beta[4],2) - pow(z - beta[2],2)*pow(beta[5],2);
+        }
+
+        // Calculate delta
+        Eigen::VectorXd delta = -(Jr.transpose() * Jr).inverse() * Jr.transpose() * r;
+
+        // Update beta
+        for(int i=0; i<6; i++) beta[i] += delta(i);
+
+
+        // Check stopping criteria
+        float cost = r.norm();
+        float cost_delta = cost-cost_previous;
+        cost_previous = cost;
+        _print("Iteration " + std::to_string(iteration) + ", cost=" + std::to_string(cost) + ", cost_delta=" + std::to_string(cost_delta) + "\n");
+        if(abs(cost_delta) <= eps){
+            _print("Stopping.\n");
+            break;
+        }
+    }
+
+    _print("\n");
+    for (int i = 0; i < 6; ++i) {
+        _print(std::to_string(beta[i]));
+        _print(" ");
+    }
+    _print("\n");
 }
 
 void AccelerometerCalibrator::_print(std::string message){

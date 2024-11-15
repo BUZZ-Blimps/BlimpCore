@@ -1,5 +1,4 @@
 #include "AccelerometerCalibratorOld.hpp"
-#include <math.h>
 
 AccelerometerCalibrator::AccelerometerCalibrator(){
     initialized = false;
@@ -27,15 +26,15 @@ void AccelerometerCalibrator::take_sample(){
     }
 
     // Create variable to store sample
-    float sample_out[] = {0, 0, 0};
+    long sample_out[] = {0, 0, 0};
 
     // Attempt to take a proper sample until success
     bool success = false;
     while(!success){
 
-        float mean[] = {0, 0, 0};
-        float sum_squared_deviations[] = {0, 0, 0};
-        float variance[] = {0, 0, 0};
+        long sum[] = {0, 0, 0};
+        unsigned long sum_squares[] = {0, 0, 0};
+        unsigned long variance[] = {0, 0, 0};
 
         // First, take (num_samples_to_average) samples to estimate the variance
         // Make all variables longs because ints will overflow
@@ -44,53 +43,40 @@ void AccelerometerCalibrator::take_sample(){
             // Take a reading
             long accelerometer_reading[] = {0, 0, 0};
             _func_sample_accelerometer_hardware(accelerometer_reading);
-            float accelerometer_reading_float[] = {0,0,0};
-            for(int j=0; j<3; j++) accelerometer_reading_float[j] = *((float*)(&(accelerometer_reading[j])));
             // _func_print("sample: " + std::to_string(accelerometer_reading[0]));
 
             // Store reading in terms
-            float x = accelerometer_reading_float[0];
-            float y = accelerometer_reading_float[1];
-            float z = accelerometer_reading_float[2];
-            
-            // Welford's algorithm
-            for(int j=0; j<3; j++){
-                float a = accelerometer_reading_float[j];
-                mean[j] += (a-mean[j])/(i+1);
-                sum_squared_deviations[j] += (a-mean[j])*(a-mean[j]);
-            }
+            long x = accelerometer_reading[0];
+            long y = accelerometer_reading[1];
+            long z = accelerometer_reading[2];
 
-            // // Increment sums by terms
-            // sum[0] += x;
-            // sum[1] += y;
-            // sum[2] += z;
+            // Increment sums by terms
+            sum[0] += x;
+            sum[1] += y;
+            sum[2] += z;
 
-            // // Increment sums of squares by terms squared 
-            // sum_squares[0] += pow(x,2);
-            // sum_squares[1] += pow(y,2);
-            // sum_squares[2] += pow(z,2);
+            // Increment sums of squares by terms squared 
+            sum_squares[0] += (unsigned long)(abs(x)) * (unsigned long)(abs(x));
+            sum_squares[1] += (unsigned long)(abs(y)) * (unsigned long)(abs(y));
+            sum_squares[2] += (unsigned long)(abs(z)) * (unsigned long)(abs(z));
 
             // Delay to sample at (sampling_rate) Hz
             int delay_duration_ms = 1000 / sampling_rate;
             _func_delay_ms(delay_duration_ms);
 
-            // _print("x=" + std::to_string(x) + ",  sum[0]=" + std::to_string(sum[0]) + ",  sum_squares[0]=" + std::to_string(sum_squares[0]) + ",  sum_squared[0]=" + std::to_string(pow(sum[0],2)) + "\n");
-            // _print("x=" + std::to_string(x) + ",  mean[0]=" + std::to_string(mean[0]) + ",  sum_squared_deviations[0]=" + std::to_string(sum_squared_deviations[0]) + "\n");
-            // for(int j=0; j<3; j++) _print(std::to_string(j)+"="+std::to_string(accelerometer_reading_float[j])+",  mean="+std::to_string(mean[j])+"\n");
+            _print("x=" + std::to_string(x) + ",  sum[0]=" + std::to_string(sum[0]) + ",  sum_squares[0]=" + std::to_string(sum_squares[0]) + "\n");
         }
-        for(int i=0; i<3; i++) variance[i] = sum_squared_deviations[i]/(num_samples_to_average - 1);
 
         // Calculate variances
         for (int i = 0; i < 3; i++) {
 
-            // float sum_squared = pow(sum[i],2);
-            // variance[i] = sum_squares[i] / (num_samples_to_average - 1) - sum_squared / (num_samples_to_average - 1);
-            variance[i] = sum_squared_deviations[i]/(num_samples_to_average - 1);
+            unsigned long sum_squared = abs(sum[i]) * abs(sum[i]);
+            variance[i] = sum_squares[i] / (num_samples_to_average - 1) - sum_squared / (num_samples_to_average - 1);
 
-            // _print("Sum squares: ");
-            // _print(std::to_string(sum_squares[i]));
-            // _print(" Sum, squared: ");
-            // _print(std::to_string(sum_squared));
+            _print("Sum squares: ");
+            _print(std::to_string(sum_squares[i]));
+            _print(" Sum, squared: ");
+            _print(std::to_string(sum_squared));
             _print(" Variance: ");
             _print(std::to_string(variance[i]));
             _print("\n");
@@ -106,44 +92,33 @@ void AccelerometerCalibrator::take_sample(){
             // Take a reading
             long accelerometer_reading[] = {0, 0, 0};
             _func_sample_accelerometer_hardware(accelerometer_reading);
-            float accelerometer_reading_float[] = {0,0,0};
-            for(int i=0; i<3; i++) accelerometer_reading_float[i] = *((float*)(&(accelerometer_reading[i])));
 
             // Store reading in terms
-            float x = accelerometer_reading_float[0];
-            float y = accelerometer_reading_float[1];
-            float z = accelerometer_reading_float[2];
+            long x = accelerometer_reading[0];
+            long y = accelerometer_reading[1];
+            long z = accelerometer_reading[2];
 
             // Filter out outliers using calculated variance
-            // float dx = x - sum[0]/num_samples_to_average;
-            // float dy = y * sum[1]/num_samples_to_average;
-            // float dz = z * sum[2]/num_samples_to_average;
-            float dx = x - mean[0];
-            float dy = y - mean[1];
-            float dz = z - mean[2];
+            long dx = x * num_samples_to_average - sum[0];
+            long dy = y * num_samples_to_average - sum[1];
+            long dz = z * num_samples_to_average - sum[2];
 
             // Number of standard deviations samples must lie within
             long good_num_std = 3;
 
-            // _print("dx(" + std::to_string(abs(dx)) + ")<3sig(" + std::to_string(good_num_std*sqrt(variance[0])) + ") = "+std::to_string(abs(dx) < good_num_std*sqrt(variance[0]))+"\n");
-            // _print("dy(" + std::to_string(abs(dy)) + ")<3sig(" + std::to_string(good_num_std*sqrt(variance[1])) + ") = "+std::to_string(abs(dy) < good_num_std*sqrt(variance[1]))+"\n");
-            // _print("dz(" + std::to_string(abs(dz)) + ")<3sig(" + std::to_string(good_num_std*sqrt(variance[2])) + ") = "+std::to_string(abs(dz) < good_num_std*sqrt(variance[2]))+"\n");
-
             // Check to see if sample is good
-            if(abs(dx) < good_num_std*sqrt(variance[0])
-            && abs(dy) < good_num_std*sqrt(variance[1])
-            && abs(dz) < good_num_std*sqrt(variance[2])){
+            if(dx*dx < good_num_std*good_num_std*num_samples_to_average*num_samples_to_average*variance[0] 
+            && dy*dy < good_num_std*good_num_std*num_samples_to_average*num_samples_to_average*variance[1] 
+            && dz*dz < good_num_std*good_num_std*num_samples_to_average*num_samples_to_average*variance[2]){
                 // Good sample
                 success_count++;
                 sample_out[0] += x;
                 sample_out[1] += y;
                 sample_out[2] += z;
-                // _print("good, ");
 
             }else{
                 // Bad sample
                 fail_count++;
-                // _print("bad, ");
             }
 
             if ((fail_count > success_count && success_count > 10) || fail_count > num_samples_to_average) {
@@ -206,7 +181,7 @@ void AccelerometerCalibrator::reset_calibration_matrices() {
     }
 }
 
-void AccelerometerCalibrator::update_calibration_matrices(const float *data) {
+void AccelerometerCalibrator::update_calibration_matrices(const long *data) {
     int j, k;
     double dx, b;
     double residual = 1.0;
@@ -214,7 +189,6 @@ void AccelerometerCalibrator::update_calibration_matrices(const float *data) {
 
     for (j = 0; j < 3; ++j) {
         b = beta[3 + j];
-        _print("data[j]=" + std::to_string(data[j])+"\n");
         dx = ((float)data[j]) - beta[j];
         residual -= b * b * dx * dx;
         jacobian[j] = 2.0 * b * b * dx;
@@ -233,7 +207,7 @@ void AccelerometerCalibrator::compute_calibration_matrices() {
     reset_calibration_matrices();
     int num_samples = _samples.size()/3;
     for (int i = 0; i < num_samples; i++) {
-        float data[] = {_samples[3*i+0], _samples[3*i+1], _samples[3*i+2]};
+        long data[] = {_samples[3*i+0], _samples[3*i+1], _samples[3*i+2]};
         update_calibration_matrices(data);
     }
 }
