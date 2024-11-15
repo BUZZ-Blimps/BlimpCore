@@ -12,7 +12,7 @@ find_package(Eigen3 REQUIRED)
 add_executable(
     ${PROJECT_NAME}_node
     src/main.cpp
-    src/AccelerometerCalibratorNew.cpp
+    src/AccelerometerCalibrator.cpp
     src/OPI_IMU.cpp
 )
 
