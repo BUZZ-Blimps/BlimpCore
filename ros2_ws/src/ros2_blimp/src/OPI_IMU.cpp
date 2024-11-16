@@ -59,6 +59,9 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 // #define GYRO_GAIN (35/1000.0)    // 1000 DPS FSR
 // #define GYRO_GAIN (70.0/1000.0)  // 2000 DPS FSR
 
+#define ACC_GAIN (0.122/1000.0) //4 m/s^2
+// #define ACC_GAIN (0.244/1000.0) //8 m/s^2
+
 // Structures used in the ioctl() calls
 union i2c_smbus_data
 {
@@ -75,7 +78,7 @@ struct i2c_smbus_ioctl_data
   union i2c_smbus_data *data ;
 } ;
 
-void OPI_IMU::OPI_IMU_Setup(){
+void OPI_IMU::OPI_IMU_Setup() {
     ref_pressure_found = true;
     const char *device;
     device = "/dev/i2c-3"; 
@@ -84,9 +87,9 @@ void OPI_IMU::OPI_IMU_Setup(){
     LSM6DSL = wiringPiI2CSetupInterface(device, LSM6DSL_ADDRESS);
     BM388 = wiringPiI2CSetupInterface(device, BM388_ADDRESS);
 
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111); //3.3kHz, 
+    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111); //3.3kHz, 
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001111); //104 Hz 
-    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000); //104 Hz, +/- 4G,
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000); //104 Hz, +/- 4G,
 
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL8_XL, 0b11001000);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C, 0b01000100);
@@ -157,10 +160,10 @@ void OPI_IMU::IMU_read(){
     if (accRaw[1] >= 32768) accRaw[1] = accRaw[1] - 65536;
     if (accRaw[2] >= 32768) accRaw[2] = accRaw[2] - 65536;
 
-    AccYraw = (accRaw[0] * 0.244) / 1000.0;
-    AccXraw = -(accRaw[1] * 0.244) / 1000.0;
-    AccZraw = (accRaw[2] * 0.244) / 1000.0;
-
+    //FLU frame: 
+    AccXraw =  (accRaw[1] * ACC_GAIN);
+    AccYraw = -(accRaw[0] * ACC_GAIN);
+    AccZraw =  (accRaw[2] * ACC_GAIN);
 
     //Magnetometer Output
     out = wiringPiI2CReadRegBlock(LIS3MDL, 0x80 | LIS3MDL_OUT_X_L, 6, buff); 
@@ -175,8 +178,8 @@ void OPI_IMU::IMU_read(){
     if (magRaw[2] >= 32768) magRaw[2] = magRaw[2] - 65536;
 
     //convert?
-    MagYraw = magRaw[0];
-    MagXraw = -magRaw[1];
+    MagXraw = magRaw[1];
+    MagYraw = -magRaw[0];
     MagZraw = magRaw[2];
 
     //Gyroscope Output
@@ -192,9 +195,9 @@ void OPI_IMU::IMU_read(){
     if (gyrRaw[2] >= 32768) gyrRaw[2] = gyrRaw[2] - 65536;
 
     //Convert Gyro raw to degrees per second updated (deg/s)
-    gyr_rateYraw =  (double)gyrRaw[0] * GYRO_GAIN;
-    gyr_rateXraw = -(double)gyrRaw[1] * GYRO_GAIN;
-    gyr_rateZraw =  (double)gyrRaw[2] * GYRO_GAIN;
+    gyr_rateXraw = (double)gyrRaw[1] * GYRO_GAIN;
+    gyr_rateYraw = -(double)gyrRaw[0] * GYRO_GAIN;
+    gyr_rateZraw = (double)gyrRaw[2] * GYRO_GAIN;
     //---------------------------------------------------------------------------------------
 }
 

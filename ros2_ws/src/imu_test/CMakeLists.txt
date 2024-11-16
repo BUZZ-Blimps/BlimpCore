@@ -11,6 +11,9 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(
     ${PROJECT_NAME}_node
@@ -18,6 +21,7 @@ add_executable(
     src/OPI_IMU.cpp
     src/ZEstimator.cpp
     src/Madgwick_Filter.cpp
+    src/EMAFilter.cpp
     src/imu_test_node.cpp
 )
 
@@ -26,6 +30,9 @@ ament_target_dependencies(
     rclcpp
     geometry_msgs
     sensor_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
     Eigen3
 )
 
@@ -44,6 +51,11 @@ install(
 
 install(
     DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}/
+)
+
+install(
+    DIRECTORY rviz
     DESTINATION share/${PROJECT_NAME}/
 )
 

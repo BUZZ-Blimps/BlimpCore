@@ -11,6 +11,9 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 set(
@@ -23,7 +26,7 @@ set(
     src/EMAFilter.cpp
     src/Gimbal.cpp
     src/gyro_ekf.cpp
-    src/Kalman_Filter_Tran_Vel_Est.cpp
+    src/ZEstimator.cpp
     src/Madgwick_Filter.cpp
     src/MotorControl.cpp
     src/optical_ekf.cpp
@@ -45,6 +48,9 @@ ament_target_dependencies(
     std_msgs 
     geometry_msgs 
     sensor_msgs
+    tf2
+    tf2_ros
+    tf2_geometry_msgs
     Eigen3
 )
 

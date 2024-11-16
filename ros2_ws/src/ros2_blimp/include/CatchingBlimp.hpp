@@ -1,16 +1,23 @@
 #ifndef CATCHING_BLIMP_HPP
 #define CATCHING_BLIMP_HPP
 
+//C includes
+#include <stdio.h>
+#include <stdlib.h>
+
 //C++ includes
 #include <chrono>
 #include <functional>
 #include <memory>
 #include <vector>
 #include <string>
-#include <stdio.h>
-#include <stdlib.h>
 #include <numeric>
+
 #include <rclcpp/rclcpp.hpp>
+
+//TF2
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 //Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
@@ -28,16 +35,17 @@
 #include "MotorControl.hpp"
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
-#include "baro_acc_kf.hpp"
+// #include "baro_acc_kf.hpp"
 #include "AccelGCorrection.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
-#include "Kalman_Filter_Tran_Vel_Est.hpp"
+// #include "Kalman_Filter_Tran_Vel_Est.hpp"
 #include "BangBang.hpp"
 #include "optical_ekf.hpp"
-#include "gyro_ekf.hpp"
+// #include "gyro_ekf.hpp"
 #include "tripleBallGrabber.hpp"
 #include "Gimbal.hpp"
+#include "ZEstimator.hpp"
 
 #include <wiringPi.h>
 
@@ -246,10 +254,10 @@ private:
     rclcpp::TimerBase::SharedPtr timer_heartbeat;
 
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr heartbeat_publisher;
-    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher;
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr height_publisher;
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr height_publisher_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
     rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr state_machine_publisher;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_publisher;
 
@@ -267,11 +275,19 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
 
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    geometry_msgs::msg::TransformStamped blimp_tf_;
+
     size_t count_;
     std::string blimp_name_;
 
     std_msgs::msg::Bool heartbeat_msg_;
     sensor_msgs::msg::Imu imu_msg_;
+    std_msgs::msg::Float64 z_msg_, z_vel_msg_;
+
+    bool imu_init_, baro_init_;
+    double base_baro_, baro_calibration_offset_, cal_baro_;
+    double z_hat_;
 
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
@@ -279,9 +295,12 @@ private:
     PID zPID_;   //not used for now due to baro reading malfunction
     PID yawPID_; //can also tune kd with a little overshoot induced
 
-    void heartbeat_callback();
-    void imu_callback();
-    void baro_callback();
+    ZEstimator z_est_;
+    EMAFilter z_lowpass_;
+
+    void heartbeat_timer_callback();
+    void imu_timer_callback();
+    void baro_timer_callback();
     void state_machine_callback();
     void publish_log(std::string message) const;
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
