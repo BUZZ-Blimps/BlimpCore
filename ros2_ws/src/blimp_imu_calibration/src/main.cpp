@@ -7,35 +7,30 @@
 #include <iomanip>
 
 #include "OPI_IMU.hpp"
-#include "AccelerometerCalibratorNew.hpp"
+#include "AccelerometerCalibrator.hpp"
 
 OPI_IMU imu;
 AccelerometerCalibrator calibrator;
 
-void sample_accelerometer_hardware(float* data){
+void func_sample_accelerometer_hardware(float* data){
     imu.IMU_read();
     data[0] = imu.AccXraw;
     data[1] = imu.AccYraw;
     data[2] = imu.AccZraw;
 }
 
-void func_sample_accelerometer_hardware_long(long* data){
-    float data_float[] = {0, 0, 0};
-    sample_accelerometer_hardware(data_float);
-
-    for(int i=0; i<3; i++) data[i] = *((long*)(&(data_float[i])));
-    // std::cout << "pre-sample: " << std::to_string(data_float[0]) << ", " + std::to_string(data[0]) << std::endl;
-}
 
 void func_print(std::string message){
     std::cout << message;
 }
 
+
 void func_delay_ms(int delay_length_ms){
     std::this_thread::sleep_for(std::chrono::milliseconds(delay_length_ms));
 }
 
-void saveToYAML(std::string blimp_name, double* betas, int num_betas){
+
+void saveToYAML(std::string blimp_name, Eigen::VectorXf betas){
     // Define file path
     std::string file_path = "/home/opi/" + blimp_name + "_accel_cal.yaml";
 
@@ -48,9 +43,9 @@ void saveToYAML(std::string blimp_name, double* betas, int num_betas){
 
     // Write betas
     yamlFile << "betas: [";
-    for(int i=0; i<num_betas; i++){
-        yamlFile << std::fixed << std::setprecision(16) << betas[i];
-        if(i < num_betas - 1){
+    for(int i=0; i<betas.size(); i++){
+        yamlFile << std::fixed << std::setprecision(16) << betas(i);
+        if(i < betas.size() - 1){
             yamlFile << ", ";
         }
     }
@@ -60,17 +55,19 @@ void saveToYAML(std::string blimp_name, double* betas, int num_betas){
     yamlFile.close();
 }
 
+
 int main(){
     std::cout << "What blimp is being calibrated? ";
     std::string blimp_name;
     std::cin >> blimp_name;
 
     imu.OPI_IMU_Setup();
-    calibrator.init(func_sample_accelerometer_hardware_long, func_print, func_delay_ms);
+    calibrator.init(func_sample_accelerometer_hardware, func_print, func_delay_ms);
 
     std::cout << "Beginning calibration of " << blimp_name << "." << std::endl;
     std::cout << "To take a new sample, put the IMU in a new rotation and press ENTER when it is still. DO NOT MOVE IT." << std::endl;
     std::cout << "To stop sampling, type 'hawk tuah' and press ENTER." << std::endl;
+    std::cin.ignore();
 
     int sample_count = 0;
     bool sampling = true;
@@ -99,23 +96,25 @@ int main(){
     std::cout << "Calibration complete." << std::endl;
 
     std::cout << "Saving betas to YAML." << std::endl;
-    saveToYAML(blimp_name, &(calibrator.beta[0]), 6);
+    saveToYAML(blimp_name, calibrator.beta);
 
     std::cout << "Showing live calibrated accelerometer samples." << std::endl;
     while(true){
         // Sample IMU
-        float sample[] = {0, 0, 0};
-        sample_accelerometer_hardware(sample);
+        float sample_floats[] = {0, 0, 0};
+        func_sample_accelerometer_hardware(sample_floats);
+        Eigen::VectorXf sample = Eigen::Map<Eigen::VectorXf>(sample_floats, 3);
 
         // Correct sample
-        float corrected_sample[] = {0, 0, 0};
-        for(int i=0; i<3; i++) corrected_sample[i] = (sample[i] - calibrator.beta[i]) * calibrator.beta[i+3];
+        Eigen::VectorXf corrected_sample = (sample - calibrator.beta.segment(0,3)).cwiseProduct(calibrator.beta.segment(3,3));
+
+        // Calculate norms
+        float norm = sample.norm();
+        float corrected_norm = corrected_sample.norm();
 
         // Print corrected samples
-        float norm = sqrt(pow(sample[0],2) + pow(sample[1],2) + pow(sample[2],2));
-        float corrected_norm = sqrt(pow(corrected_sample[0],2) + pow(corrected_sample[1],2) + pow(corrected_sample[2],2));
-        std::cout << "[" << std::to_string(sample[0]) << ", " << std::to_string(sample[1]) << ", " <<std::to_string(sample[2]) << "], norm^2 = " << std::to_string(norm) << ",\t\t";
-        std::cout << "[" << std::to_string(corrected_sample[0]) << ", " << std::to_string(corrected_sample[1]) << ", " <<std::to_string(corrected_sample[2]) << "], norm^2 = " << std::to_string(corrected_norm) << std::endl;
+        std::cout << "[" << std::to_string(sample(0)) << ", " << std::to_string(sample(1)) << ", " <<std::to_string(sample(2)) << "], norm^2 = " << std::to_string(norm) << ",\t\t";
+        std::cout << "[" << std::to_string(corrected_sample(0)) << ", " << std::to_string(corrected_sample(1)) << ", " <<std::to_string(corrected_sample(2)) << "], norm^2 = " << std::to_string(corrected_norm) << std::endl;
 
         // Delay
         func_delay_ms(500);
