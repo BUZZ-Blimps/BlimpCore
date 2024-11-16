@@ -22,11 +22,6 @@ float yaw_msg = 0;
 float up_msg = 0;
 float translation_msg = 0;
 
-//sensor data
-float pitch = 0;
-float yaw = 0;
-float roll = 0;
-
 float rotation = 180;
 float ground_pressure = 0;
 
@@ -76,20 +71,17 @@ double z_distance_m = 0;
 //avoidence data
 int quadrant = 10;
 
-//base station baro
-double baseBaro = 0.0;
-
 //base station calibrate baro
-bool calibrateBaro = false;
+// bool calibrateBaro = false;
 
 //base station baro offset
-double baroCalibrationOffset = 0.0;
+// double baroCalibrationOffset = 0.0;
 
 //direction from last ball search
 bool wasUp = true;
 
 //corrected baro
-double actualBaro = 0.0;
+// double z_hat_ = 0.0;
 
 double searchYawDirection = -1;
 
@@ -108,7 +100,6 @@ std::vector<int64_t> pixels = {1000, 1000, 0, 1000, 1000, 0, 1000, 1000, 0};
 
 //------------------MICRO ROS publishers/subscribers--------------
 //ROS node
-
 
 //message types: String Bool Float32 Float32 MultiArray
 //message topics : /auto /baseBarometer /blimpID /grabbing /killed /motorCommands /shooting /identify /imu /goal_color /state_machine
@@ -159,7 +150,6 @@ brushless Brushless_L;
 brushless Brushless_R;
 OPI_IMU BerryIMU;
 Madgwick_Filter madgwick;
-BaroAccKF kf;
 AccelGCorrection accelGCorrection;
 
 //NOT USED
@@ -182,7 +172,7 @@ PID translationPID(300, 0, 0); //not used
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
 
 //pre process for accel before vertical kalman filter
-EMAFilter verticalAccelFilter(0.05);
+// EMAFilter verticalAccelFilter(0.05);
 
 //filter on yaw gyro
 EMAFilter yawRateFilter(0.2);
@@ -192,13 +182,13 @@ EMAFilter rollRateFilter(0.5);
 EMAFilter xFilter(0.5);
 EMAFilter yFilter(0.5);
 EMAFilter zFilter(0.5);
-EMAFilter areaFilter(0.5);
+// EMAFilter areaFilter(0.5);
 
 //baro offset computation from base station value
-EMAFilter baroOffset(0.5);
+// EMAFilter baroOffset(0.5);
 
 //roll offset computation from imu
-EMAFilter rollOffset(0.5);
+// EMAFilter rollOffset(0.5);
 
 //ball grabber object
 TripleBallGrabber ballGrabber;
@@ -209,20 +199,10 @@ double lastStateLoopTick = 0.0;
 double lastBaroLoopTick = 0.0;
 double lastOpticalLoopTick = 0.0;
 
-//The following names can be commented/uncommented based on the blimp that is used
-// Define the name of the blimp/robot
-//  std::string blimpNameSpace = "BurnCream";
-//std::string blimpNameSpace = "SillyAh";
-//std::string blimpNameSpace = "Turbo";
-// std::string blimpNameSpace = "GameChamber";
-// std::string blimpNameSpace = "GravyLongWay";
-// std::string blimpNameSpace = "SuperBeef";
-
-CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
+CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0), imu_init_(false), baro_init_(false), z_hat_(0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
-    heartbeat_msg_.data = true;
-            
+    
     //Load PID config from params
     if (load_pid_config()) {
         RCLCPP_INFO(this->get_logger(), "PID configuration loaded.");
@@ -232,7 +212,10 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
         return;
     }
 
-    firstMessageTime = micros()/MICROS_TO_SEC;
+    //Initialize TF
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    blimp_tf_.header.frame_id = "map";
+    blimp_tf_.child_frame_id = blimp_name_;
 
     // Start Servos
     // Servo_L.servo_setup(0);
@@ -243,6 +226,9 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     // initialize
     wiringPiSetup();
     BerryIMU.OPI_IMU_Setup();
+    z_est_.initialize();
+    z_lowpass_.setAlpha(0.1);
+
     ballGrabber.ballgrabber_init(GATE_S, PWM_G);
     // leftGimbal.gimbal_init(0,2,5,25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
     leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
@@ -250,10 +236,10 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
 
     // create publishers (7 right now)
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
-    imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
+    imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
     debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>("debug", 10);
-    height_publisher = this->create_publisher<std_msgs::msg::Float64>("height", 10);
-    z_velocity_publisher = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
+    height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("height", 10);
+    z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
     state_machine_publisher = this->create_publisher<std_msgs::msg::Int64>("state_machine", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
 
@@ -276,29 +262,34 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
     //100Hz IMU timer
-    timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_callback, this));
+    timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_timer_callback, this));
 
-    //50Hz barometer timer
-    timer_baro = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::baro_callback, this));
+    //20Hz barometer timer
+    timer_baro = this->create_wall_timer(50ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
 
     //33Hz state machine timer
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
 
     //2Hz heartbeat timer
-    timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_callback, this));
+    timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
 
     //Start Brushless
     //     Brushless_L.brushless_setup(5);
     //     Brushless_R.brushless_setup(16);
     //     Brushless_L.brushless_thrust(1500);
     //     Brushless_R.brushless_thrust(1500);
+
+    //Initialize timestamps
+    firstMessageTime = micros()/MICROS_TO_SEC;
+    imu_msg_.header.stamp = this->get_clock()->now();
+    heartbeat_msg_.data = true;
 }
 
-void CatchingBlimp::heartbeat_callback() {
+void CatchingBlimp::heartbeat_timer_callback() {
     heartbeat_publisher->publish(heartbeat_msg_);
 }
 
-void CatchingBlimp::imu_callback()
+void CatchingBlimp::imu_timer_callback()
 {
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now-imu_msg_.header.stamp).seconds();
@@ -308,45 +299,68 @@ void CatchingBlimp::imu_callback()
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
-    BerryIMU.IMU_ROTATION(rotation); // Rotate IMU
+    // BerryIMU.IMU_ROTATION(rotation); // Rotate IMU
+
     madgwick.Madgwick_Update(BerryIMU.gyr_rateXraw, BerryIMU.gyr_rateYraw, BerryIMU.gyr_rateZraw, BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
 
-    //publish imu data
-    // snprintf(imu_msg.header.frame_id.data, BUFFER_LEN, blimpNameSpace.c_str());
-    // imu_msg.header.frame_id.size = strlen(imu_msg.header.frame_id.data);
-    // imu_msg.header.frame_id.capacity = BUFFER_LEN;
+    //Get quaternion from madgwick
+    std::vector<double> quat = madgwick.get_quaternion();
 
+    //Get euler angles from madgwick
+    // std::vector<double> euler = madgwick_.get_euler();
+
+    if (imu_init_) {
+        //Only propagate after first IMU sample so dt makes sense
+        z_est_.propagate(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw, quat, dt);
+    } else {
+        imu_init_ = true;
+    }
+
+    // RCLCPP_INFO(this->get_logger(), "R: %.2f, P: %.2f", euler[0], euler[1]);
     imu_msg_.header.stamp = now;
+    imu_msg_.orientation.w = quat[0];
+    imu_msg_.orientation.x = quat[1];
+    imu_msg_.orientation.y = quat[2];
+    imu_msg_.orientation.z = quat[3];
 
-    //Estimated body orentation (quaternion)
-    imu_msg_.orientation.w = madgwick.q1;
-    imu_msg_.orientation.x = madgwick.q2;
-    imu_msg_.orientation.y = madgwick.q3;
-    imu_msg_.orientation.z = madgwick.q4;
-
-    //Estimated body frame angular velocity from gyro
     imu_msg_.angular_velocity.x = BerryIMU.gyr_rateXraw;
     imu_msg_.angular_velocity.y = BerryIMU.gyr_rateYraw;
     imu_msg_.angular_velocity.z = BerryIMU.gyr_rateZraw;
 
-    //Estimated body frame acceleration from accelerometer
     imu_msg_.linear_acceleration.x = BerryIMU.AccXraw;
     imu_msg_.linear_acceleration.y = BerryIMU.AccYraw;
     imu_msg_.linear_acceleration.z = BerryIMU.AccZraw;
 
-    imu_publisher->publish(imu_msg_);
+    imu_publisher_->publish(imu_msg_);
+
+    //Lowpass propogated z estimate
+    z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+
+    z_msg_.data = z_hat_;
+    height_publisher_->publish(z_msg_);
+
+    z_vel_msg_.data = z_est_.xHat(1);
+    z_velocity_publisher_->publish(z_vel_msg_);
+
+    //Broadcast TF
+    blimp_tf_.header.stamp = now;
+    blimp_tf_.transform.translation.x = 0;
+    blimp_tf_.transform.translation.y = 0;
+    blimp_tf_.transform.translation.z = z_hat_;
+    blimp_tf_.transform.rotation = imu_msg_.orientation;
+
+    tf_broadcaster_->sendTransform(blimp_tf_);
 
     //get orientation from madgwick
-    pitch = madgwick.pitch_final;
-    roll = madgwick.roll_final;
-    yaw = madgwick.yaw_final;
+    // pitch = madgwick.pitch_final;
+    // roll = madgwick.roll_final;
+    // yaw = madgwick.yaw_final;
 
     //compute the acceleration in the barometers vertical reference frame
-    accelGCorrection.updateData(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw, pitch, roll);
+    // accelGCorrection.updateData(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw, pitch, roll);
 
     //run the prediction step of the vertical velecity kalman filter
-    kf.predict(dt);
-
+    // kf.predict(dt);
     // xekf.predict(dt);
     // yekf.predict(dt);
     // gyroEKF.predict(dt);
@@ -356,8 +370,7 @@ void CatchingBlimp::imu_callback()
 
     //update vertical velocity kalman filter acceleration
     // kf.updateAccel(verticalAccelFilter.last);
-
-    kf.updateAccel(accelGCorrection.agz);
+    // kf.updateAccel(accelGCorrection.agz);
 
     //update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
@@ -403,39 +416,49 @@ void CatchingBlimp::imu_callback()
     // publish_log(std::to_string(netTime));
 }
 
-void CatchingBlimp::baro_callback()
+void CatchingBlimp::baro_timer_callback()
 {
     // float startTime = micros();
-    auto height_msg = std_msgs::msg::Float64();
-    auto z_velocity_msg = std_msgs::msg::Float64();
+    // auto height_msg = std_msgs::msg::Float64();
+    // auto z_velocity_msg = std_msgs::msg::Float64();
 
     // get most current barometer values
     BerryIMU.baro_read();
 
+    if (!baro_init_) return;
+
+    cal_baro_ = 44330 * (1 - pow(((BerryIMU.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
+
+    //Update Z estimator with barometer measurement
+    z_est_.partialUpdate(cal_baro_);
+
+    //Lowpass current estimate
+    z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+
     //compute the corrected height with base station baro data and offset
-    if (baseBaro != 0) {
-        actualBaro = 44330 * (1 - pow(((BerryIMU.comp_press - baroCalibrationOffset)/baseBaro), (1/5.255))); // In meters Base Baro is the pressure
+    // if (baseBaro != 0) {
+    //     z_hat_ = 44330 * (1 - pow(((BerryIMU.comp_press - baroCalibrationOffset)/baseBaro), (1/5.255))); // In meters Base Baro is the pressure
 
-        //publish Height
-        // height_msg.data = actualBaro;
-        // height_msg.data = BerryIMU.comp_press;  //only for debug
-        height_msg.data = kf.x;
-        height_publisher->publish(height_msg);
+    //     //publish Height
+    //     // height_msg.data = z_hat_;
+    //     // height_msg.data = BerryIMU.comp_press;  //only for debug
+    //     height_msg.data = kf.x;
+    //     height_publisher->publish(height_msg);
 
-        //update kalman with corrected barometer data
-        kf.updateBaro(actualBaro);
+    //     //update kalman with corrected barometer data
+    //     kf.updateBaro(z_hat_);
 
-    } else {
-        actualBaro = 1000;
+    // } else {
+    //     z_hat_ = 1000;
 
-        //update kalman with uncorrected barometer data
-        kf.updateBaro(BerryIMU.alt);
-    }
+    //     //update kalman with uncorrected barometer data
+    //     kf.updateBaro(BerryIMU.alt);
+    // }
 
-    // RCLCPP_INFO(this->get_logger(), "Raw: %.2f, Comp: %.2f, offset: %.2f, base: %.2f, cal: %.2f", BerryIMU.pressRaw, BerryIMU.comp_press, baroCalibrationOffset, baseBaro, actualBaro);
+    // RCLCPP_INFO(this->get_logger(), "Raw: %.2f, Comp: %.2f, offset: %.2f, base: %.2f, cal: %.2f", BerryIMU.pressRaw, BerryIMU.comp_press, baroCalibrationOffset, baseBaro, z_hat_);
     // RCLCPP_INFO(this->get_logger(), "Raw: %.2f, Comp: %.2f, Temp: %.2f", BerryIMU.pressRaw, BerryIMU.comp_press, BerryIMU.comp_temp);
     // Add Z Velocity to a Message and Publish
-    z_velocity_msg.data = kf.v;
+    // z_velocity_msg.data = kf.v;
 
     // if (check == false){
     //   z_velocity_msg.data = 0;
@@ -443,9 +466,10 @@ void CatchingBlimp::baro_callback()
     //   z_velocity_msg.data = 0;
     // }
 
-    // xekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
-    // yekf.updateBaro(CEIL_HEIGHT_FROM_START-actualBaro);
-    z_velocity_publisher->publish(z_velocity_msg);
+    // xekf.updateBaro(CEIL_HEIGHT_FROM_START-z_hat_);
+    // yekf.updateBaro(CEIL_HEIGHT_FROM_START-z_hat_);
+
+    // z_velocity_publisher->publish(z_velocity_msg);
 
     // float endTime = micros();
     // float netTime = (endTime - startTime)/MICROS_TO_SEC;
@@ -780,9 +804,9 @@ void CatchingBlimp::state_machine_callback()
                             yawCom = GAME_BALL_YAW_SEARCH*searchYawDirection;
                             forwardCom = GAME_BALL_FORWARD_SEARCH;
 
-                            if (actualBaro > CEIL_HEIGHT) {
+                            if (z_hat_ > CEIL_HEIGHT) {
                                 upCom = GAME_BALL_VERTICAL_SEARCH; //down
-                            }else if (actualBaro < FLOOR_HEIGHT) {
+                            }else if (z_hat_ < FLOOR_HEIGHT) {
                                 upCom = -GAME_BALL_VERTICAL_SEARCH;  //up
                             }else{
                                 upCom = 0;
@@ -822,21 +846,21 @@ void CatchingBlimp::state_machine_callback()
                         // }
 
                         //move up and down within the set boundry
-                        // if (actualBaro > CEIL_HEIGHT) {
+                        // if (z_hat_ > CEIL_HEIGHT) {
                         //     // if (wasUp) wasUp = false;
                         //     yawCom = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     upCom = GAME_BALL_VERTICAL_SEARCH; //down
                         //     forwardCom = GAME_BALL_FORWARD_SEARCH;
                         // }
 
-                        // if (actualBaro < FLOOR_HEIGHT) {
+                        // if (z_hat_ < FLOOR_HEIGHT) {
                         //     // if (!wasUp) wasUp = true;
                         //     yawCom = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     upCom = -GAME_BALL_VERTICAL_SEARCH;  //up
                         //     forwardCom = GAME_BALL_FORWARD_SEARCH;
                         // }
 
-                        // if (actualBaro <= CEIL_HEIGHT && actualBaro >=FLOOR_HEIGHT) {
+                        // if (z_hat_ <= CEIL_HEIGHT && z_hat_ >=FLOOR_HEIGHT) {
                         //     // if (wasUp) wasUp = false;
                         //     yawCom = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     upCom = 0;
@@ -1033,7 +1057,7 @@ void CatchingBlimp::state_machine_callback()
                         //goal search behavior
                         //randomize the diretion selection
                         yawCom = GOAL_YAW_SEARCH*goalYawDirection;
-                        upCom = -goalPositionHold.calculate(GOAL_HEIGHT, actualBaro);  //go up to the goal
+                        upCom = -goalPositionHold.calculate(GOAL_HEIGHT, z_hat_);  //go up to the goal
                         // upCom = GOAL_UP_VELOCITY;
                         forwardCom = GOAL_FORWARD_SEARCH;
                     }
@@ -1135,7 +1159,7 @@ void CatchingBlimp::state_machine_callback()
 
     state_machine_publisher->publish(state_machine_msg);
     //safty height 
-    // if (actualBaro > MAX_HEIGHT) {
+    // if (z_hat_ > MAX_HEIGHT) {
     //     upCom = -1;
     // }
     //translation velocity and command
@@ -1243,9 +1267,8 @@ void CatchingBlimp::state_machine_callback()
         // publish_log(std::to_string(loop_time));
         // publish_log("Im in state_machine_callback dt<10+firstMessage/firstMessage");
         // publish_log(std::to_string(firstMessageTime));
-        //filter base station data
-        baroOffset.filter(baseBaro-BerryIMU.comp_press);
-        rollOffset.filter(BerryIMU.gyr_rateXraw);
+
+        // rollOffset.filter(BerryIMU.gyr_rateXraw);
 
         //zero motors while filters converge and esc arms
         motorControl.update(0, 0, 0, 0, 0);
@@ -1326,32 +1349,34 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
 
 void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-    calibrateBaro = msg->data;
-    const char * boolAsConstCharPtr = calibrateBaro ? "true" : "false";
-
     // Barometer Calibration
-    if (calibrateBaro == true) {
-        //Read latest pressure value
-        BerryIMU.baro_read();
-        baroCalibrationOffset = BerryIMU.comp_press - baseBaro;
+    // Read latest pressure value
+    BerryIMU.baro_read();
+    baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
 
-        //Reset (zero) kalman filter
-        kf.reset();
+    // Reset (zero) kalman filter
+    z_est_.reset();
 
-        publish_log(std::to_string(BerryIMU.comp_press));
-        publish_log(std::to_string(baseBaro));
-        publish_log(std::to_string(baroCalibrationOffset));
+    publish_log(std::to_string(BerryIMU.comp_press));
+    publish_log(std::to_string(base_baro_));
+    publish_log(std::to_string(baro_calibration_offset_));
 
-        publish_log("Calibrating Barometer");
-    }
+    publish_log("Calibrating Barometer");
 }
 
 void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
     // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
 
-    baseBaro = msg->data;
+    base_baro_ = msg->data;
+
+    if (!baro_init_) {
+        RCLCPP_INFO(this->get_logger(), "Base barometer initialized.");
+        baro_init_ = true;
+    }
+
+    // //filter base station data
+    // baroOffset.filter(baseBaro - BerryIMU.comp_press);
 
     //heartbeat
     //update last message time
@@ -1537,9 +1562,9 @@ float CatchingBlimp::searchDirection() {
 }
 
 // //Auto PID control (output fed into manual controller)
-// PID yPID_(0.8,0,0);    //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
-// PID xPID_(0.035,0,0);  //TODO:retune these 0.162 for pixel PID
-// PID zPID_(350, 0, 0);  //not used for now due to baro reading malfunction
+// PID yPID_(0.8,0,0);       //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
+// PID xPID_(0.035,0,0);     //TODO:retune these 0.162 for pixel PID
+// PID zPID_(350, 0, 0);     //not used for now due to baro reading malfunction
 // PID yawPID_(12.0, 0, 0);  //can also tune kd with a little overshoot induced
 
 bool CatchingBlimp::load_pid_config() {
