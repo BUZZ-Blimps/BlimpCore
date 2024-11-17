@@ -165,8 +165,8 @@ Gimbal leftGimbal;
 Gimbal rightGimbal;
 
 //Manual PID control
-PID forwardPID(300, 0, 0);  //not used
-PID translationPID(300, 0, 0); //not used
+// PID forwardPID(300, 0, 0);  //not used
+// PID translationPID(300, 0, 0); //not used
 
 //Goal positioning controller
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
@@ -1598,10 +1598,10 @@ bool CatchingBlimp::load_pid_config() {
         this->get_parameter("yaw_d", yaw_d) 
     ){
         //Set gains
-        xPID_ = PID(x_p, x_i, x_d);
-        yPID_ = PID(y_p, y_i, y_d);
-        zPID_ = PID(z_p, z_i, z_d);
-        yawPID_ = PID(yaw_p, yaw_i, yaw_d);
+        xPID_ = PID(x_p, x_i, x_d);  // left and right
+        yPID_ = PID(y_p, y_i, y_d);  // up and down
+        zPID_ = PID(z_p, z_i, z_d);  // unused
+        yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction 
 
         return true;
     } else {

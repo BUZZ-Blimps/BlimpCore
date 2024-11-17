@@ -73,15 +73,15 @@
 #define MAX_ATTEMPTS              5    //should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               4      //m
-#define FLOOR_HEIGHT              1    //m
+#define CEIL_HEIGHT               12      //m
+#define FLOOR_HEIGHT              1.5    //m
 
 #define MAX_HEIGHT                2    //m  (unused)
-#define GOAL_HEIGHT               6.5   //m
+#define GOAL_HEIGHT               9.5   //m
 #define GOAL_HEIGHT_DEADBAND      0.4   //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    1.3  //m distance for blimp to trigger goal score 	
+#define GOAL_DISTANCE_TRIGGER    1.4  //m distance for blimp to trigger goal score 	
 #define BALL_GATE_OPEN_TRIGGER   2    //m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.2  //m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER       0.8  //m distance for blimp to start the open-loop control
@@ -96,7 +96,7 @@
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
 #define GAME_BALL_YAW_SEARCH      -7  // deg/s
 #define GAME_BALL_FORWARD_SEARCH  130 // 30% throttle 
-#define GAME_BALL_VERTICAL_SEARCH 120  // m/s
+#define GAME_BALL_VERTICAL_SEARCH 225  // 45% throttle
 
 
 #define GAME_BALL_CLOSURE_COM     180  //approaching at 20% throttle cap
