@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/laptop-3/GitHub/VisionModule/ros2_vision_packages/install/stereo_vision_msgs/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/laptop-3/GitHub/BlimpCore/ros2_ws/src/blimp_imu_calibration/include/**",
+        "/home/laptop-3/GitHub/BlimpCore/ros2_ws/src/imu_test/include/**",
+        "/home/laptop-3/GitHub/BlimpCore/ros2_ws/src/ros2_blimp/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+} 

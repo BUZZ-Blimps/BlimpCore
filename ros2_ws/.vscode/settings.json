@@ -66,5 +66,15 @@
         "cinttypes": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp"
-    }
+    },
+    "python.autoComplete.extraPaths": [
+        "/home/laptop-2/Documents/GitHub/VisionModule/ros2_vision_packages/install/stereo_vision_msgs/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/laptop-2/Documents/GitHub/VisionModule/ros2_vision_packages/install/stereo_vision_msgs/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
 }

@@ -17,7 +17,9 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
-
+#include "LSM6DSL.h"
+#include "LIS3MDL.h"
+#include "BM388.h"
 #include <math.h>
 #include "eigen3/Eigen/Dense"
 // #include "BasicLinearAlgebra.h"
@@ -26,8 +28,10 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <asm/ioctl.h>
+#include "OPI_IMU.h"
 
-#include "OPI_IMU.hpp"
+#include <wiringPi.h>
+#include <wiringPiI2C.h>
 
 #define I2C_SLAVE	0x0703
 #define I2C_SMBUS	0x0720	/* SMBus-level access */
@@ -52,15 +56,6 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 #define I2C_SMBUS_BLOCK_MAX	32	/* As specified in SMBus standard */	
 #define I2C_SMBUS_I2C_BLOCK_MAX	32	/* Not specified but we use same structure */
 
-//Gyro gains by FSR setting
-// #define GYRO_GAIN (4.375/1000.0) // 125 DPS FSR
-#define GYRO_GAIN (8.75/1000.0)  // 250 DPS FSR
-// #define GYRO_GAIN (17.5/1000.0)  // 500 DPS FSR
-// #define GYRO_GAIN (35/1000.0)    // 1000 DPS FSR
-// #define GYRO_GAIN (70.0/1000.0)  // 2000 DPS FSR
-
-#define ACC_GAIN (0.122/1000.0) //4 m/s^2
-// #define ACC_GAIN (0.244/1000.0) //8 m/s^2
 
 // Structures used in the ioctl() calls
 union i2c_smbus_data
@@ -78,8 +73,7 @@ struct i2c_smbus_ioctl_data
   union i2c_smbus_data *data ;
 } ;
 
-void OPI_IMU::OPI_IMU_Setup() {
-    ref_pressure_found = true;
+void OPI_IMU::OPI_IMU_Setup(){
     const char *device;
     device = "/dev/i2c-3"; 
 
@@ -87,17 +81,10 @@ void OPI_IMU::OPI_IMU_Setup() {
     LSM6DSL = wiringPiI2CSetupInterface(device, LSM6DSL_ADDRESS);
     BM388 = wiringPiI2CSetupInterface(device, BM388_ADDRESS);
 
-    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111); //3.3kHz, 
-    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001111); //104 Hz 
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000); //104 Hz, +/- 4G,
-
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL8_XL, 0b11001000);
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C, 0b01000100);
-
-    //Uncomment desired gyro ODR/FSR setting
-    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000010); //104Hz ODR, 125 DPS FSR
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000000); //104Hz ODR, 250 DPS FSR
-    // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100); //3.3kHz ODR, 2000 DPS FSR
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100);
 
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG1, 0b11011100);     // Temp sesnor enabled, High performance, ODR 80 Hz, FAST ODR disabled and Selft test disabled.
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG2, 0b00100000);     // +/- 8 gauss
@@ -143,6 +130,8 @@ void OPI_IMU::OPI_IMU_Setup() {
 	PAR_P9 = NVM_PAR_P9_val / pow(2, 48);
 	PAR_P10 = NVM_PAR_P10_val / pow(2, 48);
 	PAR_P11 = NVM_PAR_P11_val / pow(2, 65);
+
+
 }
 
 void OPI_IMU::IMU_read(){
@@ -158,10 +147,10 @@ void OPI_IMU::IMU_read(){
     if (accRaw[1] >= 32768) accRaw[1] = accRaw[1] - 65536;
     if (accRaw[2] >= 32768) accRaw[2] = accRaw[2] - 65536;
 
-    //FLU frame: 
-    AccXraw =  (accRaw[1] * ACC_GAIN);
-    AccYraw = -(accRaw[0] * ACC_GAIN);
-    AccZraw =  (accRaw[2] * ACC_GAIN);
+    AccYraw = (accRaw[0] * 0.244) / 1000.0;
+    AccXraw = -(accRaw[1] * 0.244) / 1000.0;
+    AccZraw = (accRaw[2] * 0.244) / 1000.0;
+
 
     //Magnetometer Output
     out = wiringPiI2CReadRegBlock(LIS3MDL, 0x80 | LIS3MDL_OUT_X_L, 6, buff); 
@@ -176,9 +165,10 @@ void OPI_IMU::IMU_read(){
     if (magRaw[2] >= 32768) magRaw[2] = magRaw[2] - 65536;
 
     //convert?
-    MagXraw = magRaw[1];
-    MagYraw = -magRaw[0];
+    MagYraw = magRaw[0];
+    MagXraw = -magRaw[1];
     MagZraw = magRaw[2];
+
 
     //Gyroscope Output
     out = wiringPiI2CReadRegBlock(LSM6DSL, LSM6DSL_OUT_X_L_G, 6, buff); 
@@ -193,16 +183,14 @@ void OPI_IMU::IMU_read(){
     if (gyrRaw[2] >= 32768) gyrRaw[2] = gyrRaw[2] - 65536;
 
     //Convert Gyro raw to degrees per second updated (deg/s)
-    gyr_rateXraw = (double)gyrRaw[1] * GYRO_GAIN;
-    gyr_rateYraw = -(double)gyrRaw[0] * GYRO_GAIN;
-    gyr_rateZraw = (double)gyrRaw[2] * GYRO_GAIN;
-    //---------------------------------------------------------------------------------------
-}
+    gyr_rateYraw = (gyrRaw[0] * 70) / 1000.0;
+    gyr_rateXraw = -(gyrRaw[1] * 70) / 1000.0;
+    gyr_rateZraw = (gyrRaw[2] * 70) / 1000.0;
+    
 
-void OPI_IMU::baro_read() {
     //Barometer and Temperature Sensor Output
     //Starts with the PRESS_XLSB_7_0 output register then will read the remainig five
-    int out = wiringPiI2CReadRegBlock(BM388, PRESS_XLSB_7_0, 6, buff); 
+    out = wiringPiI2CReadRegBlock(BM388, PRESS_XLSB_7_0, 6, buff); 
     if (out == -1) {
         printf("BM388 PRESS_XLSB_7_0 I2C not working\n");
     }
@@ -229,6 +217,8 @@ void OPI_IMU::baro_read() {
     alt = 44330 * (1 - pow((comp_press / ref_ground_press), (1 / 5.255))); //In meters
 
     // alt = comp_press;  // plus something from base station
+
+    //---------------------------------------------------------------------------------------
 }
 
 void OPI_IMU::IMU_ROTATION(float rotation_angle){  //current: 180 degrees z axis rotation
@@ -299,16 +289,14 @@ static inline int i2c_smbus_access_bl (int fd, char rw, uint8_t command, int siz
   return ioctl (fd, I2C_SMBUS, &args) ;
 }
 
-int OPI_IMU::wiringPiI2CReadRegBlock(int fd, int reg, int num_bytes, uint8_t *buff)
+int OPI_IMU::wiringPiI2CReadRegBlock (int fd, int reg, int num_bytes, uint8_t *buff)
 {
-    union i2c_smbus_data data;
-    if (i2c_smbus_access_bl (fd, I2C_SMBUS_READ, reg, 6, &data)) {
-        return -1;
-    } else {
-        for (int i = 0; i < num_bytes; i++) {
-            buff[i] = data.block[i + 1];
-        }
-
-        return data.block[0]; //first element is length of block array
-    }
+  union i2c_smbus_data data;
+  if (i2c_smbus_access_bl (fd, I2C_SMBUS_READ, reg, 6, &data))
+    return -1 ;
+  else
+	for (int i = 0; i < num_bytes; i++) {
+		buff[i] = data.block[i + 1];
+	}
+    return data.block[0]; //first element is length of block array
 }

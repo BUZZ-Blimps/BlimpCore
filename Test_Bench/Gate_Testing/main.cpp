@@ -13,23 +13,25 @@
 
 #define GIMBAL_DEBUG              false
 #define MOTORS_OFF                false
-#define L_Pitch                   10                    
-#define L_Yaw                     3   // not changed           
+//new pcb
+#define L_Pitch                   5 // was 2                    
+#define L_Yaw                     3   //not used, not changed           
 #define R_Pitch                   0               
-#define R_Yaw                     9 //was 5              
+#define R_Yaw                     9 //not used, was 5                    
 
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    8                
+#define GATE_S                    2  // was 8              
 
-#define PWM_R                     5              
-#define PWM_G                     10              
-#define PWM_L                     16              
+#define PWM_R                     8              
+#define PWM_G                     10   // was10           
+#define PWM_L                     16     //was 16        
 
-#define OF_CS                     10 
+
+#define OF_CS                     10    
 #define MIN_MOTOR                 1000
 #define MAX_MOTOR                 2000
 
@@ -38,9 +40,14 @@ using namespace std;
 int main(){
     servo Servo_L;
     servo Servo_R;
+    servo Servo_G;
     Servo_L.servo_setup(L_Pitch);
     Servo_R.servo_setup(R_Pitch);
+    Servo_G.servo_setup(GATE_S);
+
     Servo_L.servo_angle(0);
+    Servo_R.servo_angle(0);
+    Servo_G.servo_angle(0);
     // Servo_R.servo_angle(180);
     // brushless Brushless_L;
     // brushless Brushless_R;
@@ -69,7 +76,7 @@ int main(){
         printf("Angle: %d\n", angle);
         // Brushless_L.brushless_thrust(thrust);
         // Brushless_R.brushless_thrust(thrust);
-        Servo_L.servo_angle(angle);
+        Servo_G.servo_angle(angle);
         delay(1000);
     }
     return(1);
