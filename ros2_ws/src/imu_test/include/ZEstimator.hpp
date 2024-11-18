@@ -39,7 +39,7 @@ public:
     ZEstimator();
     void initialize();
     void propagate(double ax, double ay, double az, std::vector<double> q, double dt);
-    void update();
+    void update(double bz);
     void partialUpdate(double bz);
     void reset();
 

@@ -5,8 +5,8 @@
 ZEstimator::ZEstimator() {
 
     //Initial state
-    F = Eigen::MatrixXd(3, 3);
-    B = Eigen::MatrixXd(3, 1);
+    F = Eigen::MatrixXd(3,3);
+    B = Eigen::MatrixXd(3,1);
 
     G = Eigen::MatrixXd(3,2);
     G << 0, 0,
@@ -26,14 +26,14 @@ ZEstimator::ZEstimator() {
 
     //P0 is created to save the initial covariance values. It keeps its value forever.
     P0 = Eigen::MatrixXd(3,3);
-    P0 << 0.25, 0, 0,
-          0,    1, 0,
-          0,    0, 0.01;
+    P0 << 1.0, 0, 0,
+          0,    1.0, 0,
+          0,    0, 1.0;
 
     P = Eigen::MatrixXd(3,3);
 
     Q0 = Eigen::MatrixXd(2,2);
-    Q0 << 0.5, 0.0, 0.0, 0.1;
+    Q0 << 0.2, 0.0, 0.0, 0.1;
 
     Q = Eigen::MatrixXd(2,2);
     
@@ -42,7 +42,7 @@ ZEstimator::ZEstimator() {
     //R0 represents a pseudo covariance that we use to initiate the propagations,
     //once we are in the air, we need to switch the actual R.
     R0 = Eigen::MatrixXd(1,1);
-    R0 << 0.3;
+    R0 << 2.0;
 
     R = Eigen::MatrixXd(1,1);
 
@@ -133,7 +133,9 @@ void ZEstimator::propagate(double ax, double ay, double az, std::vector<double> 
     P = F*P*F.transpose() + G*Q*G.transpose();
 }
 
-void ZEstimator::update() {
+void ZEstimator::update(double bz) {
+    z(0) = bz;
+
     Eigen::MatrixXd S;
     S = (H*P*H.transpose() + R);
     K = P*H.transpose()* S.inverse();
