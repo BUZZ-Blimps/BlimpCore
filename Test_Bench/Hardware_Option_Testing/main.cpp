@@ -13,6 +13,8 @@
 
 #define GIMBAL_DEBUG              false
 #define MOTORS_OFF                false
+#define MIN_MOTOR                 1000
+#define MAX_MOTOR                 2000
 //new pcb
 #define L_Pitch                   5 // was 2                    
 #define L_Yaw                     3   //not used, not changed           
@@ -85,14 +87,15 @@ int main(){
     Brushless_L.brushless_thrust(1500);
     Brushless_R.brushless_thrust(1500);
     Brushless_G.brushless_thrust(1500);
-    // Servo_R.servo_angle(180);
-    // brushless Brushless_L;
-    // brushless Brushless_R;
-    // Brushless_L.brushless_setup(5);
-    // Brushless_R.brushless_setup(16);
-    // Brushless_L.brushless_thrust(1500);
-    // Brushless_R.brushless_thrust(1500);
-    // int thrust = 1500;
+
+    MotorControl motorControl;
+    Gimbal leftGimbal;
+    Gimbal rightGimbal;
+    leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+    rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
+
+    motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
+
     // int new_thrust = 1500;
     int angle = 0;
     int new_angle = 0;

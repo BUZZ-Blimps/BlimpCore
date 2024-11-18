@@ -205,6 +205,7 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0), imu_ini
     
     //Load PID config from params
     if (load_pid_config()) {
+        
         RCLCPP_INFO(this->get_logger(), "PID configuration loaded.");
     } else {
         RCLCPP_ERROR(this->get_logger(), "PID configuration not provided. Exiting.");
@@ -1284,6 +1285,7 @@ void CatchingBlimp::state_machine_callback()
             // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
             // debug_publisher->publish(debug_msg);
             debug_msg.data[10] = motorControl.upLeft;
+            // debug_msg.data[10] = 9999;
             debug_msg.data[11] = motorControl.forwardLeft;
             debug_msg.data[12] = motorControl.upRight;
             debug_msg.data[13] = motorControl.forwardRight;
@@ -1602,6 +1604,8 @@ bool CatchingBlimp::load_pid_config() {
         yPID_ = PID(y_p, y_i, y_d);  // up and down
         zPID_ = PID(z_p, z_i, z_d);  // unused
         yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction 
+
+        RCLCPP_INFO(this->get_logger(), "Yaw PIDs: p=%.2f", yaw_p);
 
         return true;
     } else {

@@ -58,7 +58,7 @@
 //debug mode
 #define ZERO_MODE                 false
 #define GIMBAL_DEBUG              false
-#define MOTORS_OFF                true
+#define MOTORS_OFF                false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
