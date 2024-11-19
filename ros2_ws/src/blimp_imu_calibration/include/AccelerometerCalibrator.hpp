@@ -13,9 +13,10 @@ class AccelerometerCalibrator{
         void init(std::function<void(float*)> func_sample_accelerometer_hardware, std::function<void(std::string)> func_print, std::function<void(int)> func_delay_ms);
         void take_sample();
         void clear_samples();
-        void compute_calibration();
+        void push_sample(Eigen::VectorXf sample);
 
-        Eigen::VectorXf beta;
+        Eigen::VectorXf compute_calibration_6();
+        Eigen::VectorXf compute_calibration_9();
         
     private:
         bool initialized;
