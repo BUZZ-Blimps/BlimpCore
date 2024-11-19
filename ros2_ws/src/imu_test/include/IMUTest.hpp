@@ -44,6 +44,11 @@ private:
 
     double base_baro_, baro_calibration_offset_, cal_baro_;
 
+    double baro_sum_;
+    int baro_count_;
+
+    rclcpp::Time baro_time_;
+
     EMAFilter z_ema_;
 
     void imu_timer_callback();

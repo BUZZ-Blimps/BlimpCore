@@ -3,7 +3,7 @@
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 
-IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false) {
+IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false), baro_sum_(0.0), baro_count_(0) {
     RCLCPP_INFO(this->get_logger(), "IMU Test node running");
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
@@ -14,7 +14,9 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false) 
     imu_.OPI_IMU_Setup();
     z_est_.initialize();
 
-    imu_msg_.header.stamp = this->get_clock()->now();
+    rclcpp::Time now = this->get_clock()->now();
+    imu_msg_.header.stamp = now;
+    baro_time_ = now;
 
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     blimp_tf_.header.frame_id = "map";
@@ -24,11 +26,11 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false) 
     height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("height", 10);
     z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
 
-    base_baro_sub_ = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&IMUTest::base_baro_callback, this, _1));
+    // base_baro_sub_ = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&IMUTest::base_baro_callback, this, _1));
     cal_baro_sub_ = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", 10, std::bind(&IMUTest::cal_baro_callback, this, _1));
     
     imu_timer_ = this->create_wall_timer(10ms, std::bind(&IMUTest::imu_timer_callback, this));
-    baro_timer_ = this->create_wall_timer(50ms, std::bind(&IMUTest::baro_timer_callback, this));
+    // baro_timer_ = this->create_wall_timer(10ms, std::bind(&IMUTest::baro_timer_callback, this));
 }
 
 void IMUTest::imu_timer_callback() {
@@ -87,6 +89,30 @@ void IMUTest::imu_timer_callback() {
 
     tf_broadcaster_->sendTransform(blimp_tf_);
 
+    imu_.baro_read();
+    if (!baro_init_) {
+        baro_init_ = true;
+        baro_calibration_offset_ = 0;
+        base_baro_ = imu_.comp_press;
+        return;
+    }
+
+    cal_baro_ = 44330 * (1 - pow(((imu_.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
+    baro_sum_ += cal_baro_;
+    baro_count_++;
+
+    if ((now-baro_time_).seconds() >= 0.25) {
+
+        double baro_mean_ = baro_sum_/baro_count_;
+        
+        z_est_.update(baro_mean_);
+        // z_est_.partialUpdate(baro_mean_);
+
+        baro_sum_ = 0.0;
+        baro_count_ = 0;
+        baro_time_ = now;
+    }
+
     //get orientation from madgwick
     // double pitch = madgwick_.pitch_final;
     // double roll = madgwick_.roll_final;
@@ -95,13 +121,13 @@ void IMUTest::imu_timer_callback() {
 }
 
 void IMUTest::baro_timer_callback() {
-    imu_.baro_read();
+    // imu_.baro_read();
 
-    if (!baro_init_) return;
+    // if (!baro_init_) return;
 
-    cal_baro_ = 44330 * (1 - pow(((imu_.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
+    // cal_baro_ = 44330 * (1 - pow(((imu_.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
 
-    z_est_.partialUpdate(cal_baro_);
+    // z_est_.partialUpdate(cal_baro_);
 
     // RCLCPP_INFO(this->get_logger(), "Cal: %.2f", cal_baro_);
     // RCLCPP_INFO(this->get_logger(), "zHat: %.2f", z_est_.xHat(0));

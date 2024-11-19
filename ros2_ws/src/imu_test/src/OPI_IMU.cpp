@@ -99,16 +99,14 @@ void OPI_IMU::OPI_IMU_Setup() {
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000000); //104Hz ODR, 250 DPS FSR
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100); //3.3kHz ODR, 2000 DPS FSR
 
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100);
-
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG1, 0b11011100);     // Temp sesnor enabled, High performance, ODR 80 Hz, FAST ODR disabled and Selft test disabled.
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG2, 0b00100000);     // +/- 8 gauss
     wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG3, 0b00000000); 
 
-    wiringPiI2CWriteReg8(BM388,PWR_CTRL, 0b00110011);     // Enables pressure sensor, Enables temperature sensor, Normal mode
-    wiringPiI2CWriteReg8(BM388,OSR, 0b00001100);                 // x16 oversampling pressure measurement, x2 oversampling temp measurement
-    wiringPiI2CWriteReg8(BM388,ODR, 0x03);                 // Output data rate 25Hz
-    wiringPiI2CWriteReg8(BM388,CONFIG, 0b00000110);      // IIR filter coefficient of 63 
+    wiringPiI2CWriteReg8(BM388, PWR_CTRL, 0b00110011);  // Enables pressure sensor, Enables temperature sensor, Normal mode
+    wiringPiI2CWriteReg8(BM388, OSR,      0b00001100);  // x16 oversampling pressure measurement, x2 oversampling temp measurement
+    wiringPiI2CWriteReg8(BM388, ODR,      0x03);        // Output data rate 25Hz
+    wiringPiI2CWriteReg8(BM388, CONFIG,   0b00000110);  // IIR filter coefficient of 64
 
     //Loading the calibration values
 	int out = wiringPiI2CReadRegBlock(BM388, NVM_PAR_T1_LSB, 21, buff_calib); 

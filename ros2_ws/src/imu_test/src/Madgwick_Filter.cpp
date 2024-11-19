@@ -38,7 +38,6 @@ void Madgwick_Filter::initialize_quaternion(double ax, double ay, double az) {
 }
 
 void Madgwick_Filter::euler_to_quaternion(double roll, double pitch, double yaw) {
-
     //Must be radians!!
     q_est_orig[0] = cos(roll/2.0)*cos(pitch/2.0)*cos(yaw/2.0) - sin(roll/2.0)*sin(pitch/2.0)*sin(yaw/2.0); 
     q_est_orig[1] = sin(roll/2.0)*cos(pitch/2.0)*cos(yaw/2.0) + cos(roll/2.0)*sin(pitch/2.0)*sin(yaw/2.0); 
@@ -233,7 +232,7 @@ std::vector<double> Madgwick_Filter::update_quat(double gx, double gy, double gz
 
   // q_est = q_norm; //Update the previous estimate
 
-    double beta = 0.95;
+    double beta = 0.75;
     double dt = t_interval;
 
   // std::vector<double> angles_quat_update = {q_est[0], q_est[1], q_est[2], q_est[3]};
