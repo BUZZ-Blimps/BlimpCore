@@ -2,12 +2,16 @@
 #include <math.h>
 #include <eigen3/Eigen/Dense>
 
+
+// Constructor to initialize variables
 AccelerometerCalibrator::AccelerometerCalibrator(){
     initialized = false;
     sampling_rate = 50.0; // Hz
     num_samples_to_average = 32;
 }
 
+
+// Function to store external function calls
 void AccelerometerCalibrator::init(std::function<void(float*)> func_sample_accelerometer_hardware, std::function<void(std::string)> func_print, std::function<void(int)> func_delay_ms){
     _func_sample_accelerometer_hardware = func_sample_accelerometer_hardware;
     _func_print = func_print;
@@ -19,6 +23,9 @@ void AccelerometerCalibrator::init(std::function<void(float*)> func_sample_accel
     }
 }
 
+
+// Function to "take a sample".
+// Takes samples to estimate mean and variance, then takes many more samples and filters outliers using variance
 void AccelerometerCalibrator::take_sample(){
     // Check for initialization
     if(!initialized){
@@ -52,11 +59,6 @@ void AccelerometerCalibrator::take_sample(){
             // Delay to sample at (sampling_rate) Hz
             int delay_duration_ms = 1000 / sampling_rate;
             _func_delay_ms(delay_duration_ms);
-
-            // _print("sample: [");
-            // for(int i=0; i<3; i++) _print(std::to_string(accelerometer_reading(i)) + ", ");
-            // _print("]\n");
-
         }
 
         // Calculate mean
@@ -99,12 +101,6 @@ void AccelerometerCalibrator::take_sample(){
                             && abs(error(1)) <= good_num_std * sqrt(variance(1))
                             && abs(error(2)) <= good_num_std * sqrt(variance(2));
 
-            // _print("sample=[");
-            // for(int i=0; i<3; i++) _print(std::to_string(accelerometer_reading(i)) + ", ");
-            // _print("],  error=[");
-            // for(int i=0; i<3; i++) _print(std::to_string(error(i)) + ", ");
-            // _print("],  good_sample=" + std::to_string(good_sample) + "\n");
-
             if(good_sample){
                 // Good sample
                 success_count++;
@@ -131,8 +127,17 @@ void AccelerometerCalibrator::take_sample(){
 
             sample_avg /= num_samples_to_average;
 
-            _print("# ");
-            for(int i=0; i<3; i++) _print(std::to_string(sample_avg(i)) + ", ");
+            _print("\tSample:    ");
+            for(int i=0; i<3; i++){
+                _print(std::to_string(sample_avg(i)));
+                if(i < 2) _print(", ");
+            }
+            _print("\n");
+            _print("\tStd. Dev.: " );
+            for(int i=0; i<3; i++){
+                _print(std::to_string(sqrt(variance(i))));
+                if(i < 2) _print(", ");
+            }
             _print("\n");
         }
     }
@@ -141,15 +146,32 @@ void AccelerometerCalibrator::take_sample(){
     for(int i=0; i<3; i++) _samples.push_back(sample_avg(i));
 }
 
+
+// Function to clear internal std::vector of samples
 void AccelerometerCalibrator::clear_samples(){
     _samples.clear();
 }
 
+
+// Function to push sample into internal samples
+// Input:
+//   sample: Eigen::VectorXf, length of 3
+void AccelerometerCalibrator::push_sample(Eigen::VectorXf sample){
+    _print("Pushing sample: [" + std::to_string(sample(0)) + ", " + std::to_string(sample(1)) + ", " + std::to_string(sample(2)) + "]\n");
+    for(int i=0; i<3; i++) _samples.push_back(sample(i));
+}
+
+
+// Function to compute 6-state accelerometer calibration
+// Model: (x-beta0)^2*beta3^2 + (y-beta1)^2*beta4^2 + (z-beta2)^2*beta5^2 = 1
+// Returns:
+//   Eigen::VectorXf: 6 betas
 Eigen::VectorXf AccelerometerCalibrator::compute_calibration_6(){
     int num_samples = _samples.size()/3;
 
     // Init beta
     Eigen::VectorXf beta(6);
+    beta << 0, 0, 0, 1, 1, 1;
 
     // Begin iterating
     int max_num_iterations = 40;
@@ -175,7 +197,7 @@ Eigen::VectorXf AccelerometerCalibrator::compute_calibration_6(){
             r(i) = 1 - pow(x - beta(0),2)*pow(beta(3),2) - pow(y - beta(1),2)*pow(beta(4),2) - pow(z - beta(2),2)*pow(beta(5),2);
         }
 
-        // Calculate delta
+        // Calculate delta (Gauss-Newton Method)
         Eigen::VectorXf delta = -(Jr.transpose() * Jr).inverse() * Jr.transpose() * r;
 
         // Update beta
@@ -204,6 +226,12 @@ Eigen::VectorXf AccelerometerCalibrator::compute_calibration_6(){
 }
 
 
+// Function to compute 9-state accelerometer calibration
+// Model: A = [beta0, beta1, beta2;    b = [beta6;     norm(A*x - b) = 1
+//             beta1, beta3, beta4;         beta7;
+//             beta2, beta4, beta5];        beta8];
+// Returns:
+//   Eigen::VectorXf: 9 betas
 Eigen::VectorXf AccelerometerCalibrator::compute_calibration_9(){
     int num_samples = _samples.size()/3;
 
@@ -273,7 +301,7 @@ Eigen::VectorXf AccelerometerCalibrator::compute_calibration_9(){
             }
         }
 
-        // Calculate delta
+        // Calculate delta (Newton Method)
         Eigen::VectorXf delta = -H.inverse() * Jr.transpose() * r;
 
         // Update beta
@@ -302,11 +330,9 @@ Eigen::VectorXf AccelerometerCalibrator::compute_calibration_9(){
 }
 
 
-void AccelerometerCalibrator::push_sample(Eigen::VectorXf sample){
-    _print("Pushing sample: [" + std::to_string(sample(0)) + ", " + std::to_string(sample(1)) + ", " + std::to_string(sample(2)) + "]\n");
-    for(int i=0; i<3; i++) _samples.push_back(sample(i));
-}
-
+// Function to print message if _func_print exists
+// Input:
+//   message: std::string to print
 void AccelerometerCalibrator::_print(std::string message){
     if(_func_print) _func_print(message);
 }
