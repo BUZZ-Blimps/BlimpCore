@@ -9,6 +9,7 @@ class servo {
     double servo_angle(double angle);
     void servo_PIN(int PIN);
     double get_angle();
+    double get_us();
 
     private:
     double curr_angle;

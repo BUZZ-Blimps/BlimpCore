@@ -88,13 +88,13 @@ int main(){
     Brushless_R.brushless_thrust(1500);
     Brushless_G.brushless_thrust(1500);
 
-    MotorControl motorControl;
-    Gimbal leftGimbal;
-    Gimbal rightGimbal;
-    leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
-    rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
+    // MotorControl motorControl;
+    // Gimbal leftGimbal;
+    // Gimbal rightGimbal;
+    // leftGimbal.gimbal_init(L_Yaw, L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, 0.5);
+    // rightGimbal.gimbal_init(R_Yaw, R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, 0.5);
 
-    motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
+    // motorControl.update(forwardMotor, -translationMotor, upMotor, yawMotor, 0);
 
     // int new_thrust = 1500;
     int angle = 0;
