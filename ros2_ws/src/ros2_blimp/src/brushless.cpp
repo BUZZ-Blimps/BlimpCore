@@ -19,11 +19,11 @@ void brushless::brushless_PIN(int PIN){
 
 double brushless::brushless_thrust(double thrust){
     if (1000 <= thrust && thrust <= 2000) {
-	this->curr_thrust = thrust;
+	    this->curr_thrust = thrust;
         double pwm_val = 5.0/100.0*thrust;
         pwmWrite(this->pin, pwm_val);
 
-	// printf("Writing %.2f to motor", pwm_val);
+	    // printf("Writing %.2f to brush\n", curr_thrust);
 
         return this->curr_thrust;
     } else {

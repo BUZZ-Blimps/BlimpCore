@@ -15,22 +15,23 @@
 //   servoThreshold = 1000; // (degrees) Defines how close servos must be for brushless motors to activate
 // }
 void Gimbal::gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadband, double newTurnOnCom, double newMinCom, double newMaxCom, double newPhiOffset, double newFilter){
-  deadband = newDeadband;
-  turnOnCom = newTurnOnCom;
-  minCom = newMinCom;
-  maxCom = newMaxCom;
-  phiOffset = newPhiOffset;
-  filter = newFilter;
-  phiPos1 = phiOffset;
-  thetaPos = 0;
-  servoThreshold = 1000; // (degrees) Defines how close servos must be for brushless motors to activate
-  
-  // this->yawServo.servo_setup(yawPin);
-  // this->yawServo.servo_angle(0);
-  this->pitchServo.servo_setup(pitchPin);
-  this->pitchServo.servo_angle(phiOffset);
-  this->motor.brushless_setup(motorPin);
-  this->motor.brushless_thrust(1500);
+    deadband = newDeadband;
+    turnOnCom = newTurnOnCom;
+    minCom = newMinCom;
+    maxCom = newMaxCom;
+    phiOffset = newPhiOffset;
+    filter = newFilter;
+    phiPos1 = phiOffset;
+    thetaPos = 0;
+    servoThreshold = 1000; // (degrees) Defines how close servos must be for brushless motors to activate
+    
+    // this->yawServo.servo_setup(yawPin);
+    // this->yawServo.servo_angle(0);
+    this->pitchServo.servo_setup(pitchPin);
+    this->pitchServo.servo_angle(phiOffset);
+
+    this->motor.brushless_setup(motorPin);
+    this->motor.brushless_thrust(1500);
 }
 
 bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward) {
@@ -71,8 +72,9 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
   // if (debug) Serial.print("\tUp: ");
   // if (debug) Serial.println(up);
   // self.angle = np.arctan2(np.sin(self.angle), np.cos(self.angle))
+  double epsilon = 0.00001;
   double thrust = sqrt(pow(yaw,2)+pow(up,2)+pow(forward,2));
-  double theta1 = atan2(yaw,forward)*180/pi;
+  double theta1 = atan2(yaw,epsilon + forward)*180/pi;
   // theta1 = atan2(sin(theta1), cos(theta1));
   double phi1 = asin(up/thrust)*180/pi;
   double theta2 = atan2(-yaw,-forward)*180/pi;
@@ -223,6 +225,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
       return true; // Anti blocking mechanism
    }
 }
+
 void Gimbal::updateGimbal(bool ready){ // Actual turn on command for brushless motors
   if (ready){
     this->motor.brushless_thrust(nextMotorCom);
@@ -231,6 +234,7 @@ void Gimbal::updateGimbal(bool ready){ // Actual turn on command for brushless m
     this->motor.brushless_thrust(motorCom(0));
   }
 }
+
 double Gimbal::motorCom(double command) {
     //input from -1000, to 1000 is expected from controllers
     double adjustedCom = 1500;
@@ -255,4 +259,12 @@ double Gimbal::motorCom(double command) {
     // Serial.println(adjustedCom);
     // this->motor.brushless_thrust(adjustedCom);
     return adjustedCom;
+}
+
+double Gimbal::getServoAngle() {
+  return pitchServo.get_angle();
+}
+
+double Gimbal::getServoUS() {
+  return pitchServo.get_us();
 }

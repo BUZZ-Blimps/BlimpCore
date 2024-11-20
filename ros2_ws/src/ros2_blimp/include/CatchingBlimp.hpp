@@ -76,8 +76,8 @@
 #define CEIL_HEIGHT               12      //m
 #define FLOOR_HEIGHT              1.5    //m
 
-#define MAX_HEIGHT                2    //m  (unused)
-#define GOAL_HEIGHT               9.5   //m
+#define MAX_HEIGHT                12    //m  (unused)
+#define GOAL_HEIGHT               9.0   //m
 #define GOAL_HEIGHT_DEADBAND      0.4   //m
 
 //distance triggers
@@ -288,6 +288,11 @@ private:
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_;
     double z_hat_;
+
+    std::vector<double> targets_;
+    int catches_;
+
+    int control_mode_, auto_state_, last_state_;
 
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
