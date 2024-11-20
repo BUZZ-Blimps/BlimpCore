@@ -29,28 +29,28 @@ To save an ssh password for Orange Pi number #: ssh-copy-id opi@opi#
 
 #include "OPI_IMU.hpp"
 
-#define I2C_SLAVE	0x0703
-#define I2C_SMBUS	0x0720	/* SMBus-level access */
+#define I2C_SLAVE   0x0703
+#define I2C_SMBUS   0x0720  /* SMBus-level access */
 
-#define I2C_SMBUS_READ	1
-#define I2C_SMBUS_WRITE	0
+#define I2C_SMBUS_READ  1
+#define I2C_SMBUS_WRITE 0
 
 // SMBus transaction types
 
-#define I2C_SMBUS_QUICK		    0
-#define I2C_SMBUS_BYTE		    1
-#define I2C_SMBUS_BYTE_DATA	    2 
-#define I2C_SMBUS_WORD_DATA	    3
-#define I2C_SMBUS_PROC_CALL	    4
-#define I2C_SMBUS_BLOCK_DATA	    5
+#define I2C_SMBUS_QUICK         0
+#define I2C_SMBUS_BYTE          1
+#define I2C_SMBUS_BYTE_DATA     2 
+#define I2C_SMBUS_WORD_DATA     3
+#define I2C_SMBUS_PROC_CALL     4
+#define I2C_SMBUS_BLOCK_DATA        5
 #define I2C_SMBUS_I2C_BLOCK_BROKEN  6
-#define I2C_SMBUS_BLOCK_PROC_CALL   7		/* SMBus 2.0 */
+#define I2C_SMBUS_BLOCK_PROC_CALL   7       /* SMBus 2.0 */
 #define I2C_SMBUS_I2C_BLOCK_DATA    8
 
 // SMBus messages
 
-#define I2C_SMBUS_BLOCK_MAX	32	/* As specified in SMBus standard */	
-#define I2C_SMBUS_I2C_BLOCK_MAX	32	/* Not specified but we use same structure */
+#define I2C_SMBUS_BLOCK_MAX 32  /* As specified in SMBus standard */    
+#define I2C_SMBUS_I2C_BLOCK_MAX 32  /* Not specified but we use same structure */
 
 //Gyro gains by FSR setting
 // #define GYRO_GAIN (4.375/1000.0) // 125 DPS FSR
@@ -67,7 +67,7 @@ union i2c_smbus_data
 {
   uint8_t  byte ;
   uint16_t word ;
-  uint8_t  block [I2C_SMBUS_BLOCK_MAX + 2] ;	// block [0] is used for length + one more for PEC
+  uint8_t  block [I2C_SMBUS_BLOCK_MAX + 2] ;    // block [0] is used for length + one more for PEC
 } ;
 
 struct i2c_smbus_ioctl_data
@@ -87,62 +87,71 @@ void OPI_IMU::OPI_IMU_Setup() {
     LSM6DSL = wiringPiI2CSetupInterface(device, LSM6DSL_ADDRESS);
     BM388 = wiringPiI2CSetupInterface(device, BM388_ADDRESS);
 
+    //Accelerometer config
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b10011111); //3.3kHz, 
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001111); //104 Hz 
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000); //104 Hz, +/- 4G,
-
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL1_XL, 0b01001000);    //104 Hz, +/- 4G,
     wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL8_XL, 0b11001000);
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C, 0b01000100);
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL3_C,  0b01000100);
 
+    //Gyro config
     //Uncomment desired gyro ODR/FSR setting
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000010); //104Hz ODR, 125 DPS FSR
-    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000000); //104Hz ODR, 250 DPS FSR
+    wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b01000000);    //104Hz ODR, 250 DPS FSR
     // wiringPiI2CWriteReg8(LSM6DSL, LSM6DSL_CTRL2_G, 0b10011100); //3.3kHz ODR, 2000 DPS FSR
 
-    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG1, 0b11011100);     // Temp sesnor enabled, High performance, ODR 80 Hz, FAST ODR disabled and Selft test disabled.
-    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG2, 0b00100000);     // +/- 8 gauss
-    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG3, 0b00000000); 
+    //Magnetometer config
+    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG1, 0b11011100); // Temp sesnor enabled, High performance, ODR 80 Hz, FAST ODR disabled and Selft test disabled.
+    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG2, 0b00100000); // +/- 8 gauss
+    wiringPiI2CWriteReg8(LIS3MDL, LIS3MDL_CTRL_REG3, 0b00000000);
 
     wiringPiI2CWriteReg8(BM388, PWR_CTRL, 0b00110011);  // Enables pressure sensor, Enables temperature sensor, Normal mode
-    wiringPiI2CWriteReg8(BM388, OSR,      0b00001100);  // x16 oversampling pressure measurement, x2 oversampling temp measurement
+    
+    // wiringPiI2CWriteReg8(BM388, OSR,      0b00001100);  // x2 oversampling temp measurement, x16 oversampling pressure measurement
+    wiringPiI2CWriteReg8(BM388, OSR,      0b00001100);  // x32 oversampling temp measurement, x32 oversampling pressure measurement
+
     wiringPiI2CWriteReg8(BM388, ODR,      0x03);        // Output data rate 25Hz
-    wiringPiI2CWriteReg8(BM388, CONFIG,   0b00000110);  // IIR filter coefficient of 64
 
+    // wiringPiI2CWriteReg8(BM388, CONFIG, 0b00000010);  // IIR filter coefficient of 3
+    wiringPiI2CWriteReg8(BM388, CONFIG, 0b00000110);  // IIR filter coefficient of 63
+    // wiringPiI2CWriteReg8(BM388, CONFIG,    0b00000111);  // IIR filter coefficient of 127
+    
     //Loading the calibration values
-	int out = wiringPiI2CReadRegBlock(BM388, NVM_PAR_T1_LSB, 21, buff_calib); 
-	if (out == -1) {
-		printf("BM388 I2C not working\n");
-	}
-	float NVM_PAR_T1_val = (uint16_t)(buff_calib[0] | (buff_calib[1] << 8));
-	float NVM_PAR_T2_val = (uint16_t)(buff_calib[2] | (buff_calib[3] << 8));
-	float NVM_PAR_T3_val = (int8_t)buff_calib[4];
-	float NVM_PAR_P1_val = (int16_t)(buff_calib[5] | (buff_calib[6] << 8));
-	float NVM_PAR_P2_val = (int16_t)(buff_calib[7] | (buff_calib[8] << 8));
-	float NVM_PAR_P3_val = (int8_t)buff_calib[9];
-	float NVM_PAR_P4_val = (int8_t)buff_calib[10];
-	float NVM_PAR_P5_val = (uint16_t)(buff_calib[11] | (buff_calib[12] << 8));
-	float NVM_PAR_P6_val = (uint16_t)(buff_calib[13] | (buff_calib[14] << 8));
-	float NVM_PAR_P7_val = (int8_t)buff_calib[15];
-	float NVM_PAR_P8_val = (int8_t)buff_calib[16];
-	float NVM_PAR_P9_val = (int16_t)(buff_calib[17] | (buff_calib[18] << 8));
-	float NVM_PAR_P10_val = (int8_t)buff_calib[19];
-	float NVM_PAR_P11_val = (int8_t)buff_calib[20];
+    int out = wiringPiI2CReadRegBlock(BM388, NVM_PAR_T1_LSB, 21, buff_calib); 
+    if (out == -1) {
+        printf("BM388 I2C not working\n");
+    }
 
-	//Floating point compensation
-	PAR_T1 = NVM_PAR_T1_val / pow(2, -8);
-	PAR_T2 = NVM_PAR_T2_val / pow(2, 30);
-	PAR_T3 = NVM_PAR_T3_val / pow(2, 48);
-	PAR_P1 = (NVM_PAR_P1_val - pow(2, 14)) / pow(2, 20);
-	PAR_P2 = (NVM_PAR_P2_val - pow(2, 14)) / pow(2, 29);
-	PAR_P3 = NVM_PAR_P3_val / pow(2, 32);
-	PAR_P4 = NVM_PAR_P4_val / pow(2, 37);
-	PAR_P5 = NVM_PAR_P5_val / pow(2, -3);
-	PAR_P6 = NVM_PAR_P6_val / pow(2, 6);
-	PAR_P7 = NVM_PAR_P7_val / pow(2, 8);
-	PAR_P8 = NVM_PAR_P8_val / pow(2, 15);
-	PAR_P9 = NVM_PAR_P9_val / pow(2, 48);
-	PAR_P10 = NVM_PAR_P10_val / pow(2, 48);
-	PAR_P11 = NVM_PAR_P11_val / pow(2, 65);
+    float NVM_PAR_T1_val = (uint16_t)(buff_calib[0] | (buff_calib[1] << 8));
+    float NVM_PAR_T2_val = (uint16_t)(buff_calib[2] | (buff_calib[3] << 8));
+    float NVM_PAR_T3_val = (int8_t)buff_calib[4];
+    float NVM_PAR_P1_val = (int16_t)(buff_calib[5] | (buff_calib[6] << 8));
+    float NVM_PAR_P2_val = (int16_t)(buff_calib[7] | (buff_calib[8] << 8));
+    float NVM_PAR_P3_val = (int8_t)buff_calib[9];
+    float NVM_PAR_P4_val = (int8_t)buff_calib[10];
+    float NVM_PAR_P5_val = (uint16_t)(buff_calib[11] | (buff_calib[12] << 8));
+    float NVM_PAR_P6_val = (uint16_t)(buff_calib[13] | (buff_calib[14] << 8));
+    float NVM_PAR_P7_val = (int8_t)buff_calib[15];
+    float NVM_PAR_P8_val = (int8_t)buff_calib[16];
+    float NVM_PAR_P9_val = (int16_t)(buff_calib[17] | (buff_calib[18] << 8));
+    float NVM_PAR_P10_val = (int8_t)buff_calib[19];
+    float NVM_PAR_P11_val = (int8_t)buff_calib[20];
+
+    //Floating point compensation
+    PAR_T1 = NVM_PAR_T1_val / pow(2, -8);
+    PAR_T2 = NVM_PAR_T2_val / pow(2, 30);
+    PAR_T3 = NVM_PAR_T3_val / pow(2, 48);
+    PAR_P1 = (NVM_PAR_P1_val - pow(2, 14)) / pow(2, 20);
+    PAR_P2 = (NVM_PAR_P2_val - pow(2, 14)) / pow(2, 29);
+    PAR_P3 = NVM_PAR_P3_val / pow(2, 32);
+    PAR_P4 = NVM_PAR_P4_val / pow(2, 37);
+    PAR_P5 = NVM_PAR_P5_val / pow(2, -3);
+    PAR_P6 = NVM_PAR_P6_val / pow(2, 6);
+    PAR_P7 = NVM_PAR_P7_val / pow(2, 8);
+    PAR_P8 = NVM_PAR_P8_val / pow(2, 15);
+    PAR_P9 = NVM_PAR_P9_val / pow(2, 48);
+    PAR_P10 = NVM_PAR_P10_val / pow(2, 48);
+    PAR_P11 = NVM_PAR_P11_val / pow(2, 65);
 }
 
 void OPI_IMU::IMU_read(){
@@ -222,11 +231,11 @@ void OPI_IMU::baro_read() {
     //Altitude (in meters)
     //https://www.circuitbasics.com/set-bmp180-barometric-pressure-sensor-arduino/
     //Sets the reference pressure (therefore setting the reference height)
-    if(ref_pressure_found){
-        ref_ground_press = comp_press;
-        ref_pressure_found = false;
-    }
-    alt = 44330 * (1 - pow((comp_press / ref_ground_press), (1 / 5.255))); //In meters
+    // if(ref_pressure_found){
+    //     ref_ground_press = comp_press;
+    //     ref_pressure_found = false;
+    // }
+    // alt = 44330 * (1 - pow((comp_press / ref_ground_press), (1 / 5.255))); //In meters
 
     // alt = comp_press;  // plus something from base station
 }

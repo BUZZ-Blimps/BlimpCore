@@ -33,7 +33,7 @@ ZEstimator::ZEstimator() {
     P = Eigen::MatrixXd(3,3);
 
     Q0 = Eigen::MatrixXd(2,2);
-    Q0 << 0.2, 0.0, 0.0, 0.1;
+    Q0 << 0.4, 0.0, 0.0, 0.2;
 
     Q = Eigen::MatrixXd(2,2);
     
@@ -42,7 +42,7 @@ ZEstimator::ZEstimator() {
     //R0 represents a pseudo covariance that we use to initiate the propagations,
     //once we are in the air, we need to switch the actual R.
     R0 = Eigen::MatrixXd(1,1);
-    R0 << 2.0;
+    R0 << 1.0;
 
     R = Eigen::MatrixXd(1,1);
 

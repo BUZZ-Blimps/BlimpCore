@@ -9,7 +9,7 @@ def generate_launch_description():
             package='imu_test',
             executable='imu_test_node',
             name='imu_test_node',
-            namespace='GameChamber',
+            namespace='GravyLongWay',
             output='screen'
         )
     ])

@@ -25,6 +25,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr height_publisher_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
 
+    rclcpp::Publisher<std_msgs::msg::Float64>:: SharedPtr baro_publisher_, temp_publisher_, diff_publisher_, alt_publisher_;
+
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr base_baro_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr cal_baro_sub_;
 
@@ -37,6 +39,8 @@ private:
 
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
+
+    std_msgs::msg::Float64 baro_msg_, temp_msg_, diff_msg_;
 
     bool imu_init_, baro_init_;
 
