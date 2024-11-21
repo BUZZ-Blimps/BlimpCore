@@ -1,11 +1,11 @@
 #ifndef TRIPLE_BALL_GRABBER_HPP
 #define TRIPLE_BALL_GRABBER_HPP
 
-#include "servo.hpp"
-#include "brushless.hpp"
+#include "Servo.hpp"
+#include "Brushless.hpp"
 
 class TripleBallGrabber {  
-  public:
+public:
     TripleBallGrabber();
     void ballgrabber_init(int servoPin, int motorPin);
     void openGrabber(int blimp_state);
@@ -18,9 +18,9 @@ class TripleBallGrabber {
     double currentAngle = 0; // [deg]
     double targetAngle = 0; // [deg]
 
-  private:
-    servo Servo;
-    brushless motor;
+private:
+    Servo servo_;
+    Brushless motor_;
     double moveRate;
     double lastCommandTime = 0; // [s]
 
