@@ -1327,7 +1327,9 @@ bool CatchingBlimp::load_pid_config() {
         zPID_ = PID(z_p, z_i, z_d);  // unused
         yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction 
 
-        RCLCPP_INFO(this->get_logger(), "Yaw PIDs: p=%.2f", yaw_p);
+        RCLCPP_INFO(this->get_logger(), 
+            "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), yaw: (p=%.2f, i=%.2f, d=%.2f)", 
+            x_p, x_i, x_d, y_p, y_i, y_d, yaw_p, yaw_i, yaw_d);
 
         return true;
     } else {

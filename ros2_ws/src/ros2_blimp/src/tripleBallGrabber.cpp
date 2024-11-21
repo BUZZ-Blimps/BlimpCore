@@ -71,7 +71,7 @@ void TripleBallGrabber::shoot(int blimp_state) {
     this->motor_.write_thrust(2000);
 }
 
-//For when you gotta give the ball that GROK GROK with your low-hanging sack
+//For when you gotta give the ball that GROK GROK
 void TripleBallGrabber::suck() {
     state_ = state_sucking;
     this->motor_.write_thrust(1000);
