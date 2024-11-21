@@ -31,7 +31,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr cal_baro_sub_;
 
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-    geometry_msgs::msg::TransformStamped blimp_tf_;
+    geometry_msgs::msg::TransformStamped blimp_tf_, blimp_raw_tf_;
 
     OPI_IMU imu_;
     ZEstimator z_est_;
@@ -55,11 +55,16 @@ private:
 
     EMAFilter z_ema_;
 
+    Eigen::Matrix3d acc_A_;
+    Eigen::Vector3d acc_b_;
+
     void imu_timer_callback();
     void baro_timer_callback();
 
     void base_baro_callback(const std_msgs::msg::Float64::SharedPtr msg);
     void cal_baro_callback(const std_msgs::msg::Bool::SharedPtr msg);
+
+    bool load_acc_calibration();
 public:
     IMUTest();
 };

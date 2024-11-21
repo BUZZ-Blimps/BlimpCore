@@ -8,6 +8,14 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false),
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
 
+    if (load_acc_calibration()) {
+        RCLCPP_INFO(this->get_logger(), "Accelerometer calibration loaded.");
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Invalid accelerometer calibration. Exiting.");
+        rclcpp::shutdown();
+        return;
+    }
+
     z_ema_.setAlpha(0.1);
 
     wiringPiSetup();
@@ -21,6 +29,9 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false),
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     blimp_tf_.header.frame_id = "map";
     blimp_tf_.child_frame_id = blimp_name_;
+
+    blimp_raw_tf_.header.frame_id = "map";
+    blimp_raw_tf_.child_frame_id = blimp_name_ + "Raw";
 
     imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
     height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("height", 10);
@@ -41,6 +52,33 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false),
     baro_timer_ = this->create_wall_timer(40ms, std::bind(&IMUTest::baro_timer_callback, this));
 }
 
+bool IMUTest::load_acc_calibration() {
+    std::vector<double> empty_vect, beta_vect;
+    this->declare_parameter("betas", rclcpp::PARAMETER_DOUBLE_ARRAY);
+
+    if (this->get_parameter("betas", beta_vect)) {
+        if (beta_vect.size() == 9) {
+            acc_A_ << beta_vect[0], beta_vect[1], beta_vect[2], 
+                      beta_vect[1], beta_vect[3], beta_vect[4], 
+                      beta_vect[2], beta_vect[4], beta_vect[5];
+            acc_b_ << beta_vect[6], beta_vect[7], beta_vect[8];
+
+            RCLCPP_INFO(this->get_logger(), 
+                "Accelerometer calibration loaded: betas = (%.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f)", 
+                beta_vect[0], beta_vect[1], beta_vect[2], beta_vect[3], beta_vect[4], beta_vect[5], beta_vect[6], beta_vect[7], beta_vect[8]);
+
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        RCLCPP_WARN(this->get_logger(), "Accelerometer calibration not provided - defaulting to identity.");
+        acc_A_.setIdentity();
+        acc_b_.setZero();
+        return true;
+    }
+}
+
 void IMUTest::imu_timer_callback() {
 
     rclcpp::Time now = this->get_clock()->now();
@@ -48,9 +86,13 @@ void IMUTest::imu_timer_callback() {
 
     imu_.IMU_read();
 
+    //Apply IMU calibration
+    Eigen::Vector3d acc_raw(imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
+
+    Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
     // RCLCPP_INFO(this->get_logger(), "a: (%.2f, %.2f, %.2f)", imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
     
-    madgwick_.Madgwick_Update(imu_.gyr_rateXraw, imu_.gyr_rateYraw, imu_.gyr_rateZraw, imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
+    madgwick_.Madgwick_Update(imu_.gyr_rateXraw, imu_.gyr_rateYraw, imu_.gyr_rateZraw, acc_cal(0), acc_cal(1), acc_cal(2));
 
     //Get quaternion from madgwick
     std::vector<double> quat = madgwick_.get_quaternion();
@@ -58,7 +100,7 @@ void IMUTest::imu_timer_callback() {
 
     if (imu_init_) {
         //Only propagate after first IMU sample so dt makes sense
-        z_est_.propagate(imu_.AccXraw, imu_.AccYraw, imu_.AccZraw, quat, dt);
+        z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
     } else {
         imu_init_ = true;
     }
@@ -91,8 +133,7 @@ void IMUTest::imu_timer_callback() {
     blimp_tf_.transform.translation.z = z_hat;
     blimp_tf_.transform.rotation = imu_msg_.orientation;
     tf_broadcaster_->sendTransform(blimp_tf_);
-
-    std::cout << "predict: " << z_est_.xHat(0) << std::endl;
+    // std::cout << "predict: " << z_est_.xHat(0) << std::endl;
 
     // imu_.baro_read();
     // if (!baro_init_) {
@@ -114,7 +155,8 @@ void IMUTest::baro_timer_callback() {
 
     imu_.baro_read();
 
-    // if (!baro_init_) return;
+    if (!baro_init_) return;
+
     // cal_baro_ = 44330 * (1 - pow(((imu_.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
     // z_est_.partialUpdate(cal_baro_);
     // RCLCPP_INFO(this->get_logger(), "zHat: %.2f", z_est_.xHat(0));
@@ -123,17 +165,17 @@ void IMUTest::baro_timer_callback() {
     baro_sum_ += cal_baro_;
     baro_count_++;
 
+    // std::cout << "sum=" << baro_sum_ << ", count=" << baro_count_ << std::endl;
+
     // RCLCPP_INFO(this->get_logger(), "Cal: %.8f", imu_.comp_press);
 
     //Average barometer every 5 samples (5Hz)
-    if (baro_count_ == 5) {
+    if (baro_count_ == 50) {
         double baro_mean_ = baro_sum_/baro_count_;
         
         // z_est_.update(baro_mean_);
         z_est_.partialUpdate(baro_mean_);
         z_ema_.filter(z_est_.xHat(0));
-        std::cout << "baro mean: " << baro_mean_ << std::endl;
-        std::cout << "update: " << z_est_.xHat(0) << std::endl;
 
         baro_sum_ = 0.0;
         baro_count_ = 0;
