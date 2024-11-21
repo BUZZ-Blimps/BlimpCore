@@ -18,9 +18,7 @@ find_package(Eigen3 REQUIRED)
 
 set(
     SOURCE_FILES
-    src/AccelGCorrection.cpp
     src/BangBang.cpp
-    src/baro_acc_kf.cpp
     src/OPI_IMU.cpp
     src/Brushless.cpp
     src/EMAFilter.cpp
