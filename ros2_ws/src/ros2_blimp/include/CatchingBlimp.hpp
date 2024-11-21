@@ -34,11 +34,9 @@
 #include "MotorControl.hpp"
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
-#include "AccelGCorrection.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
 #include "BangBang.hpp"
-#include "optical_ekf.hpp"
 #include "tripleBallGrabber.hpp"
 #include "Gimbal.hpp"
 #include "ZEstimator.hpp"
@@ -71,62 +69,64 @@
 #define MAX_ATTEMPTS              5    //should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               10      //m
-#define FLOOR_HEIGHT              2.5    //m
+#define CEIL_HEIGHT               10   //m
+#define FLOOR_HEIGHT              2.5  //m
 
-#define MAX_HEIGHT                12    //m  (unused)
-#define GOAL_HEIGHT               9.0   //m
-#define GOAL_HEIGHT_DEADBAND      0.4   //m
+#define MAX_HEIGHT                12   //m  (unused)
+#define GOAL_HEIGHT               9.0  //m
+#define GOAL_HEIGHT_DEADBAND      0.4  //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    1.9  //m distance for blimp to trigger goal score 	
-#define BALL_GATE_OPEN_TRIGGER   3    //m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       1.2  //m distance for blimp to start the open-loop control
-#define AVOID_TRIGGER            0.8  //m distance for blimp to start the open-loop control
+#define GOAL_DISTANCE_TRIGGER    2.0   //m distance for blimp to trigger goal score 	
+#define BALL_GATE_OPEN_TRIGGER   3     //m distance for blimp to open the gate 	
+#define BALL_CATCH_TRIGGER       1.2   //m distance for blimp to start the open-loop control
+#define AVOID_TRIGGER            0.8   //m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
-#define YAW_AVOID                 30	 // deg/s
-#define UP_AVOID                  125   // % throttle 
+#define YAW_AVOID                 30   // deg/s
+#define UP_AVOID                  125  // % throttle 
 
 //autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
 #define GAME_BALL_YAW_SEARCH      -20  // deg/s
-#define GAME_BALL_FORWARD_SEARCH  200 // 30% throttle 
+#define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
 #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
 #define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
-#define GAME_BALL_APPROACH_ANGLE  60  //approach magic number (TODO: reset)
-#define GAME_BALL_X_OFFSET        0   //offset magic number (TODO: reset)
+#define GAME_BALL_X_OFFSET        0    //offset magic number
+#define GAME_BALL_Y_OFFSET        80   //approach magic number
 
 #define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
-#define CATCHING_UP_COM           50  //damp out pitch
+#define CATCHING_UP_COM           50   //damp out pitch
 
 #define TIME_TO_SEARCH            15.0
 #define TIME_TO_BACKUP            5.0
 #define TIME_TO_CATCH             5.0 //seconds
 #define TIME_TO_CAUGHT            3.0
-#define TIME_TO_SCORE             2.0 
+#define TIME_TO_SCORE             2.0
 #define TIME_TO_SHOOT             4.5
 #define TIME_TO_SCORED            4.5
 #define MAX_APPROACH_TIME         10.0
 
+#define TARGET_MEMORY_TIMEOUT     2.0  // seconds
+
 #define CAUGHT_FORWARD_COM        -250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
 
-#define GOAL_YAW_SEARCH           15   
+#define GOAL_YAW_SEARCH           15
 #define GOAL_FORWARD_SEARCH       200  //200 40% throttle
 #define GOAL_UP_VELOCITY          450
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
-#define GOAL_X_OFFSET             80  
-#define GOAL_APPROACH_ANGLE       70  //height alignment (approach down)
+#define GOAL_X_OFFSET             0
+#define GOAL_Y_OFFSET             -70   //height alignment (approach down)
 
 //goal alignment test
-#define ALIGNING_YAW_COM           10 //test
-#define ALIGNING_FORWARD_COM       100 //test
-#define ALIGNING_UP_COM            100 //test
-#define ALIGNING_TRANSLATION_COM   300 //test
+#define ALIGNING_YAW_COM           10   //test
+#define ALIGNING_FORWARD_COM       100  //test
+#define ALIGNING_UP_COM            100  //test
+#define ALIGNING_TRANSLATION_COM   300  //test
 
 #define SCORING_YAW_COM           0
 #define SCORING_FORWARD_COM       450 //40% throttle
@@ -136,8 +136,8 @@
 #define SHOOTING_UP_COM           100
 //counter moment (right now we do want to shoot up because ball sinks)
 
-#define SCORED_FORWARD_COM        -250
-#define SCORED_UP_COM             -50
+#define SCORED_FORWARD_COM        -500
+#define SCORED_UP_COM             0
 
 //sensor and controller rates
 #define FAST_SENSOR_LOOP_FREQ           100.0
@@ -151,9 +151,6 @@
 #define GYRO_YAW_CONSTANT         0
 #define GYRO_Y_CONSTANT           323.45
 
-//motor timeout before entering lost state
-#define TEENSY_WAIT_TIME          2.0
-
 #define BALL_APPROACH_THRESHOLD   2500
 #define BALL_CATCH_THRESHOLD      62000
 
@@ -163,18 +160,18 @@
 #define R_Pitch                   0               
 #define R_Yaw                     9     //not used, was 5                    
 
-#define L_Pitch_FB                23                    
-#define L_Yaw_FB                  22                  
-#define R_Pitch_FB                21                    
-#define R_Yaw_FB                  20                  
+#define L_Pitch_FB                23
+#define L_Yaw_FB                  22
+#define R_Pitch_FB                21
+#define R_Yaw_FB                  20
 
 #define GATE_S                    2     // was 8              
 
-#define PWM_R                     8              
+#define PWM_R                     8
 #define PWM_G                     10    // was10           
 #define PWM_L                     16    //was 16        
 
-#define OF_CS                     10    
+#define OF_CS                     10
 //***********************************************//
 
 // Constants

@@ -80,12 +80,6 @@ EMAFilter zFilter(0.5);
 //ball grabber object
 TripleBallGrabber ballGrabber;
 
-//timing global variables for each update loop
-double lastSensorFastLoopTick = 0.0;
-double lastStateLoopTick = 0.0;
-double lastBaroLoopTick = 0.0;
-double lastOpticalLoopTick = 0.0;
-
 CatchingBlimp::CatchingBlimp() : 
     Node("catching_blimp_node"), 
     count_(0), 
@@ -530,6 +524,7 @@ void CatchingBlimp::state_machine_callback() {
             tx = xFilter.filter(targets_[6]);
             ty = yFilter.filter(targets_[7]);
             tz = zFilter.filter(rawZ);
+
             // area = areaFilter.filter(target[0][3]);
             detected_target.push_back(tx);
             detected_target.push_back(ty);
@@ -712,7 +707,7 @@ void CatchingBlimp::state_machine_callback() {
 
                     //move toward the balloon
                     yaw_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, tx, dt);
-                    up_command_ = yPID_.calculate(GAME_BALL_APPROACH_ANGLE, ty, dt);  
+                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, ty, dt);  
 
                     forward_command_ = GAME_BALL_CLOSURE_COM;
 
@@ -726,27 +721,25 @@ void CatchingBlimp::state_machine_callback() {
 
                             //start catching timer
                             catch_start_time_ = now;
-
-                            //turn motors off
-                            //motorControl.update(0, 0, 0, 0);
                         }
                     }
                     //if target is lost within 1 second
                     //remember the previous info about where the ball is 
-                } else if ((now - target_memory_time_).seconds() < 1.0) {
-                    // yaw_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, temp_tx, dt);
-                    // up_command_ = yPID_.calculate(GAME_BALL_APPROACH_ANGLE, temp_ty, dt);
+                } else if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
+                    //Set filters to automatically converge to desired
+                    temp_tx = xFilter.filter(GAME_BALL_X_OFFSET);
+                    temp_ty = yFilter.filter(GAME_BALL_Y_OFFSET);
+
+                    yaw_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, temp_tx, dt);
+                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, temp_ty, dt);
+
                     forward_command_ = GAME_BALL_CLOSURE_COM;
                 } else {
-                    //make sure grabber is closed, no game ball is close enough to catch
+                    // Target memory timeout - close grabber and start searching again
                     ballGrabber.closeGrabber(control_mode_);
-
-                    // after two seconds of losing the target, the target is still not detected
-                    // no target, look for another
-                    // maybe add some memory
                     auto_state_ = searching;
 
-                    // searching timer
+                    // Reset searching timer and direction
                     search_start_time_ = now;
                     ballGrabber.closeGrabber(control_mode_);
                     searchYawDirection = searchDirection();  //randomize the search direction
@@ -781,7 +774,6 @@ void CatchingBlimp::state_machine_callback() {
                 break;
             } case caught: {
                 if (catches_ > 0) {
-
                     //if a target is seen right after the catch
                     if (detected_target.size() > 0 && catches_ < TOTAL_ATTEMPTS) {
                         //approach next game ball if visible
@@ -865,29 +857,39 @@ void CatchingBlimp::state_machine_callback() {
                 }
 
                 break;
+
             } case approachGoal: {
 
                 if (detected_target.size() > 0) {
-                    //Reset approach time if goal is spotted
-                    goal_approach_start_time_ = now;
+                    temp_tx = tx;
+                    temp_ty = ty;
+                    target_memory_time_ = now;
 
                     yaw_command_ = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
-                    up_command_ = yPID_.calculate(GOAL_APPROACH_ANGLE, ty, dt);
+                    up_command_ = yPID_.calculate(GOAL_Y_OFFSET, ty, dt);
                     forward_command_ = GOAL_CLOSURE_COM;
 
-                    if ((tz < GOAL_DISTANCE_TRIGGER && goalColor == orange) || (tz < GOAL_DISTANCE_TRIGGER && goalColor == yellow)) {
+                    if (tz < GOAL_DISTANCE_TRIGGER) {
                         score_start_time_ = now;
                         auto_state_ = scoringStart;
                     }
+                } else if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
+                    // Lost sight of goal
+                    temp_tx = xFilter.filter(GOAL_X_OFFSET);
+                    temp_ty = yFilter.filter(GOAL_Y_OFFSET);
+
+                    yaw_command_ = xPID_.calculate(GOAL_X_OFFSET, temp_tx, dt);
+                    up_command_ = yPID_.calculate(GOAL_Y_OFFSET, temp_ty, dt);
+
+                    forward_command_ = GAME_BALL_CLOSURE_COM;
                 } else {
-                    if ((now-goal_approach_start_time_).seconds() >= MAX_APPROACH_TIME) {
-                        auto_state_ = goalSearch;
-                        goalYawDirection = searchDirection();  //randomize search direction
-                        ballGrabber.closeGrabber(control_mode_);
-                    }
+                    // Target memory timeout - start searching for goals again
+                    auto_state_ = goalSearch;
+                    goalYawDirection = searchDirection();  //randomize search direction
                 }
 
                 break;
+
             } case scoringStart: {
                 //after correction, we can do goal alignment with a yaw and a translation 
                 yaw_command_ = SCORING_YAW_COM;
@@ -900,13 +902,13 @@ void CatchingBlimp::state_machine_callback() {
                     break;
                 }
                 break;
+
             } case shooting: {
                 yaw_command_ = 0;
                 forward_command_ = SHOOTING_FORWARD_COM;
                 up_command_ = SHOOTING_UP_COM;
 
                 ballGrabber.shoot(control_mode_);
-                catches_ = 0;
 
                 if ((now - shoot_start_time_).seconds() >= TIME_TO_SHOOT) {
                     ballGrabber.closeGrabber(control_mode_);
@@ -915,6 +917,7 @@ void CatchingBlimp::state_machine_callback() {
                     break;
                 }
                 break;
+
             } case scored: {
                 ballGrabber.closeGrabber(control_mode_);
 
@@ -923,8 +926,9 @@ void CatchingBlimp::state_machine_callback() {
                 up_command_ = SCORED_UP_COM;
 
                 if ((now-score_start_time_).seconds() >= TIME_TO_SCORED) {
+                    //Reset catch counter and return to ball search state
+                    catches_ = 0;
                     auto_state_ = searching;
-                    // searching timer
                     search_start_time_ = now;
                     searchYawDirection = searchDirection();  //randomize the search direction
                     break;
@@ -944,80 +948,12 @@ void CatchingBlimp::state_machine_callback() {
         up_command_ = 0.0;
         yaw_command_ = 0.0;
     }
-
-    //safty height 
-    // if (z_hat_ > MAX_HEIGHT) {
-    //     up_command_ = 1;
-    // }
-    //translation velocity and command
-    // Serial.print(">z v:");
-    // Serial.println(-yekf.v);
-    // Serial.print(">z com:");
-
-    //PID controllers
-    // float yaw_motor_ = 0.0;
-    // float up_motor_ = 0.0;
-    // float forward_motor_ = 0.0;
-
-    // debug_publisher->publish(debug_msg);
-    //TO DO: improve velocity control
-    // up_motor_ = zPID___.calculate(up_command_, kf.v, dt); //up velocity from barometer
-    // What's up motor? :)
     
     up_motor_ = up_command_; //up for motor
-
-    if (USE_EST_VELOCITY_IN_MANUAL) {
-        //using kalman filters for the current velosity feedback for full-blimp_state feeback PID controllers
-
-        // forward_motor_ = forwardPID.calculate(forward_command_, xekf.v, dt);  //extended filter
-        // float forward_motor_ = forwardPID.calculate(forward_command_, kal_vel.x_vel_est, dt);
-    } else {
-        //without PID
-        forward_motor_ = forward_command_; //forward for motor
-    }
-
-    //motor debug
-    // debug_msg.data.data[0] = yaw_command_;
-    // debug_msg.data.data[1] = up_command_;
-    // debug_msg.data.data[3] = forward_command_;
-    // debug_msg.data.size = 4;
-
-    // debug_msg.data[4] = yaw_command_;
-
-    // if (abs(floor(up_motor_)) > abs(floor(yaw_motor_))){
-    //     yaw_command_ = 0;
-    // } else{
-    //     up_motor_ = 0;
-    // }
-    
-    // debug_msg.data[4] = yaw_motor_;
-    // debug_msg.data[5] = up_motor_;
-    // debug_msg.data[7] = forward_motor_;
-    
-    // debug_msg.data.data[0] = forward_msg;
-    // debug_msg.data.data[1] = yaw_msg;
-    // debug_msg.data.data[2] = up_msg;
-    // debug_msg.data.data[3] = translation_msg;
-    // debug_msg.data.size = 4;
-
-    //test target messages
-    // debug_msg.data.data[0] = targets[0];
-    // debug_msg.data.data[1] = targets[1];
-    // debug_msg.data.data[2] = targets[2];
-    // debug_msg.data.data[3] = targets[3];
-    // debug_msg.data.data[4] = targets[4];
-    // debug_msg.data.data[5] = targets[5];
-    // debug_msg.data.data[6] = targets[6];
-    // debug_msg.data.data[7] = targets[7];
-    // debug_msg.data.data[8] = targets[8];
-    // debug_msg.data.size = 9;    
+    forward_motor_ = forward_command_; //forward for motor
 
     //gimbal + motor updates
     ballGrabber.update();
-
-    // publish_log("State Machine Call Back Time:");
-    // publish_log(std::to_string(netTime));
-    // debug_publisher->publish(debug_msg);
 
     if (auto_state_ != last_state_) {
 
