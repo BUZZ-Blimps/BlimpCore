@@ -1,7 +1,4 @@
-cmake_minimum_required(VERSION 3.8)2_blimp_node]: State changed to goalSearch
-[ros2_blimp_node-1] [WARN] [1732205778.249915021] [GravyLongWay.ros2_blimp_node]: DETECTED GOAL - APPROACHING!
-[ros2_blimp_node-1] [INFO] [1732205778.254213394] [GravyLongWay.ros2_blimp_node]: State changed to approachGoal
-[ros2_blimp_node-1] [INFO] [1732205802.757047400] [GravyLongWay.ros
+cmake_minimum_required(VERSION 3.8)
 project(ros2_blimp)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -70,6 +67,11 @@ install(
 
 install(
     DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}/
+)
+
+install(
+    DIRECTORY calibration
     DESTINATION share/${PROJECT_NAME}/
 )
 

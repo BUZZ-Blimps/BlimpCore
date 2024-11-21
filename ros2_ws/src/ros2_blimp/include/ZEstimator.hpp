@@ -4,6 +4,9 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 
+
+#define ONE_G 9.81
+
 class ZEstimator {
 private:
     Eigen::MatrixXd B;
@@ -22,13 +25,11 @@ public:
     Eigen::MatrixXd h;
     Eigen::MatrixXd R;
     Eigen::MatrixXd Q;
-    Eigen::MatrixXd Q0;
 
     Eigen::MatrixXd P0forFlying;
     Eigen::MatrixXd xHat0;
     Eigen::MatrixXd xHatforFlying;
     Eigen::MatrixXd P0;
-    Eigen::MatrixXd R0;
     Eigen::MatrixXd RforFlying;
 
     //Alpha/beta parameters for partial update
@@ -39,7 +40,7 @@ public:
     ZEstimator();
     void initialize();
     void propagate(double ax, double ay, double az, std::vector<double> q, double dt);
-    void update();
+    void update(double bz);
     void partialUpdate(double bz);
     void reset();
 

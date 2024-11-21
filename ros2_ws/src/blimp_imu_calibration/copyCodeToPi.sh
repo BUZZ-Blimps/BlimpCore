@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# user_dir="/home/opi"
-# user="opi"
-user_dir="/root"
-user="root"
+user_dir="/home/opi"
+user="opi"
+# user_dir="/root"
+# user="root"
 
 if [ "$1" != "" ]; then
 	hostname=$1

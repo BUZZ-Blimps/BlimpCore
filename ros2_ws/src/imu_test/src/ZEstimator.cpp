@@ -30,21 +30,15 @@ ZEstimator::ZEstimator() {
           0,    1.0, 0,
           0,    0, 1.0;
 
-    P = Eigen::MatrixXd(3,3);
-
-    Q0 = Eigen::MatrixXd(2,2);
-    Q0 << 0.2, 0.0, 0.0, 0.4;
+    P = Eigen::MatrixXd(3,3);    
 
     Q = Eigen::MatrixXd(2,2);
+    Q << 0.25, 0.0, 0.0, 0.5;
     
     xHat0 = Eigen::MatrixXd::Zero(3,1);
 
-    //R0 represents a pseudo covariance that we use to initiate the propagations,
-    //once we are in the air, we need to switch the actual R.
-    R0 = Eigen::MatrixXd(1,1);
-    R0 << 0.33;
-
     R = Eigen::MatrixXd(1,1);
+    R << 0.33;
 
     //Beta values for partial update
     betaVector = Eigen::MatrixXd(3,1);
@@ -94,7 +88,6 @@ Eigen::Matrix3d ZEstimator::quat_to_rot(std::vector<double> quat) {
 void ZEstimator::initialize() {
     xHat = xHat0;
     P = P0;
-    R = R0;
 
     //Calculate partial update alphas
     int num_states = betaVector.rows();
@@ -113,7 +106,7 @@ void ZEstimator::propagate(double ax, double ay, double az, std::vector<double> 
     accelxyz_in_body_frame << ax, ay, az;
     accelxyz_in_NED_frame = C_NED_to_body_frame * accelxyz_in_body_frame;
 
-    u(0) = accelxyz_in_NED_frame(2) - 1.0; //assume normalization
+    u(0) = (accelxyz_in_NED_frame(2) - 1.0)*ONE_G; //assume normalization
 
     // std::cout << "Body = (" << accelxyz_in_body_frame(0) << ", " << accelxyz_in_body_frame(1) << ", " << accelxyz_in_body_frame(2) << ")" << std::endl;
     // std::cout << "Global = (" << accelxyz_in_NED_frame(0) << ", " << accelxyz_in_NED_frame(1) << ", " << accelxyz_in_NED_frame(2) << ")" << std::endl;
@@ -126,8 +119,6 @@ void ZEstimator::propagate(double ax, double ay, double az, std::vector<double> 
     B << 0,
          1*dt,
          0;
-
-    Q = Q0*(dt);
 
     xHat = F*xHat + B*u;
     P = F*P*F.transpose() + G*Q*G.transpose();

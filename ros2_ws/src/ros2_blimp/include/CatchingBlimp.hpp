@@ -120,7 +120,7 @@
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
 #define GOAL_X_OFFSET             0
-#define GOAL_Y_OFFSET             -70   //height alignment (approach down)
+#define GOAL_Y_OFFSET             80   //height alignment (approach down)
 
 //goal alignment test
 #define ALIGNING_YAW_COM           10   //test
@@ -275,6 +275,9 @@ private:
     double forward_motor_, up_motor_, yaw_motor_;
     double forward_command_, up_command_, yaw_command_;
 
+    double baro_sum_;
+    int baro_count_;
+
     rclcpp::Time start_time_;
     rclcpp::Time state_machine_time_;
     rclcpp::Time target_memory_time_;
@@ -297,6 +300,9 @@ private:
     ZEstimator z_est_;
     EMAFilter z_lowpass_;
 
+    Eigen::Matrix3d acc_A_;
+    Eigen::Vector3d acc_b_;
+
     void heartbeat_timer_callback();
     void imu_timer_callback();
     void baro_timer_callback();
@@ -315,6 +321,7 @@ private:
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg);
     float searchDirection();
     bool load_pid_config();
+    bool load_acc_calibration();
 };
 
 #endif

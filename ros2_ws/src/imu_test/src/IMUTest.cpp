@@ -83,6 +83,7 @@ void IMUTest::imu_timer_callback() {
 
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now-imu_msg_.header.stamp).seconds();
+    imu_msg_.header.stamp = now;
 
     imu_.IMU_read();
 
@@ -105,8 +106,9 @@ void IMUTest::imu_timer_callback() {
         imu_init_ = true;
     }
 
+    // std::cout << imu_.AccXraw << ", " << imu_.AccYraw << ", " << imu_.AccZraw << std::endl;
+
     // RCLCPP_INFO(this->get_logger(), "R: %.2f, P: %.2f", euler[0], euler[1]);
-    imu_msg_.header.stamp = now;
     imu_msg_.orientation.w = quat[0];
     imu_msg_.orientation.x = quat[1];
     imu_msg_.orientation.y = quat[2];
@@ -130,7 +132,7 @@ void IMUTest::imu_timer_callback() {
     blimp_tf_.header.stamp = now;
     blimp_tf_.transform.translation.x = 0;
     blimp_tf_.transform.translation.y = 0;
-    blimp_tf_.transform.translation.z = z_hat;
+    blimp_tf_.transform.translation.z = z_est_.xHat(0);
     blimp_tf_.transform.rotation = imu_msg_.orientation;
     tf_broadcaster_->sendTransform(blimp_tf_);
     // std::cout << "predict: " << z_est_.xHat(0) << std::endl;
@@ -170,7 +172,7 @@ void IMUTest::baro_timer_callback() {
     // RCLCPP_INFO(this->get_logger(), "Cal: %.8f", imu_.comp_press);
 
     //Average barometer every 5 samples (5Hz)
-    if (baro_count_ == 50) {
+    if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/baro_count_;
         
         // z_est_.update(baro_mean_);

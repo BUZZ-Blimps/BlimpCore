@@ -45,21 +45,13 @@ bool last_lost = true;
 //sensor fusion objects
 OPI_IMU BerryIMU;
 Madgwick_Filter madgwick;
-AccelGCorrection accelGCorrection;
 
 MotorControl motorControl;
 Gimbal leftGimbal;
 Gimbal rightGimbal;
 
-//Manual PID control
-// PID forwardPID(300, 0, 0);  //not used
-// PID translationPID(300, 0, 0); //not used
-
 //Goal positioning controller
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
-
-//pre process for accel before vertical kalman filter
-// EMAFilter verticalAccelFilter(0.05);
 
 //filter on yaw gyro
 EMAFilter yawRateFilter(0.2);
@@ -69,6 +61,7 @@ EMAFilter rollRateFilter(0.5);
 EMAFilter xFilter(0.5);
 EMAFilter yFilter(0.5);
 EMAFilter zFilter(0.5);
+
 // EMAFilter areaFilter(0.5);
 
 //baro offset computation from base station value
@@ -85,6 +78,9 @@ CatchingBlimp::CatchingBlimp() :
     count_(0), 
     imu_init_(false), 
     baro_init_(false), 
+    baro_sum_(0.0), 
+    baro_count_(0),
+    baro_calibration_offset_(0.0),
     z_hat_(0), 
     catches_(0), 
     control_mode_(lost), 
@@ -98,6 +94,14 @@ CatchingBlimp::CatchingBlimp() :
         RCLCPP_INFO(this->get_logger(), "PID configuration loaded.");
     } else {
         RCLCPP_ERROR(this->get_logger(), "PID configuration not provided. Exiting.");
+        rclcpp::shutdown();
+        return;
+    }
+
+    if (load_acc_calibration()) {
+        RCLCPP_INFO(this->get_logger(), "Accelerometer calibration loaded.");
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Invalid accelerometer calibration. Exiting.");
         rclcpp::shutdown();
         return;
     }
@@ -318,8 +322,6 @@ void CatchingBlimp::imu_timer_callback()
 }
 
 void CatchingBlimp::baro_timer_callback() {
-    // auto height_msg = std_msgs::msg::Float64();
-    // auto z_velocity_msg = std_msgs::msg::Float64();
 
     // get most current barometer values
     BerryIMU.baro_read();
@@ -327,12 +329,21 @@ void CatchingBlimp::baro_timer_callback() {
     if (!baro_init_) return;
 
     cal_baro_ = 44330 * (1 - pow(((BerryIMU.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
+    baro_sum_ += cal_baro_;
+    baro_count_++;
 
-    //Update Z estimator with barometer measurement
-    z_est_.partialUpdate(cal_baro_);
+    //Average barometer every 5 samples (5Hz)
+    if (baro_count_ == 5) {
+        double baro_mean_ = baro_sum_/(double)baro_count_;
+        
+        z_est_.partialUpdate(baro_mean_);
 
-    //Lowpass current estimate
-    z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+        //Lowpass current estimate
+        z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+
+        baro_sum_ = 0.0;
+        baro_count_ = 0;
+    }
 }
 
 /// @brief 
@@ -1110,37 +1121,10 @@ void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::Share
 void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
 {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
-    //commands from basestation
-    // forward_msg = msg->data.data[3];
-    // up_msg = msg->data.data[1];
-    // yaw_msg = msg->data.data[0];
-    // translation_msg = msg->data.data[2];
-
+    // Manual control commands from basestation
     forward_msg = msg->data[3];
     up_msg = msg->data[1];
     yaw_msg = msg->data[0];
-    // translation_msg = msg->data[2];
-
-    // debug_msg.data[5] = forward_msg
-    // debug_msg.data[6] = up_msg
-    // debug_msg.data[7] = translation_msg
-    // motorControl.yawLeft = yaw_msg;
-    // motorControl.upLeft = up_msg;
-    // motorControl.forwardLeft = forward_msg;
-
-    // auto debug_msg = std_msgs::msg::Float64MultiArray();
-    // debug_msg.data = { motorControl.upLeft, translation_msg, motorControl.forwardLeft};
-    // debug_publisher->publish(debug_msg);
-
-    // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0,  motorControl.upLeft, motorControl.forwardLeft);
-    // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0,  motorControl.upRight, motorControl.forwardRight);
-    // leftGimbal.updateGimbal(leftReady && rightReady);
-    // rightGimbal.updateGimbal(leftReady && rightReady);
-
-    // char motorCommands[100];  // Size depending on the expected maximum length of your combined string
-    // sprintf(motorCommands, "Teensy Motor Commands\nYaw: %.2f\nUp: %.2f\nTranslation: %.2f\nForward: %.2f\n", yaw_msg, up_msg, translation_msg, forward_msg);
-    // publish_log(motorCommands);
 }
 
 void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
@@ -1191,11 +1175,10 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     targets_[6] = targets_[6]-320;
     targets_[7] = targets_[7]-240;
 
-    // targets[0] = msg->x;
-
-    // targets[1] = msg->y;
-
-    // targets[2] = msg->z;
+    // std::cout << "Ball: " << targets_[0] << ", " << targets_[1] << std::endl;
+    // double dt = 0.03;
+    // double uppie = yPID_.calculate(GAME_BALL_Y_OFFSET, targets_[1], dt);
+    // std::cout << "Up CMD: " << uppie << std::endl;
 }
 
 // void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg)
@@ -1270,5 +1253,32 @@ bool CatchingBlimp::load_pid_config() {
         return true;
     } else {
         return false;
+    }
+}
+
+bool CatchingBlimp::load_acc_calibration() {
+    std::vector<double> empty_vect, beta_vect;
+    this->declare_parameter("betas", rclcpp::PARAMETER_DOUBLE_ARRAY);
+
+    if (this->get_parameter("betas", beta_vect)) {
+        if (beta_vect.size() == 9) {
+            acc_A_ << beta_vect[0], beta_vect[1], beta_vect[2], 
+                      beta_vect[1], beta_vect[3], beta_vect[4], 
+                      beta_vect[2], beta_vect[4], beta_vect[5];
+            acc_b_ << beta_vect[6], beta_vect[7], beta_vect[8];
+
+            RCLCPP_INFO(this->get_logger(), 
+                "Accelerometer calibration loaded: betas = (%.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f)", 
+                beta_vect[0], beta_vect[1], beta_vect[2], beta_vect[3], beta_vect[4], beta_vect[5], beta_vect[6], beta_vect[7], beta_vect[8]);
+
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        RCLCPP_WARN(this->get_logger(), "Accelerometer calibration not provided - defaulting to identity.");
+        acc_A_.setIdentity();
+        acc_b_.setZero();
+        return true;
     }
 }

@@ -13,7 +13,6 @@
 #include "LIS3MDL.hpp"
 #include "BM388.hpp"
 
-
 class OPI_IMU
 {
   public:
