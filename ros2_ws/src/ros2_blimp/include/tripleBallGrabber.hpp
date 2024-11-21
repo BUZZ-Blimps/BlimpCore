@@ -8,15 +8,25 @@ class TripleBallGrabber {
 public:
     TripleBallGrabber();
     void ballgrabber_init(int servoPin, int motorPin);
+    bool is_open();
     void openGrabber(int blimp_state);
     void closeGrabber(int blimp_state);
     void update();
     void shoot(int blimp_state);
     void updateMoveRate(int blimp_state);
+    void suck();
 
-    int state = 0;
     double currentAngle = 0; // [deg]
     double targetAngle = 0; // [deg]
+
+    enum grabber_state {
+        state_closed,
+        state_open,
+        state_shooting,
+        state_sucking
+    };
+
+    grabber_state state_;
 
 private:
     Servo servo_;
@@ -28,11 +38,7 @@ private:
     const double moveRate_slow = 45.0; // [deg/s]
 
     const double angle_closed = 0; // [deg]
-    const double angle_open = 120; // [deg]
-
-    const int state_closed = 0;
-    const int state_open = 1;
-    const int state_shooting = 2;
+    const double angle_open = 100; // [deg]
 };
 
 #endif

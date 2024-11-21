@@ -6,7 +6,7 @@ TripleBallGrabber::TripleBallGrabber() {
     // Start closed
     currentAngle = angle_closed;
     targetAngle = currentAngle;
-    state = state_closed;
+    state_ = state_closed;
     moveRate = moveRate_slow;
 }
 
@@ -22,7 +22,11 @@ void TripleBallGrabber::openGrabber(int blimp_state) {
 
     targetAngle = angle_open;
     this->motor_.write_thrust(1500);
-    state = state_open;
+    state_ = state_open;
+}
+
+bool TripleBallGrabber::is_open() {
+    return state_ == state_open && currentAngle == angle_open;
 }
 
 void TripleBallGrabber::closeGrabber(int blimp_state) {
@@ -31,10 +35,10 @@ void TripleBallGrabber::closeGrabber(int blimp_state) {
 
     targetAngle = angle_closed;
     this->motor_.write_thrust(1500);
-    state = state_closed;
+    state_ = state_closed;
 }
 
-void TripleBallGrabber::update(){
+void TripleBallGrabber::update() {
     double currentTime = micros()/1000000.0;
     double elapsedTime = currentTime - lastCommandTime;
     lastCommandTime = currentTime;
@@ -44,9 +48,10 @@ void TripleBallGrabber::update(){
     double errorAngle = targetAngle - currentAngle;
 
     double deltaAngle;
+
     if (errorAngle > maxAngleMovement) {
         deltaAngle = maxAngleMovement;
-    } else if(errorAngle < -maxAngleMovement) {
+    } else if (errorAngle < -maxAngleMovement) {
         deltaAngle = -maxAngleMovement;
     } else {
         // Error is extremely close
@@ -62,14 +67,20 @@ void TripleBallGrabber::shoot(int blimp_state) {
 
     targetAngle = angle_open;
     currentAngle = targetAngle;
-    state = state_shooting;
+    state_ = state_shooting;
     this->motor_.write_thrust(2000);
 }
 
-void TripleBallGrabber::updateMoveRate(int blimp_state){
-  if(blimp_state == 0) { // blimpState::manual
-    moveRate = moveRate_fast;
-  }else{
-    moveRate = moveRate_slow;
-  }
+//For when you gotta give the ball that GROK GROK with your low-hanging sack
+void TripleBallGrabber::suck() {
+    state_ = state_sucking;
+    this->motor_.write_thrust(1000);
+}
+
+void TripleBallGrabber::updateMoveRate(int blimp_state) {
+    if (blimp_state == 0) { // blimpState::manual
+        moveRate = moveRate_fast;
+    } else {
+        moveRate = moveRate_slow;
+    }
 }

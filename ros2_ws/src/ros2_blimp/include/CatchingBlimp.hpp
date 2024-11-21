@@ -60,11 +60,11 @@
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
-#define USE_OBJECT_AVOIDENCE      false     //use false to turn off the obstacle avoidance 
+#define USE_OBJECT_AVOIDENCE        false     //use false to turn off the obstacle avoidance 
 
 //catch search time after one
 #define MAX_SEARCH_WAIT_AFTER_ONE     80.0    //max searching 
-#define GAME_BALL_WAIT_TIME_PENALTY   0    //should be set to 20, every catch assumed to be 20 seconds long  
+#define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
 #define TOTAL_ATTEMPTS            1    // attempts at catching 
@@ -79,10 +79,10 @@
 #define GOAL_HEIGHT_DEADBAND      0.4   //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    1.4  //m distance for blimp to trigger goal score 	
+#define GOAL_DISTANCE_TRIGGER    1.9  //m distance for blimp to trigger goal score 	
 #define BALL_GATE_OPEN_TRIGGER   3    //m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.2  //m distance for blimp to start the open-loop control
-#define AVOID_TRIGGER       0.8  //m distance for blimp to start the open-loop control
+#define AVOID_TRIGGER            0.8  //m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
@@ -96,11 +96,20 @@
 #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
 #define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
-#define GAME_BALL_APPROACH_ANGLE  40  //approach magic number (TODO: reset)
-#define GAME_BaLL_X_OFFSET        0   //offset magic number (TODO: reset)
+#define GAME_BALL_APPROACH_ANGLE  60  //approach magic number (TODO: reset)
+#define GAME_BALL_X_OFFSET        0   //offset magic number (TODO: reset)
 
 #define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
 #define CATCHING_UP_COM           50  //damp out pitch
+
+#define TIME_TO_SEARCH            15.0
+#define TIME_TO_BACKUP            5.0
+#define TIME_TO_CATCH             5.0 //seconds
+#define TIME_TO_CAUGHT            3.0
+#define TIME_TO_SCORE             2.0 
+#define TIME_TO_SHOOT             4.5
+#define TIME_TO_SCORED            4.5
+#define MAX_APPROACH_TIME         10.0
 
 #define CAUGHT_FORWARD_COM        -250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
@@ -118,7 +127,6 @@
 #define ALIGNING_FORWARD_COM       100 //test
 #define ALIGNING_UP_COM            100 //test
 #define ALIGNING_TRANSLATION_COM   300 //test
-
 
 #define SCORING_YAW_COM           0
 #define SCORING_FORWARD_COM       450 //40% throttle
@@ -209,7 +217,7 @@ enum goalType {
     yellow
 };
 
-enum gameballType{
+enum gameballType {
     green,
     pink
 };
@@ -255,6 +263,7 @@ private:
     std_msgs::msg::Bool heartbeat_msg_;
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
+    std_msgs::msg::Int64 state_machine_msg_;
 
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_;
@@ -266,11 +275,22 @@ private:
     int control_mode_, auto_state_;
     int last_state_ = -1;
 
-    rclcpp::Time start_time_;
-
     double forward_motor_, up_motor_, yaw_motor_;
     double forward_command_, up_command_, yaw_command_;
 
+    rclcpp::Time start_time_;
+    rclcpp::Time state_machine_time_;
+    rclcpp::Time target_memory_time_;
+    rclcpp::Time last_catch_time_;
+
+    rclcpp::Time search_start_time_;
+    rclcpp::Time approach_start_time_;
+    rclcpp::Time catch_start_time_;
+    rclcpp::Time caught_start_time_;
+    rclcpp::Time goal_approach_start_time_;
+    rclcpp::Time shoot_start_time_;
+    rclcpp::Time score_start_time_;
+    
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID

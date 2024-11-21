@@ -12,6 +12,7 @@ class Gimbal {
         void updateGimbal(bool ready);
         double getServoAngle();
         double getServoUS();
+        double getBrushlessThrust();
         double servoThreshold;
 
     private:

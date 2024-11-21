@@ -47,23 +47,23 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
 
     if (abs(thrust) >= deadband_/2.0) { // Turn on motors
 
-      this->pitchServo.write_angle(theta);
+        this->pitchServo.write_angle(theta);
 
-      if (!motors_off) {
-        nextMotorCom = motorCom(thrust); //mator mapping from "-1000 - 1000" to "1000 - 2000"
-        
-        //prevent overpowering
-        if (nextMotorCom > 2000) {
-            nextMotorCom = 2000; //max out
-        } else if (nextMotorCom < 1000) {
-            nextMotorCom = 1000; //max out
+        if (!motors_off) {
+            nextMotorCom = motorCom(thrust); //mator mapping from "-1000 - 1000" to "1000 - 2000"
+
+            //prevent overpowering
+            if (nextMotorCom > 2000) {
+                nextMotorCom = 2000; //max out
+            } else if (nextMotorCom < 1000) {
+                nextMotorCom = 1000; //max out
+            }
+        } else {
+            nextMotorCom = motorCom(0);
+            // this->motor.brushless_thrust(motorCom(0)); //write 1500
         }
-      }else{
-        nextMotorCom = motorCom(0);
-        // this->motor.brushless_thrust(motorCom(0)); //write 1500
-      }
-      //  return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
-      return (abs(pitchServo.get_angle() - theta) < 1000);
+            //  return (abs(yawServo.get_angle()-thetaPos)<1000) && (abs(pitchServo.get_angle()-phi)<1000);
+        return (abs(pitchServo.get_angle() - theta) < 1000);
     } else {
         // printf("Idle: %.1f\n",phi);
         nextMotorCom = motorCom(0);
@@ -73,7 +73,7 @@ bool Gimbal::readyGimbal(bool debug, bool motors_off, double roll, double pitch,
 }
 
 // Actual turn on command for brushless motors
-void Gimbal::updateGimbal(bool ready) { 
+void Gimbal::updateGimbal(bool ready) {
     if (ready) {
         this->motor.write_thrust(nextMotorCom);
     } else {
@@ -110,4 +110,8 @@ double Gimbal::getServoAngle() {
 
 double Gimbal::getServoUS() {
     return pitchServo.get_us();
+}
+
+double Gimbal::getBrushlessThrust() {
+    return motor.get_thrust();
 }
