@@ -7,17 +7,17 @@ user="root"
 
 if [ "$1" != "" ]; then
     hostname=$1
-    
+
     # Check if device is online
     timeout=2
     ping $hostname -c 1 -W $timeout > /dev/null
     if [ $? == 0 ]; then
         echo ">>Removing old testing files from $user@$hostname"
-        ssh $user@$hostname "rm -r $user_dir/ros2_ws/src/imu_test"
+        ssh $user@$hostname "rm -r $user_dir/ros2_ws/src/catching_blimp"
         
         echo ">>Copying files to $user@$hostname"
-        ssh $user@$hostname "mkdir -p $user_dir/ros2_ws/src/imu_test"
-        scp -r ./* $user@$hostname:$user_dir/ros2_ws/src/imu_test
+        ssh $user@$hostname "mkdir -p $user_dir/ros2_ws/src/catching_blimp"
+        scp -r ./* $user@$hostname:$user_dir/ros2_ws/src/catching_blimp
         
         echo ">>Done."
     else

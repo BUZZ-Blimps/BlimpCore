@@ -95,7 +95,11 @@
 
 #define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
 #define GAME_BALL_X_OFFSET        0    //offset magic number
-#define GAME_BALL_Y_OFFSET        80   //approach magic number
+#define GAME_BALL_Y_OFFSET        100   //approach magic number
+
+#define GOAL_CLOSURE_COM          275  //forward command 25% throttle
+#define GOAL_X_OFFSET             0
+#define GOAL_Y_OFFSET             150   //height alignment (approach down)
 
 #define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
 #define CATCHING_UP_COM           50   //damp out pitch
@@ -118,9 +122,7 @@
 #define GOAL_FORWARD_SEARCH       200  //200 40% throttle
 #define GOAL_UP_VELOCITY          450
 
-#define GOAL_CLOSURE_COM          275  //forward command 25% throttle
-#define GOAL_X_OFFSET             0
-#define GOAL_Y_OFFSET             80   //height alignment (approach down)
+
 
 //goal alignment test
 #define ALIGNING_YAW_COM           10   //test
