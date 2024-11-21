@@ -1,18 +1,17 @@
-#ifndef SERVO_HPP
-#define SERVO_HPP
+#ifndef BRUSHLESS_HPP
+#define BRUSHLESS_HPP
 
 #include "wiringPi.h"
 
-class servo {
+class Brushless{
     public:
-    void servo_setup(int PIN);
-    double servo_angle(double angle);
-    void servo_PIN(int PIN);
-    double get_angle();
-    double get_us();
+    void setup(int PIN);
+    double write_thrust(double thrust);
+    void set_pin(int PIN);
+    double get_thrust();
 
     private:
-    double curr_angle;
+    double curr_thrust;
     int pin;
     unsigned int ccr;		// Capture/Compare Register (Duty Cycle)
 	unsigned int arr;		// Auto-Reload Register (Period)

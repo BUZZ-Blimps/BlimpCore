@@ -31,21 +31,19 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 
-//Includes for main.cpp
 #include "MotorControl.hpp"
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
-// #include "baro_acc_kf.hpp"
 #include "AccelGCorrection.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
-// #include "Kalman_Filter_Tran_Vel_Est.hpp"
 #include "BangBang.hpp"
 #include "optical_ekf.hpp"
-// #include "gyro_ekf.hpp"
 #include "tripleBallGrabber.hpp"
 #include "Gimbal.hpp"
 #include "ZEstimator.hpp"
+
+#include "math_helpers.hpp"
 
 #include <wiringPi.h>
 
@@ -62,58 +60,65 @@
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
-#define USE_OBJECT_AVOIDENCE      false     //use false to turn off the obstacle avoidance 
+#define USE_OBJECT_AVOIDENCE        false     //use false to turn off the obstacle avoidance 
 
 //catch search time after one
 #define MAX_SEARCH_WAIT_AFTER_ONE     80.0    //max searching 
-#define GAME_BALL_WAIT_TIME_PENALTY   0    //should be set to 20, every catch assumed to be 20 seconds long  
+#define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            2    // attempts at catching 
+#define TOTAL_ATTEMPTS            1    // attempts at catching 
 #define MAX_ATTEMPTS              5    //should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               12      //m
-#define FLOOR_HEIGHT              1.5    //m
+#define CEIL_HEIGHT               10      //m
+#define FLOOR_HEIGHT              2.5    //m
 
 #define MAX_HEIGHT                12    //m  (unused)
 #define GOAL_HEIGHT               9.0   //m
 #define GOAL_HEIGHT_DEADBAND      0.4   //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    1.4  //m distance for blimp to trigger goal score 	
-#define BALL_GATE_OPEN_TRIGGER   2    //m distance for blimp to open the gate 	
+#define GOAL_DISTANCE_TRIGGER    1.9  //m distance for blimp to trigger goal score 	
+#define BALL_GATE_OPEN_TRIGGER   3    //m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.2  //m distance for blimp to start the open-loop control
-#define AVOID_TRIGGER       0.8  //m distance for blimp to start the open-loop control
-
+#define AVOID_TRIGGER            0.8  //m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
-#define YAW_AVOID                 10	 // deg/s
-#define UP_AVOID                  20   // % throttle 
+#define YAW_AVOID                 30	 // deg/s
+#define UP_AVOID                  125   // % throttle 
 
 //autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
-#define GAME_BALL_YAW_SEARCH      -7  // deg/s
-#define GAME_BALL_FORWARD_SEARCH  130 // 30% throttle 
-#define GAME_BALL_VERTICAL_SEARCH 225  // 45% throttle
+#define GAME_BALL_YAW_SEARCH      -20  // deg/s
+#define GAME_BALL_FORWARD_SEARCH  200 // 30% throttle 
+#define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
+#define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
+#define GAME_BALL_APPROACH_ANGLE  60  //approach magic number (TODO: reset)
+#define GAME_BALL_X_OFFSET        0   //offset magic number (TODO: reset)
 
-#define GAME_BALL_CLOSURE_COM     180  //approaching at 20% throttle cap
-#define GAME_BALL_APPROACH_ANGLE  320  //approach magic number (TODO: reset)
-#define GAME_BaLL_X_OFFSET        320   //offset magic number (TODO: reset)
-
-#define CATCHING_FORWARD_COM      350  //catching at 50% throttle 
+#define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
 #define CATCHING_UP_COM           50  //damp out pitch
 
-#define CAUGHT_FORWARD_COM        -300  //go back so that the game ball gets to the back 
-#define CAUGHT_UP_COM             -40
+#define TIME_TO_SEARCH            15.0
+#define TIME_TO_BACKUP            5.0
+#define TIME_TO_CATCH             5.0 //seconds
+#define TIME_TO_CAUGHT            3.0
+#define TIME_TO_SCORE             2.0 
+#define TIME_TO_SHOOT             4.5
+#define TIME_TO_SCORED            4.5
+#define MAX_APPROACH_TIME         10.0
+
+#define CAUGHT_FORWARD_COM        -250  //go back so that the game ball gets to the back 
+#define CAUGHT_UP_COM             40
 
 #define GOAL_YAW_SEARCH           15   
-#define GOAL_FORWARD_SEARCH       150  //200 40% throttle
+#define GOAL_FORWARD_SEARCH       200  //200 40% throttle
 #define GOAL_UP_VELOCITY          450
 
-#define GOAL_CLOSURE_COM          125  //forward command 25% throttle
+#define GOAL_CLOSURE_COM          275  //forward command 25% throttle
 #define GOAL_X_OFFSET             80  
 #define GOAL_APPROACH_ANGLE       70  //height alignment (approach down)
 
@@ -123,9 +128,8 @@
 #define ALIGNING_UP_COM            100 //test
 #define ALIGNING_TRANSLATION_COM   300 //test
 
-
 #define SCORING_YAW_COM           0
-#define SCORING_FORWARD_COM       400 //40% throttle
+#define SCORING_FORWARD_COM       450 //40% throttle
 #define SCORING_UP_COM            80
 
 #define SHOOTING_FORWARD_COM      400  //counter back motion 
@@ -145,7 +149,6 @@
 
 #define GYRO_X_CONSTANT           480.0
 #define GYRO_YAW_CONSTANT         0
-
 #define GYRO_Y_CONSTANT           323.45
 
 //motor timeout before entering lost state
@@ -154,49 +157,27 @@
 #define BALL_APPROACH_THRESHOLD   2500
 #define BALL_CATCH_THRESHOLD      62000
 
-//**************** TEENSY PINOUT ****************//
-//old pcb
-// #define L_Pitch                   10 // was 2                    
-// #define L_Yaw                     3   //not used, not changed           
-// #define R_Pitch                   0               
-// #define R_Yaw                     9 //not used, was 5                    
-
-// #define L_Pitch_FB                23                    
-// #define L_Yaw_FB                  22                  
-// #define R_Pitch_FB                21                    
-// #define R_Yaw_FB                  20                  
-
-// #define GATE_S                    99  // was 8              
-
-// #define PWM_R                     5              
-// #define PWM_G                     98   // was10           
-// #define PWM_L                     2      //was 16        
-
-
-// #define OF_CS                     10    
-
-//new pcb
-#define L_Pitch                   5 // was 2                    
-#define L_Yaw                     3   //not used, not changed           
+//OrangePi5 Pinout
+#define L_Pitch                   5     // was 2                    
+#define L_Yaw                     3     //not used, not changed           
 #define R_Pitch                   0               
-#define R_Yaw                     9 //not used, was 5                    
+#define R_Yaw                     9     //not used, was 5                    
 
 #define L_Pitch_FB                23                    
 #define L_Yaw_FB                  22                  
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    2  // was 8              
+#define GATE_S                    2     // was 8              
 
 #define PWM_R                     8              
-#define PWM_G                     10   // was10           
-#define PWM_L                     16     //was 16        
-
+#define PWM_G                     10    // was10           
+#define PWM_L                     16    //was 16        
 
 #define OF_CS                     10    
 //***********************************************//
 
-//constants
+// Constants
 #define MICROS_TO_SEC             1000000.0
 #define BUFFER_LEN                512
 #define MAX_TARGETS               100
@@ -221,8 +202,6 @@ enum blimpState {
     lost,
 };
 
-// int blimp_state = manual;
-
 enum grabberState {
     opened,
     closed,
@@ -238,7 +217,7 @@ enum goalType {
     yellow
 };
 
-enum gameballType{
+enum gameballType {
     green,
     pink
 };
@@ -284,6 +263,7 @@ private:
     std_msgs::msg::Bool heartbeat_msg_;
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
+    std_msgs::msg::Int64 state_machine_msg_;
 
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_;
@@ -292,8 +272,25 @@ private:
     std::vector<double> targets_;
     int catches_;
 
-    int control_mode_, auto_state_, last_state_;
+    int control_mode_, auto_state_;
+    int last_state_ = -1;
 
+    double forward_motor_, up_motor_, yaw_motor_;
+    double forward_command_, up_command_, yaw_command_;
+
+    rclcpp::Time start_time_;
+    rclcpp::Time state_machine_time_;
+    rclcpp::Time target_memory_time_;
+    rclcpp::Time last_catch_time_;
+
+    rclcpp::Time search_start_time_;
+    rclcpp::Time approach_start_time_;
+    rclcpp::Time catch_start_time_;
+    rclcpp::Time caught_start_time_;
+    rclcpp::Time goal_approach_start_time_;
+    rclcpp::Time shoot_start_time_;
+    rclcpp::Time score_start_time_;
+    
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID

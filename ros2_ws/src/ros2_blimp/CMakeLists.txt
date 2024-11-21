@@ -18,21 +18,19 @@ find_package(Eigen3 REQUIRED)
 
 set(
     SOURCE_FILES
-    src/AccelGCorrection.cpp
     src/BangBang.cpp
-    src/baro_acc_kf.cpp
     src/OPI_IMU.cpp
-    src/brushless.cpp
+    src/Brushless.cpp
     src/EMAFilter.cpp
     src/Gimbal.cpp
-    src/gyro_ekf.cpp
     src/ZEstimator.cpp
     src/Madgwick_Filter.cpp
     src/MotorControl.cpp
     src/optical_ekf.cpp
     src/PID.cpp
-    src/servo.cpp
-    src/tripleBallGrabber.cpp 
+    src/Servo.cpp
+    src/tripleBallGrabber.cpp
+    src/math_helpers.cpp
     src/CatchingBlimp.cpp
     src/catching_blimp_node.cpp
 )

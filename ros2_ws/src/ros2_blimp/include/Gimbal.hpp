@@ -1,39 +1,40 @@
 #ifndef GIMBAL_HPP
 #define GIMBAL_HPP
 
-#include "servo.hpp"
-#include "brushless.hpp"
+#include "Servo.hpp"
+#include "Brushless.hpp"
 
 class Gimbal {
     public:
-        // Gimbal();
-        void gimbal_init(int yawPin, int pitchPin, int motorPin,double newDeadband, double newTurnOnCom, double newMinCom, double newMaxCom, double newPhiOffset, double filter);
-        bool readyGimbal(bool debug, bool motors_off, double roll, double pitch, double yaw, double up, double forward);
+        void gimbal_init(int pitchPin, int motorPin, double newDeadband, double newTurnOnCom, 
+                            double newMinCom, double newMaxCom, double newThetaOffset, bool thetaSign, bool ccw, double newFilter);
+        bool readyGimbal(bool debug, bool motors_off, double roll, double pitch, double up, double forward);
         void updateGimbal(bool ready);
         double getServoAngle();
         double getServoUS();
+        double getBrushlessThrust();
         double servoThreshold;
 
     private:
         double motorCom(double command);
 
-        double deadband;
+        double deadband_;
         double turnOnCom;
         double minCom;
         double maxCom;
-        double phiOffset;
+        double thetaOffset;
         double filter;
         double nextMotorCom;
 
         //attach to pin
-        servo yawServo;
-        servo pitchServo;
-        brushless motor;
+        Servo yawServo;
+        Servo pitchServo;
+        Brushless motor;
 
         double thetaPos;
-        double phiPos1;
 
-        double pi = 3.1415927;
+        double thetaSign_;
+        double thrustSign_;
 };
 
 #endif
