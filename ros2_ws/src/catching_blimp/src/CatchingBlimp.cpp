@@ -74,9 +74,9 @@ CatchingBlimp::CatchingBlimp() :
     count_(0), 
     imu_init_(false), 
     baro_init_(false), 
+    baro_calibration_offset_(0.0),
     baro_sum_(0.0), 
     baro_count_(0),
-    baro_calibration_offset_(0.0),
     z_hat_(0), 
     catches_(0), 
     control_mode_(INITIAL_MODE), 
@@ -126,19 +126,32 @@ CatchingBlimp::CatchingBlimp() :
     debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>("debug", 10);
     height_publisher_ = this->create_publisher<std_msgs::msg::Float64>("height", 10);
     z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
-    state_machine_publisher = this->create_publisher<std_msgs::msg::Int64>("state_machine", 10);
+    state_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("state", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
 
-    //create subscribers (10 right now)
-    auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", 10, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
-    baseBarometer_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
-    calibrateBarometer_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", 10, std::bind(&CatchingBlimp::calibrateBarometer_subscription_callback, this, _1));
-    grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", 10, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
-    shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", 10, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
-    motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("motor_commands", 10, std::bind(&CatchingBlimp::motor_subscription_callback, this, _1)); 
-    kill_subscription = this->create_subscription<std_msgs::msg::Bool>("killed", 10, std::bind(&CatchingBlimp::kill_subscription_callback, this, _1));
-    goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>("goal_color", 10, std::bind(&CatchingBlimp::goal_color_subscription_callback, this, _1));
+    //Set QOS settings to match basestation
+    auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
+    bool_qos.reliable();
+    bool_qos.transient_local();
+
+    auto motor_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
+    motor_qos.reliable();
+    motor_qos.durability_volatile();
+
+    // Basestation bool subscribers
+    auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", bool_qos, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
+    cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
+    grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", bool_qos, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
+    shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", bool_qos, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
+    kill_subscription = this->create_subscription<std_msgs::msg::Bool>("killed", bool_qos, std::bind(&CatchingBlimp::kill_subscription_callback, this, _1));
+    goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>("goal_color", bool_qos, std::bind(&CatchingBlimp::goal_color_subscription_callback, this, _1));
     
+    // Basestation motor commands
+    motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("motor_commands", motor_qos, std::bind(&CatchingBlimp::motor_subscription_callback, this, _1)); 
+
+    // Base barometer
+    base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
+
     // Offboard ML
     targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("targets", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
 
@@ -174,6 +187,11 @@ CatchingBlimp::CatchingBlimp() :
     goal_approach_start_time_ = now;
 
     heartbeat_msg_.data = true;
+
+    //Initialize state message
+    state_msg_.data.reserve(2);
+    state_msg_.data.push_back(0);
+    state_msg_.data.push_back(0);
 }
 
 void CatchingBlimp::heartbeat_timer_callback() {
@@ -181,8 +199,9 @@ void CatchingBlimp::heartbeat_timer_callback() {
     heartbeat_publisher->publish(heartbeat_msg_);
 
     // Publish autonomous state machine info to Basestation
-    state_machine_msg_.data = auto_state_;
-    state_machine_publisher->publish(state_machine_msg_);
+    state_msg_.data[0] = auto_state_;
+    state_msg_.data[1] = catches_;
+    state_publisher_->publish(state_msg_);
 }
 
 void CatchingBlimp::imu_timer_callback() {
@@ -756,8 +775,15 @@ void CatchingBlimp::state_machine_callback() {
                 break;
             } case catching: {
 
-                forward_command_ = CATCHING_FORWARD_COM;
-                up_command_ = CATCHING_UP_COM;
+                //Go slower when we get up close
+                if (tz > 5.0) {
+                    forward_command_ = CATCHING_FORWARD_COM;
+                    up_command_ = CATCHING_UP_COM;
+                } else {
+                    forward_command_ = 200;
+                    up_command_ = CATCHING_UP_COM;
+                }
+
                 yaw_command_ = 0;
 
                 //Turn on the SUCK
@@ -875,7 +901,12 @@ void CatchingBlimp::state_machine_callback() {
 
                     yaw_command_ = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
                     up_command_ = yPID_.calculate(GOAL_Y_OFFSET, ty, dt);
-                    forward_command_ = GOAL_CLOSURE_COM;
+
+                    if (tz > 4.0) {
+                        forward_command_ = GOAL_CLOSURE_COM;
+                    } else {
+                        forward_command_ = GOAL_CLOSE_COM;
+                    }
 
                     if (tz < GOAL_DISTANCE_TRIGGER) {
                         score_start_time_ = now;
@@ -1037,7 +1068,9 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
     auto_state_ = searching;
 }
 
-void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+    (void) msg;
+
     // Barometer Calibration
     // Read latest pressure value
     BerryIMU.baro_read();

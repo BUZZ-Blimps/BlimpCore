@@ -53,7 +53,7 @@
 #define INITIAL_MODE              autonomous
 #define ZERO_MODE                 false
 #define GIMBAL_DEBUG              false
-#define MOTORS_OFF                true
+#define MOTORS_OFF                false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -94,9 +94,10 @@
 
 #define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
 #define GAME_BALL_X_OFFSET        0    //offset magic number
-#define GAME_BALL_Y_OFFSET        100   //approach magic number
+#define GAME_BALL_Y_OFFSET        130   //approach magic number
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
+#define GOAL_CLOSE_COM            200 
 #define GOAL_X_OFFSET             0
 #define GOAL_Y_OFFSET             100   //height alignment (approach down)
 
@@ -114,7 +115,7 @@
 
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds
 
-#define CAUGHT_FORWARD_COM        -250  //go back so that the game ball gets to the back 
+#define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
 
 #define GOAL_YAW_SEARCH           15
@@ -233,12 +234,12 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr debug_publisher;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr height_publisher_;
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
-    rclcpp::Publisher<std_msgs::msg::Int64>::SharedPtr state_machine_publisher;
+    rclcpp::Publisher<std_msgs::msg::Int64MultiArray>::SharedPtr state_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_publisher;
 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr auto_subscription;
-    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr baseBarometer_subscription;
-    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr calibrateBarometer_subscription;
+    rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr base_baro_subscription;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr cal_baro_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr grabber_subscription;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr shooter_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr motor_subscription;
@@ -259,10 +260,11 @@ private:
     std_msgs::msg::Bool heartbeat_msg_;
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
-    std_msgs::msg::Int64 state_machine_msg_;
+    std_msgs::msg::Int64MultiArray state_msg_;
 
     bool imu_init_, baro_init_;
-    double base_baro_, baro_calibration_offset_, cal_baro_;
+    double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
+    int baro_count_; 
     double z_hat_;
 
     std::vector<double> targets_;
@@ -273,10 +275,7 @@ private:
 
     double forward_motor_, up_motor_, yaw_motor_;
     double forward_command_, up_command_, yaw_command_;
-
-    double baro_sum_;
-    int baro_count_;
-
+    
     rclcpp::Time start_time_;
     rclcpp::Time state_machine_time_;
     rclcpp::Time target_memory_time_;
@@ -308,7 +307,7 @@ private:
     void state_machine_callback();
     void publish_log(std::string message);
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
-    void calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
+    void cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg);
     void grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
