@@ -24,11 +24,7 @@ int grabCom = 0;
 //avoidence data
 int quadrant = 10;
 
-//direction from last ball search
-bool wasUp = true;
-
 double searchYawDirection = -1;
-
 double goalYawDirection = -1;
 
 //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
