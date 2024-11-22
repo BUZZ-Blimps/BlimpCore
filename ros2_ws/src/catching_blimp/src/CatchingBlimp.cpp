@@ -83,7 +83,7 @@ CatchingBlimp::CatchingBlimp() :
     baro_calibration_offset_(0.0),
     z_hat_(0), 
     catches_(0), 
-    control_mode_(lost), 
+    control_mode_(INITIAL_MODE), 
     auto_state_(searching),
     yaw_command_(0) {
 
@@ -189,15 +189,19 @@ void CatchingBlimp::heartbeat_timer_callback() {
     state_machine_publisher->publish(state_machine_msg_);
 }
 
-void CatchingBlimp::imu_timer_callback()
-{
+void CatchingBlimp::imu_timer_callback() {
+
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now - imu_msg_.header.stamp).seconds();
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
 
-    madgwick.Madgwick_Update(BerryIMU.gyr_rateXraw, BerryIMU.gyr_rateYraw, BerryIMU.gyr_rateZraw, BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
+    //Apply IMU calibration
+    Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
+    Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
+
+    madgwick.Madgwick_Update(BerryIMU.gyr_rateXraw, BerryIMU.gyr_rateYraw, BerryIMU.gyr_rateZraw, acc_cal(0), acc_cal(1), acc_cal(2));
 
     //Get quaternion from madgwick
     std::vector<double> quat = madgwick.get_quaternion();
@@ -207,12 +211,11 @@ void CatchingBlimp::imu_timer_callback()
 
     if (imu_init_) {
         //Only propagate after first IMU sample so dt makes sense
-        z_est_.propagate(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw, quat, dt);
+        z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
     } else {
         imu_init_ = true;
     }
 
-    // RCLCPP_INFO(this->get_logger(), "R: %.2f, P: %.2f", euler[0], euler[1]);
     imu_msg_.header.stamp = now;
     imu_msg_.orientation.w = quat[0];
     imu_msg_.orientation.x = quat[1];
@@ -291,7 +294,6 @@ void CatchingBlimp::imu_timer_callback()
             rightGimbal.updateGimbal(leftReady && rightReady);
 
             // RCLCPP_INFO(this->get_logger(), "Servos: Left: %.2f (%.2f us), Right: %.2f (%.2f us)", leftGimbal.getServoAngle(), leftGimbal.getServoUS(), rightGimbal.getServoAngle(), rightGimbal.getServoUS());
-
             // RCLCPP_INFO(this->get_logger(), "Motors: Left: %.2f us, Right: %.2f us", leftGimbal.getBrushlessThrust(), rightGimbal.getBrushlessThrust());
 
         } else if (control_mode_ == autonomous && !MOTORS_OFF) {
@@ -305,7 +307,7 @@ void CatchingBlimp::imu_timer_callback()
             bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
             leftGimbal.updateGimbal(leftReady && rightReady);
             rightGimbal.updateGimbal(leftReady && rightReady);
-        } else if(MOTORS_OFF){
+        } else if (MOTORS_OFF){
             motorControl.update(0,0,0,0);
             bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
             bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
@@ -323,7 +325,7 @@ void CatchingBlimp::imu_timer_callback()
 
 void CatchingBlimp::baro_timer_callback() {
 
-    // get most current barometer values
+    // Get current barometer reading
     BerryIMU.baro_read();
 
     if (!baro_init_) return;
@@ -346,7 +348,6 @@ void CatchingBlimp::baro_timer_callback() {
     }
 }
 
-/// @brief 
 void CatchingBlimp::state_machine_callback() {
 
     rclcpp::Time now = this->get_clock()->now();
@@ -1015,15 +1016,14 @@ void CatchingBlimp::state_machine_callback() {
     last_state_ = auto_state_;
 }
 
-void CatchingBlimp::publish_log(std::string message) const {
+void CatchingBlimp::publish_log(std::string message) {
     auto log_msg = std_msgs::msg::String();
     log_msg.data = message;
     log_publisher->publish(log_msg);
     // RCSOFTCHECK(rcl_publish(&log_publisher, &log_msg, NULL));
 }
 
-void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
     if (msg->data) {
         if (control_mode_ == manual) {
@@ -1041,8 +1041,7 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
     auto_state_ = searching;
 }
 
-void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // Barometer Calibration
     // Read latest pressure value
     BerryIMU.baro_read();
@@ -1058,8 +1057,7 @@ void CatchingBlimp::calibrateBarometer_subscription_callback(const std_msgs::msg
     publish_log("Calibrating Barometer");
 }
 
-void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg)
-{
+void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
 
     base_baro_ = msg->data;
@@ -1078,8 +1076,7 @@ void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::Sha
     }
 }
 
-void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     if (grabCom == 0 && msg->data) {
@@ -1091,8 +1088,7 @@ void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::Shared
     }
 }
 
-void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     if (msg->data == true) {
@@ -1105,8 +1101,7 @@ void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::Shared
     }
 }
 
-void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     if (shootCom == 0 && msg->data) {
@@ -1118,8 +1113,7 @@ void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::Share
     }
 }
 
-void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
-{
+void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
     // Manual control commands from basestation
     forward_msg = msg->data[3];
@@ -1127,8 +1121,7 @@ void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64Mult
     yaw_msg = msg->data[0];
 }
 
-void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg)
-{
+void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     int goal_color = msg->data;
@@ -1141,19 +1134,16 @@ void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::
     }
 }
 
-void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
-{
+void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     //3 objects with xyz (9 elements in total)
     for (size_t i = 0; i < 9; ++i) {
-        // avoidance[i] = msg->data.data[i];
         avoidance[i] = msg->data[i];
     }
 }
 
-void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg)
-{
+void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     // object of interest with xyz (9 elements in total)

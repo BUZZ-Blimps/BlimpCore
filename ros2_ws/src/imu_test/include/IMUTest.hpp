@@ -39,20 +39,16 @@ private:
 
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
-
     std_msgs::msg::Float64 baro_msg_, temp_msg_, diff_msg_;
 
     bool imu_init_, baro_init_;
 
     std::string blimp_name_;
 
-    double base_baro_, baro_calibration_offset_, cal_baro_;
-
-    double baro_sum_;
+    double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
     int baro_count_;
 
     rclcpp::Time baro_time_;
-
     EMAFilter z_ema_;
 
     Eigen::Matrix3d acc_A_;
@@ -65,6 +61,7 @@ private:
     void cal_baro_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     bool load_acc_calibration();
+    
 public:
     IMUTest();
 };

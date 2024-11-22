@@ -53,6 +53,7 @@ IMUTest::IMUTest() : Node("imu_test_node"), imu_init_(false), baro_init_(false),
 }
 
 bool IMUTest::load_acc_calibration() {
+    
     std::vector<double> empty_vect, beta_vect;
     this->declare_parameter("betas", rclcpp::PARAMETER_DOUBLE_ARRAY);
 
@@ -91,13 +92,28 @@ void IMUTest::imu_timer_callback() {
     Eigen::Vector3d acc_raw(imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
 
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
-    // RCLCPP_INFO(this->get_logger(), "a: (%.2f, %.2f, %.2f)", imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
-    
+
+    // RCLCPP_INFO(this->get_logger(), "Acc: (%.2f, %.2f, %.2f)", imu_.AccXraw, imu_.AccYraw, imu_.AccZraw);
+    // RCLCPP_INFO(this->get_logger(), "Cal: (%.2f, %.2f, %.2f)", acc_cal(0), acc_cal(1), acc_cal(2));
+
     madgwick_.Madgwick_Update(imu_.gyr_rateXraw, imu_.gyr_rateYraw, imu_.gyr_rateZraw, acc_cal(0), acc_cal(1), acc_cal(2));
 
     //Get quaternion from madgwick
     std::vector<double> quat = madgwick_.get_quaternion();
     std::vector<double> euler = madgwick_.get_euler();
+
+    Eigen::Matrix3d C_NED_to_body_frame = z_est_.quat_to_rot(quat);
+    Eigen::Vector3d accelxyz_in_body_frame, accelxyz_in_NED_frame;
+    accelxyz_in_body_frame << acc_cal(0), acc_cal(1), acc_cal(2);
+    accelxyz_in_NED_frame = C_NED_to_body_frame * accelxyz_in_body_frame;
+
+    // RCLCPP_INFO(this->get_logger(), "ENU: (%.2f, %.2f, %.2f)", 
+    //     accelxyz_in_NED_frame(0), accelxyz_in_NED_frame(1), accelxyz_in_NED_frame(2));
+
+    double z_acc = (accelxyz_in_NED_frame(2) - 1.0)*ONE_G;
+    RCLCPP_INFO(this->get_logger(), "AccZ: %.2f m/s^2", z_acc);
+
+    return;
 
     if (imu_init_) {
         //Only propagate after first IMU sample so dt makes sense
@@ -135,8 +151,8 @@ void IMUTest::imu_timer_callback() {
     blimp_tf_.transform.translation.z = z_est_.xHat(0);
     blimp_tf_.transform.rotation = imu_msg_.orientation;
     tf_broadcaster_->sendTransform(blimp_tf_);
-    // std::cout << "predict: " << z_est_.xHat(0) << std::endl;
 
+    // std::cout << "predict: " << z_est_.xHat(0) << std::endl;
     // imu_.baro_read();
     // if (!baro_init_) {
     //     baro_init_ = true;
@@ -144,7 +160,6 @@ void IMUTest::imu_timer_callback() {
     //     // base_baro_ = imu_.comp_press;
     //     return;
     // }
-
     //get orientation from madgwick
     // double pitch = madgwick_.pitch_final;
     // double roll = madgwick_.roll_final;
@@ -172,7 +187,7 @@ void IMUTest::baro_timer_callback() {
     // RCLCPP_INFO(this->get_logger(), "Cal: %.8f", imu_.comp_press);
 
     //Average barometer every 5 samples (5Hz)
-    if (baro_count_ == 5) {
+    if (baro_count_ == 50) {
         double baro_mean_ = baro_sum_/baro_count_;
         
         // z_est_.update(baro_mean_);

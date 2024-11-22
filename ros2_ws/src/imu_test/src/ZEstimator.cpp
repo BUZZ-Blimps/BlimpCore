@@ -26,46 +26,30 @@ ZEstimator::ZEstimator() {
 
     //P0 is created to save the initial covariance values. It keeps its value forever.
     P0 = Eigen::MatrixXd(3,3);
-    P0 << 1.0, 0, 0,
-          0,    1.0, 0,
-          0,    0, 1.0;
+    P0 << 1.0, 0,   0,
+          0,   1.0, 0,
+          0,   0,   1.0;
 
     P = Eigen::MatrixXd(3,3);    
 
     Q = Eigen::MatrixXd(2,2);
-    Q << 0.25, 0.0, 0.0, 0.5;
+    Q << 0.2, 0.0, 0.0, 0.4;
     
     xHat0 = Eigen::MatrixXd::Zero(3,1);
 
     R = Eigen::MatrixXd(1,1);
-    R << 0.33;
+    R << 0.5;
 
     //Beta values for partial update
     betaVector = Eigen::MatrixXd(3,1);
-    betaVector << 1.0, 1.0, 0.50;
+    betaVector << 0.25, 0.25, 0.25;
 }
 
 Eigen::Matrix3d ZEstimator::quat_to_rot(std::vector<double> quat) {
 
-    // Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
-    // Eigen::Matrix3d skew_mat = skew(Eigen::Vector3d(q[1], q[2], q[3]));
-    // Eigen::Matrix3d rotation_matrix = I - 2 * q[0] * skew_mat + 2 * skew_mat * skew_mat;
-
     Eigen::Vector4d q;
     q << quat[0], quat[1], quat[2], quat[3];
     Eigen::Matrix3d R;
-    
-    // R(0,0) = s(0)*s(0)-s(1)*s(1)-s(2)*s(2)+s(3)*s(3);
-    // R(0,1) = 2*(s(0)*s(1)-s(2)*s(3));
-    // R(0,2) = 2*(s(0)*s(2)+s(1)*s(3));
-    
-    // R(1,0) = 2*(s(0)*s(1)+s(2)*s(3));
-    // R(1,1) = -s(0)*s(0)+s(1)*s(1)-s(2)*s(2)+s(3)*s(3);
-    // R(1,2) = 2*(s(1)*s(2)-s(0)*s(3));
-    
-    // R(2,0) = 2*(s(0)*s(2)-s(1)*s(3));
-    // R(2,1) = 2*(s(1)*s(2)+s(0)*s(3));
-    // R(2,2) = -s(0)*s(0)-s(1)*s(1)+s(2)*s(2)+s(3)*s(3);
 
     // First row of the rotation matrix
     R(0,0) = 2 * (q(0) * q(0) + q(1) * q(1)) - 1;

@@ -7,15 +7,15 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    
+    blimp_name = 'BurnCream'
 
     catching_blimp_cmd = Node(
-        package='ros2_blimp',
-        executable='ros2_blimp_node',
-        name='ros2_blimp_node',
+        package='catching_blimp',
+        executable='catching_blimp_node',
+        name='catching_blimp_node',
         namespace='BurnCream',
         parameters=[
-            os.path.join(get_package_share_directory('ros2_blimp'), 'param', 'pid_config.yaml')
+            os.path.join(get_package_share_directory('catching_blimp'), 'param', 'pid_config.yaml')
         ],
         output='screen'
     )

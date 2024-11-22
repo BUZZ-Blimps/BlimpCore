@@ -147,7 +147,12 @@ int main_real(int argc, char* argv[]){
     // Construct YAML file path
     std::string arg0 = argv[0];
     std::string file_path;
-    if(arg0.find("/root/") == 0){
+
+    std::cout << arg0 << std::endl;
+    std::cout << arg0.find("/root/") << std::endl;
+    std::cout << (arg0.find("/root/") == 0) << std::endl;
+
+    if (arg0.find("/root/") == 0){
         file_path = "/root/";
     }else{
         file_path = "/home/opi/";

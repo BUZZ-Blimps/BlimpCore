@@ -5,7 +5,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    blimp_name = 'SantasWeggie'
+    blimp_name = 'Turbo'
 
     return LaunchDescription([
         Node(

@@ -49,12 +49,11 @@
 #define BLIMP_COLOR               red      //either red or blue
 #define GOAL_COLOR                orange    //either orange or yellow
 
-#define CEIL_HEIGHT_FROM_START    4 //unused 
-
 //debug mode
+#define INITIAL_MODE              autonomous
 #define ZERO_MODE                 false
 #define GIMBAL_DEBUG              false
-#define MOTORS_OFF                false
+#define MOTORS_OFF                true
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -65,8 +64,8 @@
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            1    // attempts at catching 
-#define MAX_ATTEMPTS              5    //should be set to 5
+#define TOTAL_ATTEMPTS            2    // attempts at catching 
+#define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
 #define CEIL_HEIGHT               10   //m
@@ -99,10 +98,10 @@
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
 #define GOAL_X_OFFSET             0
-#define GOAL_Y_OFFSET             150   //height alignment (approach down)
+#define GOAL_Y_OFFSET             100   //height alignment (approach down)
 
 #define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
-#define CATCHING_UP_COM           50   //damp out pitch
+#define CATCHING_UP_COM           0   //damp out pitch
 
 #define TIME_TO_SEARCH            15.0
 #define TIME_TO_BACKUP            5.0
@@ -122,8 +121,6 @@
 #define GOAL_FORWARD_SEARCH       200  //200 40% throttle
 #define GOAL_UP_VELOCITY          450
 
-
-
 //goal alignment test
 #define ALIGNING_YAW_COM           10   //test
 #define ALIGNING_FORWARD_COM       100  //test
@@ -132,7 +129,7 @@
 
 #define SCORING_YAW_COM           0
 #define SCORING_FORWARD_COM       450 //40% throttle
-#define SCORING_UP_COM            80
+#define SCORING_UP_COM            0
 
 #define SHOOTING_FORWARD_COM      400  //counter back motion 
 #define SHOOTING_UP_COM           100
@@ -142,10 +139,10 @@
 #define SCORED_UP_COM             0
 
 //sensor and controller rates
-#define FAST_SENSOR_LOOP_FREQ           100.0
-#define BARO_LOOP_FREQ                  50.0
-#define STATE_MACHINE_FREQ              30.0
-#define OPTICAL_LOOP_FREQ               55.0
+#define FAST_SENSOR_LOOP_FREQ     100.0
+#define BARO_LOOP_FREQ            50.0
+#define STATE_MACHINE_FREQ        30.0
+#define OPTICAL_LOOP_FREQ         55.0
 
 #define DIST_CONSTANT             0.002
 
@@ -309,7 +306,7 @@ private:
     void imu_timer_callback();
     void baro_timer_callback();
     void state_machine_callback();
-    void publish_log(std::string message) const;
+    void publish_log(std::string message);
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void calibrateBarometer_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg);
