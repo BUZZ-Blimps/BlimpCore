@@ -156,29 +156,20 @@
 #define BALL_CATCH_THRESHOLD      62000
 
 //OrangePi5 Pinout
-#define L_Pitch                   5     // was 2                    
-#define L_Yaw                     3     //not used, not changed           
-#define R_Pitch                   0               
-#define R_Yaw                     9     //not used, was 5                    
+// #define L_Pitch                   5     // was 2
+// #define L_Yaw                     3     //not used, not changed
+// #define R_Pitch                   0
+// #define R_Yaw                     9     //not used, was 5
 
-#define L_Pitch_FB                23
-#define L_Yaw_FB                  22
-#define R_Pitch_FB                21
-#define R_Yaw_FB                  20
-
-#define GATE_S                    2     // was 8              
-
-#define PWM_R                     8
-#define PWM_G                     10    // was10           
-#define PWM_L                     16    //was 16        
-
-#define OF_CS                     10
+// Todo: determine these pin numbers after re-wiring
+#define GATE_S                    5     // was 8 
+#define PWM_G                     3
 
 //10 is a valid brushless motor
-#define PIN_LEFT_UP               -1 
-#define PIN_LEFT_FORWARD          16
-#define PIN_RIGHT_UP              -1
-#define PIN_RIGHT_FORWARD         8
+#define PIN_LEFT_UP               16
+#define PIN_LEFT_FORWARD          2
+#define PIN_RIGHT_UP              8
+#define PIN_RIGHT_FORWARD         10
 
 //***********************************************//
 

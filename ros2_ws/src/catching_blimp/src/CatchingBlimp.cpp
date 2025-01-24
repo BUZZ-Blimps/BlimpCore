@@ -121,7 +121,7 @@ CatchingBlimp::CatchingBlimp() :
     // leftGimbal.gimbal_init(L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, false, true, 0.5);
     // rightGimbal.gimbal_init(R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, true, false, 0.5);
 
-    motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR)
+    motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR);
 
     // create publishers (7 right now)
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
