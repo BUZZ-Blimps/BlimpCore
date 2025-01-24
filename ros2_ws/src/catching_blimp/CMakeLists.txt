@@ -33,6 +33,7 @@ set(
     src/math_helpers.cpp
     src/CatchingBlimp.cpp
     src/catching_blimp_node.cpp
+    src/MotorControl_V2.cpp
 )
 
 add_executable(

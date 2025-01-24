@@ -42,9 +42,10 @@ bool last_lost = true;
 OPI_IMU BerryIMU;
 Madgwick_Filter madgwick;
 
-MotorControl motorControl;
-Gimbal leftGimbal;
-Gimbal rightGimbal;
+// MotorControl motorControl;
+// Gimbal leftGimbal;
+// Gimbal rightGimbal;
+MotorControl_V2 motorControl_V2;
 
 //Goal positioning controller
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
@@ -117,8 +118,10 @@ CatchingBlimp::CatchingBlimp() :
 
     ballGrabber.ballgrabber_init(GATE_S, PWM_G);
 
-    leftGimbal.gimbal_init(L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, false, true, 0.5);
-    rightGimbal.gimbal_init(R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, true, false, 0.5);
+    // leftGimbal.gimbal_init(L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, false, true, 0.5);
+    // rightGimbal.gimbal_init(R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, true, false, 0.5);
+
+    motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR)
 
     // create publishers (7 right now)
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
@@ -284,16 +287,18 @@ void CatchingBlimp::imu_timer_callback() {
     if ((now - start_time_).seconds() < 5.0) {
 
         //zero motors while filters converge and esc arms
-        motorControl.update(0, 0, 0, 0);
-        bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-        bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
-        leftGimbal.updateGimbal(leftReady && rightReady);
-        rightGimbal.updateGimbal(leftReady && rightReady);
+        // motorControl.update(0, 0, 0, 0);
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
+        motorControl_V2.update(0, 0, 0, 0);
     } else {
         if (control_mode_ == manual && !MOTORS_OFF) {
             // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
             //forward, translation, up, yaw, roll
-            if (!ZERO_MODE) motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            // if (!ZERO_MODE) motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            if (!ZERO_MODE) motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, 0);
 
             // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
             // debug_publisher->publish(debug_msg);
@@ -303,10 +308,10 @@ void CatchingBlimp::imu_timer_callback() {
             // debug_msg.data[13] = motorControl.forwardRight;
             // debug_publisher->publish(debug_msg);
 
-            bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
-            leftGimbal.updateGimbal(leftReady && rightReady);
-            rightGimbal.updateGimbal(leftReady && rightReady);
+            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
+            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
+            // leftGimbal.updateGimbal(leftReady && rightReady);
+            // rightGimbal.updateGimbal(leftReady && rightReady);
 
             // RCLCPP_INFO(this->get_logger(), "Servos: Left: %.2f (%.2f us), Right: %.2f (%.2f us)", leftGimbal.getServoAngle(), leftGimbal.getServoUS(), rightGimbal.getServoAngle(), rightGimbal.getServoUS());
             // RCLCPP_INFO(this->get_logger(), "Motors: Left: %.2f us, Right: %.2f us", leftGimbal.getBrushlessThrust(), rightGimbal.getBrushlessThrust());
@@ -316,24 +321,27 @@ void CatchingBlimp::imu_timer_callback() {
             // debug_msg.data[11] = motorControl.forwardLeft;
             // debug_msg.data[12] = motorControl.upRight;
             // debug_msg.data[13] = motorControl.forwardRight;
-            motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            // motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, 0);
 
-            bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
-            leftGimbal.updateGimbal(leftReady && rightReady);
-            rightGimbal.updateGimbal(leftReady && rightReady);
+            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
+            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
+            // leftGimbal.updateGimbal(leftReady && rightReady);
+            // rightGimbal.updateGimbal(leftReady && rightReady);
         } else if (MOTORS_OFF){
-            motorControl.update(0,0,0,0);
-            bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
-            leftGimbal.updateGimbal(leftReady && rightReady);
-            rightGimbal.updateGimbal(leftReady && rightReady);
+            motorControl_V2.update(0,0,0,0);
+            // motorControl.update(0,0,0,0);
+            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
+            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
+            // leftGimbal.updateGimbal(leftReady && rightReady);
+            // rightGimbal.updateGimbal(leftReady && rightReady);
         } else {
-            motorControl.update(0,0,0,0);
-            bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-            bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-            leftGimbal.updateGimbal(leftReady && rightReady);
-            rightGimbal.updateGimbal(leftReady && rightReady);
+            motorControl_V2.update(0,0,0,0);
+            // motorControl.update(0,0,0,0);
+            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
+            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
+            // leftGimbal.updateGimbal(leftReady && rightReady);
+            // rightGimbal.updateGimbal(leftReady && rightReady);
         }
     }
 }
@@ -1122,11 +1130,12 @@ void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::Shared
 
     if (msg->data == true) {
         publish_log("I'm ded xD");
-        motorControl.update(0,0,0,0);
-        bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-        bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-        leftGimbal.updateGimbal(leftReady && rightReady);
-        rightGimbal.updateGimbal(leftReady && rightReady);
+        motorControl_V2.update(0,0,0,0);
+        // motorControl.update(0,0,0,0);
+        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
+        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
+        // leftGimbal.updateGimbal(leftReady && rightReady);
+        // rightGimbal.updateGimbal(leftReady && rightReady);
     }
 }
 

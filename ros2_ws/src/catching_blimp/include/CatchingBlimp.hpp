@@ -31,14 +31,15 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 
-#include "MotorControl.hpp"
+// #include "MotorControl.hpp"
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
 #include "BangBang.hpp"
 #include "tripleBallGrabber.hpp"
-#include "Gimbal.hpp"
+// #include "Gimbal.hpp"
+#include "MotorControl_V2.hpp"
 #include "ZEstimator.hpp"
 
 #include "math_helpers.hpp"
@@ -172,6 +173,13 @@
 #define PWM_L                     16    //was 16        
 
 #define OF_CS                     10
+
+//10 is a valid brushless motor
+#define PIN_LEFT_UP               -1 
+#define PIN_LEFT_FORWARD          16
+#define PIN_RIGHT_UP              -1
+#define PIN_RIGHT_FORWARD         8
+
 //***********************************************//
 
 // Constants
