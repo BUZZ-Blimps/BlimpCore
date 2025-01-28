@@ -252,7 +252,7 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     z_velocity_publisher = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
     state_machine_publisher = this->create_publisher<std_msgs::msg::Int64>("state_machine", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
-
+_
     //create subscribers (10 right now)
     //Base station
     auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", 10, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
@@ -268,7 +268,7 @@ CatchingBlimp::CatchingBlimp() : Node("catching_blimp_node"), count_(0) {
     targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("targets", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
 
     // targets_subscription = this->create_subscription<geometry_msgs::msg::Point>("/object_detection", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
-    pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
+    // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_callback, this));
@@ -528,7 +528,7 @@ void CatchingBlimp::state_machine_callback()
 
         yawCom = -yaw_msg*120;
 
-        if (USE_EST_VELOCITY_IN_MANUAL == true){
+        if (USE_EST_VELOCITY_IN_MANUAL == true) {
             //set max velocities 2 m/s
             upCom = up_msg*2.0;
             forwardCom = forward_msg*2.0;
@@ -536,8 +536,8 @@ void CatchingBlimp::state_machine_callback()
         } else {
             //normal mapping using max esc command 
             // upCom = up_msg*2.0; //PID used and maxed out at 2m/s
-            upCom = -up_msg*500.0; //up is negative
             // upCom = -up_msg*500.0-0.5*pitch; //pitch correction? (pitch in degrees, conversion factor command/degree)
+            upCom = -up_msg*500.0; //up is negative
             forwardCom = forward_msg*500.0;
             translationCom = translation_msg*500.0;
         }
@@ -599,7 +599,7 @@ void CatchingBlimp::state_machine_callback()
         std::vector<double> detected_target = {0.0, 0.0, 0.0};
 
         //if a target is seen
-        if (targets[0] != 0){
+        if (targets[0] != 0) {
             float rawZ = targets[2]; // distance
             tx = xFilter.filter(static_cast<float>(targets[0]));
             ty = yFilter.filter(static_cast<float>(targets[1]));
@@ -1445,35 +1445,6 @@ void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool &
     }
 }
 
-void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
-{
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-
-    //3 objects with xyz (9 elements in total)
-    for (size_t i = 0; i < 9; ++i) {
-        // avoidance[i] = msg.data.data[i];
-        avoidance[i] = msg.data[i];
-    }
-}
-
-// void targets_subscription_callback(const geometry_msgs::msg::Point & msg) const
-// {
-//     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-
-//     // object of interest with xyz (3 elements in total)
-//     // for (size_t i = 0; i < 3; ++i) {
-//     //     // targets[i] = msg.data.data[i];
-//     //     targets[i] = msg.data[i];
-//     // }
-
-//     targets[0] = msg.x;
-
-//     targets[1] = msg.y;
-
-//     targets[2] = msg.z;
-
-// }
-
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
 {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
@@ -1485,37 +1456,20 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     }
 
     // targets[0] = msg.x;
-
     // targets[1] = msg.y;
-
     // targets[2] = msg.z;
-
 }
 
-void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray & msg) const
+void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray & msg) const
 {
-    auto pixels_msg = msg;
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
 
     //3 objects with xyz (9 elements in total)
     for (size_t i = 0; i < 9; ++i) {
-        //pixels[i] = pixels_msg.data.data[i];
-        pixels[i] = pixels_msg.data[i];
+        // avoidance[i] = msg.data.data[i];
+        avoidance[i] = msg.data[i];
     }
 }
-
-// // //pulse function for adding ultrasonic
-// void Pulse() {
-//     if (digitalRead(interruptPin) == HIGH) {
-//         // start measuring
-//         pulseInTimeBegin = micros();
-//     }
-//     else {
-//         // stop measuring
-//         pulseInTimeEnd = micros();
-//         newPulseDurationAvailable = true;
-//     }
-// }
 
 float CatchingBlimp::searchDirection() {
     int ran = rand()%10; //need to check bounds
