@@ -305,7 +305,7 @@ void CatchingBlimp::imu_timer_callback() {
             // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
             //forward, translation, up, yaw, roll
             // if (!ZERO_MODE) motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
-            if (!ZERO_MODE) motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            if (!ZERO_MODE) motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_motor_);
 
             // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
             // debug_publisher->publish(debug_msg);
@@ -329,7 +329,7 @@ void CatchingBlimp::imu_timer_callback() {
             // debug_msg.data[12] = motorControl.upRight;
             // debug_msg.data[13] = motorControl.forwardRight;
             // motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
-            motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, 0);
+            motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_motor_);
 
             // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
             // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
