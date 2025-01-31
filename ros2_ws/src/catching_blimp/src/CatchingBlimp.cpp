@@ -82,6 +82,7 @@ CatchingBlimp::CatchingBlimp() :
     catches_(0), 
     control_mode_(INITIAL_MODE), 
     auto_state_(searching),
+    roll_command_(0),
     yaw_command_(0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
@@ -270,6 +271,7 @@ void CatchingBlimp::imu_timer_callback() {
 
     //update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
+    rollRateFilter.filter(BerryIMU.gyr_rateXraw);
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
@@ -282,6 +284,11 @@ void CatchingBlimp::imu_timer_callback() {
     // }
 
     // std::cout << "GyroZ=" << yawRateFilter.last << " ZMotor=" << yaw_motor_ << std::endl;
+    double deadband = 2.5;
+    roll_motor_ = xPID_.calculate(roll_command_, rollRateFilter.last, dt);
+    if (fabs(roll_command_ - rollRateFilter.last) < deadband) {
+        roll_command_ = 0;
+    }
 
     // neeed to verify this
     if ((now - start_time_).seconds() < 5.0) {
