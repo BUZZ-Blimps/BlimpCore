@@ -303,6 +303,8 @@ private:
     PID zPID_;   //not used for now due to baro reading malfunction
     PID yawPID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
+    PID rollRatePID_;
+
 
     ZEstimator z_est_;
     EMAFilter z_lowpass_;

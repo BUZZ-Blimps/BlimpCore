@@ -272,6 +272,7 @@ void CatchingBlimp::imu_timer_callback() {
     //update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
     rollRateFilter.filter(BerryIMU.gyr_rateXraw);
+    rollFilter.filter(madgwick.roll_final)
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
@@ -284,9 +285,15 @@ void CatchingBlimp::imu_timer_callback() {
     // }
 
     // std::cout << "GyroZ=" << yawRateFilter.last << " ZMotor=" << yaw_motor_ << std::endl;
-    double deadband = 2.5;
-    roll_motor_ = rollPID_.calculate(0, rollRateFilter.last, dt);
-    if (fabs(0 - rollRateFilter.last) < deadband) {
+    double deadband_rollRate = 2.5;
+    roll_motor_ = rollRatePID_.calculate(0, rollRateFilter.last, dt);
+    if (fabs(0 - rollRateFilter.last) < deadband_rollRate) {
+        roll_motor_ = 0;
+    }
+
+    double deadband_roll = 2.5;
+    roll_motor_ = rollPID_.calculate(0, rollFilter.last, dt);
+    if (fabs(0 - rollFilter.last) < deadband_roll) {
         roll_motor_ = 0;
     }
 
@@ -1262,8 +1269,11 @@ bool CatchingBlimp::load_pid_config() {
     this->declare_parameter("roll_p", 0.0);
     this->declare_parameter("roll_i", 0.0);
     this->declare_parameter("roll_d", 0.0);
+    this->declare_parameter("rollRate_p", 0.0);
+    this->declare_parameter("rollRate_i", 0.0);
+    this->declare_parameter("rollRate_d", 0.0);
     
-    double x_p, x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d;
+    double x_p, x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d;
     if (
         this->get_parameter("x_p", x_p) &&
         this->get_parameter("x_i", x_i) &&
@@ -1279,7 +1289,10 @@ bool CatchingBlimp::load_pid_config() {
         this->get_parameter("yaw_d", yaw_d) &&
         this->get_parameter("roll_p", roll_p) &&
         this->get_parameter("roll_i", roll_i) &&
-        this->get_parameter("roll_d", roll_d) 
+        this->get_parameter("roll_d", roll_d) &&
+        this->get_parameter("rollRate_p", rollRate_p) &&
+        this->get_parameter("rollRate_i", rollRate_i) &&
+        this->get_parameter("rollRate_d", rollRate_d) 
     ){
         //Set gains
         xPID_ = PID(x_p, x_i, x_d);  // left and right
@@ -1287,10 +1300,11 @@ bool CatchingBlimp::load_pid_config() {
         zPID_ = PID(z_p, z_i, z_d);  // unused
         yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction 
         rollPID_ = PID(roll_p, roll_i, roll_d)
+        rollRatePID_ = PID(rollRate_p, rollRate_i, rollRate_d)
 
         RCLCPP_INFO(this->get_logger(), 
             "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), yaw: (p=%.2f, i=%.2f, d=%.2f)", 
-            x_p, x_i, x_d, y_p, y_i, y_d, yaw_p, yaw_i, yaw_d);
+            x_p, x_i, x_d, y_p, y_i, y_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d);
 
         return true;
     } else {
