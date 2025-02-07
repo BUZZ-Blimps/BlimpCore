@@ -199,6 +199,8 @@ CatchingBlimp::CatchingBlimp() :
     vision_msg_.data.reserve(2);
     vision_msg_.data.push_back(1);
     vision_msg_.data.push_back(0);
+
+    vision_publisher_->publish(vision_msg_);
 }
 
 void CatchingBlimp::heartbeat_timer_callback() {
@@ -705,9 +707,6 @@ void CatchingBlimp::state_machine_callback() {
                     //move to approaching game ball
                     RCLCPP_INFO(this->get_logger(), "Switched from Search to Approach");
                     auto_state_ = approach;
-                    vision_msg_.data[0] = 1;
-                    vision_msg_.data[1] = 0;
-                    vision_publisher_->publish(vision_msg_);
                     //start approaching timer
                     approach_start_time_ = now;
                 }
@@ -976,7 +975,7 @@ void CatchingBlimp::state_machine_callback() {
                     vision_msg_.data[0] = 1;
                     vision_msg_.data[1] = 0;
                     vision_publisher_->publish(vision_msg_);
-                    
+
                     search_start_time_ = now;
                     searchYawDirection = searchDirection();  //randomize the search direction
                     break;
