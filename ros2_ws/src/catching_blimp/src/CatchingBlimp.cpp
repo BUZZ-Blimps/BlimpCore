@@ -114,7 +114,7 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.1);
 
-    targets_ = std::vector<double> {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    targets_ = std::vector<double> {0.0, 0.0, 0.0};
 
     ballGrabber.ballgrabber_init(GATE_S, PWM_G);
 
@@ -521,50 +521,17 @@ void CatchingBlimp::state_machine_callback() {
         //new target (empty target)
         std::vector<double> detected_target; // re-initialized everytime in autonomous mode
         
+        rawZ = targets_[2]; // distance
+        tx = xFilter.filter(targets_[0]); 
+        ty = yFilter.filter(targets_[1]);  
+        tz = zFilter.filter(rawZ);
+
+        // area = areaFilter.filter(target[0][3]);
+        detected_target.push_back(tx);
+        detected_target.push_back(ty);
+        detected_target.push_back(tz);
         // update targets data if any target exists
-        // pass in the detected target when in game ball modes
-        if (targets_[2] > 0 && (auto_state_ == searching || auto_state_ == approach || auto_state_ == catching)) {
-            //filter target data
-            rawZ = targets_[2]; // distance
-            tx = xFilter.filter(targets_[0]); 
-            ty = yFilter.filter(targets_[1]);  
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-        }
-
-        // pass in the detected target when in goal modes
-        //orange goal
-        //in goal scoring stages 
-        if (targets_[5] > 0 && goalColor == orange && (auto_state_ == goalSearch || auto_state_ == approachGoal || auto_state_ == scoringStart)) {
-            //filter target data
-            rawZ = targets_[5]; // distance
-            tx = xFilter.filter(targets_[3]);
-            ty = yFilter.filter(targets_[4]);
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-        }
-
-        //yellow goal
-        if (targets_[8] > 0 && goalColor == yellow && (auto_state_ == goalSearch || auto_state_ == approachGoal || auto_state_ == scoringStart)) {
-            //filter target data
-            rawZ = targets_[8]; // distance
-            tx = xFilter.filter(targets_[6]);
-            ty = yFilter.filter(targets_[7]);
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-        }
+        
     //-------------------------------------------------------------------------------------------------------------
        
         //modes for autonomous behavior
@@ -1185,7 +1152,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     // object of interest with xyz (9 elements in total)
-    for (size_t i = 0; i < 9; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
         targets_[i] = msg->data[i];
     }
     
@@ -1194,32 +1161,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     //Game Ball
     targets_[0] = targets_[0]-320;
     targets_[1] = targets_[1]-240;
-
-    //Orange Goal
-    targets_[3] = targets_[3]-320;
-    targets_[4] = targets_[4]-240;
-
-    //Yellow Goal
-    targets_[6] = targets_[6]-320;
-    targets_[7] = targets_[7]-240;
-
-    // std::cout << "Ball: " << targets_[0] << ", " << targets_[1] << std::endl;
-    // double dt = 0.03;
-    // double uppie = yPID_.calculate(GAME_BALL_Y_OFFSET, targets_[1], dt);
-    // std::cout << "Up CMD: " << uppie << std::endl;
 }
 
-// void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg)
-// {
-//     auto pixels_msg = msg;
-//     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
-//     //3 objects with xyz (9 elements in total)
-//     for (size_t i = 0; i < 9; ++i) {
-//         //pixels[i] = pixels_msg->data.data[i];
-//         pixels[i] = pixels_msg->data[i];
-//     }
-// }
 
 float CatchingBlimp::searchDirection() {
     int ran = rand()%10; //need to check bounds
