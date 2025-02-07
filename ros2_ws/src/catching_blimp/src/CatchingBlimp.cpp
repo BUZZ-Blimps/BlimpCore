@@ -546,7 +546,7 @@ void CatchingBlimp::state_machine_callback() {
             vision_msg_.data[0] = -1;
             vision_msg_.data[1] = -1;
         }
-        vision_publisher_->publish(vision_msg_);
+        vision_publisher_->publish(vision_msg_)
     //-------------------------------------------------------------------------------------------------------------
        
         //modes for autonomous behavior
