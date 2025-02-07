@@ -32,7 +32,6 @@ class MotorControl_V2 {
 
         double thetaSign_;
         double thrustSign_;
-
 };
 
 #endif

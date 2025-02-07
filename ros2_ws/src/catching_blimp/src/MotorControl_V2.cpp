@@ -56,5 +56,12 @@ void MotorControl_V2::motorCom(double command, Brushless& motor) {
         adjustedCom = 1500;
     }
 
+    // project back to the admissible range if the input is out of range
+    if (adjustedCom >= 2000){
+        adjustedCom = 2000;
+    } else if (adjustedCom <= 1000){
+        adjustedCom = 1000;
+    }
+
     motor.write_thrust(adjustedCom);
 }
