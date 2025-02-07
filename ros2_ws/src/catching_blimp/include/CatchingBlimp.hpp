@@ -235,7 +235,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
     rclcpp::Publisher<std_msgs::msg::Int64MultiArray>::SharedPtr state_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_publisher;
-    rclcpp::Publisher<std_msgs::msg::Int64MultiArray>::SharedPtr vision_publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr vision_publisher_;
 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr auto_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr base_baro_subscription;
