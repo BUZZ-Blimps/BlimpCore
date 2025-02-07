@@ -11,4 +11,6 @@
     z_d: 0.0
     yaw_p: 7.0
     yaw_i: 0.0
-    yaw_d: 0.0
+    roll_p: 10.0 #subject to change
+    roll_i: 0.0
+    roll_d: 0.0

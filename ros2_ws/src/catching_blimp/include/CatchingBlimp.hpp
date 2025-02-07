@@ -296,12 +296,13 @@ private:
     rclcpp::Time goal_approach_start_time_;
     rclcpp::Time shoot_start_time_;
     rclcpp::Time score_start_time_;
-    
+
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
     PID zPID_;   //not used for now due to baro reading malfunction
     PID yawPID_; //can also tune kd with a little overshoot induced
+    PID rollPID_;
 
     ZEstimator z_est_;
     EMAFilter z_lowpass_;
