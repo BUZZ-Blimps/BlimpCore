@@ -272,7 +272,7 @@ private:
     int control_mode_, auto_state_;
     int last_state_ = -1;
 
-    double forward_motor_, up_motor_, yaw_motor_, roll_motor_;
+    double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_, roll_motor_;
     double forward_command_, up_command_, yaw_command_, roll_command_;
     
     rclcpp::Time start_time_;
