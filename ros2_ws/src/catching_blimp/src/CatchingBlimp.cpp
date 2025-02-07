@@ -195,10 +195,6 @@ CatchingBlimp::CatchingBlimp() :
     state_msg_.data.reserve(2);
     state_msg_.data.push_back(0);
     state_msg_.data.push_back(0);
-
-    vision_msg_.data.reserve(2);
-    vision_msg_.data.push_back(0);
-    vision_msg_.data.push_back(0);
 }
 
 void CatchingBlimp::heartbeat_timer_callback() {
