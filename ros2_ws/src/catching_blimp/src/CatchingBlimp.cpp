@@ -1176,8 +1176,6 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     }
     
     // target offset to set (0,0) as the center
-
-    //Game Ball
     targets_[0] = targets_[0]-320;
     targets_[1] = targets_[1]-240;
 }
