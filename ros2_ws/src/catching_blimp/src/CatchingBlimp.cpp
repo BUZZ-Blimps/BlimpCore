@@ -131,7 +131,7 @@ CatchingBlimp::CatchingBlimp() :
     z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
     state_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("state", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
-
+    vision_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("vision_toggle", 10);
     //Set QOS settings to match basestation
     auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
     bool_qos.reliable();
@@ -155,7 +155,7 @@ CatchingBlimp::CatchingBlimp() :
     // Base barometer
     base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
 
-    // Offboard ML
+    // ML
     targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("targets", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
 
     // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
@@ -520,51 +520,33 @@ void CatchingBlimp::state_machine_callback() {
 
         //new target (empty target)
         std::vector<double> detected_target; // re-initialized everytime in autonomous mode
+    
+        rawZ = targets_[2]; // distance
+        tx = xFilter.filter(targets_[0]); 
+        ty = yFilter.filter(targets_[1]);  
+        tz = zFilter.filter(rawZ);
+
+        // area = areaFilter.filter(target[0][3]);
+        detected_target.push_back(tx);
+        detected_target.push_back(ty);
+        detected_target.push_back(tz);
+
         
-        // update targets data if any target exists
-        // pass in the detected target when in game ball modes
-        if (targets_[2] > 0 && (auto_state_ == searching || auto_state_ == approach || auto_state_ == catching)) {
-            //filter target data
-            rawZ = targets_[2]; // distance
-            tx = xFilter.filter(targets_[0]); 
-            ty = yFilter.filter(targets_[1]);  
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
+        if(auto_state_ == searching || auto_state_ == approach || auto_state_ == catching || auto_state_ == caught){
+            vision_msg_.data[0] = 1;
+            vision_msg_.data[1] = 0;
+        } else if(goalColor==yellow){
+            vision_msg_.data[0] = 0;
+            vision_msg_.data[1] = 1;
+        } else if(goalColor==orange){
+            vision_msg_.data[0] = 0;
+            vision_msg_.data[1] = 0;
+        }else{
+            //should never be here
+            vision_msg_.data[0] = -1;
+            vision_msg_.data[1] = -1;
         }
-
-        // pass in the detected target when in goal modes
-        //orange goal
-        //in goal scoring stages 
-        if (targets_[5] > 0 && goalColor == orange && (auto_state_ == goalSearch || auto_state_ == approachGoal || auto_state_ == scoringStart)) {
-            //filter target data
-            rawZ = targets_[5]; // distance
-            tx = xFilter.filter(targets_[3]);
-            ty = yFilter.filter(targets_[4]);
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-        }
-
-        //yellow goal
-        if (targets_[8] > 0 && goalColor == yellow && (auto_state_ == goalSearch || auto_state_ == approachGoal || auto_state_ == scoringStart)) {
-            //filter target data
-            rawZ = targets_[8]; // distance
-            tx = xFilter.filter(targets_[6]);
-            ty = yFilter.filter(targets_[7]);
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-        }
+        vision_publisher_->publish(vision_msg_)
     //-------------------------------------------------------------------------------------------------------------
        
         //modes for autonomous behavior
@@ -1185,28 +1167,15 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     // object of interest with xyz (9 elements in total)
-    for (size_t i = 0; i < 9; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
         targets_[i] = msg->data[i];
     }
     
     // target offset to set (0,0) as the center
 
-    //Game Ball
+    //Detection
     targets_[0] = targets_[0]-320;
     targets_[1] = targets_[1]-240;
-
-    //Orange Goal
-    targets_[3] = targets_[3]-320;
-    targets_[4] = targets_[4]-240;
-
-    //Yellow Goal
-    targets_[6] = targets_[6]-320;
-    targets_[7] = targets_[7]-240;
-
-    // std::cout << "Ball: " << targets_[0] << ", " << targets_[1] << std::endl;
-    // double dt = 0.03;
-    // double uppie = yPID_.calculate(GAME_BALL_Y_OFFSET, targets_[1], dt);
-    // std::cout << "Up CMD: " << uppie << std::endl;
 }
 
 // void CatchingBlimp::pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg)

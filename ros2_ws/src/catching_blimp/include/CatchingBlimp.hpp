@@ -235,6 +235,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
     rclcpp::Publisher<std_msgs::msg::Int64MultiArray>::SharedPtr state_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_publisher;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr vision_publisher_;
 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr auto_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr base_baro_subscription;
@@ -260,6 +261,7 @@ private:
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
+    std_msgs::msg::Int64MultiArray vision_msg_;
 
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
