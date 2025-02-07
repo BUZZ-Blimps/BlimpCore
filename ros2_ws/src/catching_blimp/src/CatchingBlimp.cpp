@@ -1167,7 +1167,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     // object of interest with xyz (9 elements in total)
-    for (size_t i = 0; i < 9; ++i) {
+    for (size_t i = 0; i < 3; ++i) {
         targets_[i] = msg->data[i];
     }
     
