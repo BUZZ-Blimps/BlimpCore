@@ -22,10 +22,10 @@ set(
     src/OPI_IMU.cpp
     src/Brushless.cpp
     src/EMAFilter.cpp
-    src/Gimbal.cpp
+    # src/Gimbal.cpp
     src/ZEstimator.cpp
     src/Madgwick_Filter.cpp
-    src/MotorControl.cpp
+    # src/MotorControl.cpp
     src/optical_ekf.cpp
     src/PID.cpp
     src/Servo.cpp

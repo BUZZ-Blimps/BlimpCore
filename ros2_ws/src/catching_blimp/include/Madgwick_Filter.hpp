@@ -23,10 +23,10 @@ class Madgwick_Filter
     void euler_to_quaternion(double roll, double pitch, double yaw);
     void initialize_quaternion(double ax, double ay, double az);
     std::vector<double> update_quat(double Gyr_RateX, double Gyr_RateY, double Gyr_RateZ, double AccelX, double AccelY, double AccelZ, double q1_est, double q2_est, double q3_est, double q4_est);
-    std::vector<double> get_euler_angles_from_quat(double q1, double q2, double q3, double q4);
+    std::vector<double> quaternion_to_euler(double q1, double q2, double q3, double q4);
     std::vector<double> q_est_orig = {1, 0, 0, 0}; //Assumed initial orientation of IMU
     std::vector<double> q_est_g_lock = {1, 0, 0, 0}; //Another orientation just to account for gymbol lock
-    std::vector<double> angles_euler_orig_ = {0, 0, 0};
+    std::vector<double> euler_ = {0, 0, 0};
     double init_time;
     double t_interval;
     bool quat_init_;

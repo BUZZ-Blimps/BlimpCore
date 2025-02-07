@@ -19,7 +19,7 @@ std::vector<double> Madgwick_Filter::get_quaternion() {
 }
 
 std::vector<double> Madgwick_Filter::get_euler() {
-  return angles_euler_orig_;
+  return euler_;
 }
 
 double Madgwick_Filter::deg_to_rad(double deg) {
@@ -43,6 +43,19 @@ void Madgwick_Filter::euler_to_quaternion(double roll, double pitch, double yaw)
     q_est_orig[1] = sin(roll/2.0)*cos(pitch/2.0)*cos(yaw/2.0) + cos(roll/2.0)*sin(pitch/2.0)*sin(yaw/2.0); 
     q_est_orig[2] = cos(roll/2.0)*sin(pitch/2.0)*cos(yaw/2.0) - sin(roll/2.0)*cos(pitch/2.0)*sin(yaw/2.0); 
     q_est_orig[3] = cos(roll/2.0)*cos(pitch/2.0)*sin(yaw/2.0) + sin(roll/2.0)*sin(pitch/2.0)*cos(yaw/2.0);
+}
+
+std::vector<double> Madgwick_Filter::quaternion_to_euler(double q1, double q2, double q3, double q4) {
+    double roll_rad = atan2f(q1 * q2 + q3 * q4, 0.5f - q2 * q2 - q3 * q3);
+    double roll_deg = roll_rad * (180.0 / M_PI);
+    double pitch_rad = asinf(-2.0f * (q2 * q4 - q1 * q3));
+    double pitch_deg = pitch_rad * (180.0 / M_PI);
+    double yaw_rad = atan2f(q2 * q3 + q1 * q4, 0.5f - q3 * q3 - q4 * q4);
+    double yaw_deg = yaw_rad * (180.0 / M_PI);
+    
+    std::vector<double> angles_euler = {roll_deg, pitch_deg, yaw_deg};
+
+    return angles_euler;
 }
 
 //Output
@@ -79,7 +92,7 @@ void Madgwick_Filter::Madgwick_Update(double gx, double gy, double gz, double ax
   // q_est_g_lock = {angles_quat_update_g_lock[0], angles_quat_update_g_lock[1], angles_quat_update_g_lock[2], angles_quat_update_g_lock[3]};
 
   //Convert quat to euler angles for orig config
-  angles_euler_orig_ = get_euler_angles_from_quat(q_est_orig[0], q_est_orig[1], q_est_orig[2], q_est_orig[3]);
+  euler_ = quaternion_to_euler(q_est_orig[0], q_est_orig[1], q_est_orig[2], q_est_orig[3]);
 
   // double roll_orig = angles_euler_orig_[0]; //converted to degrees //x-axis rot
   // double pitch_orig = angles_euler_orig_[1]; //converted to degrees //y-axis rot
@@ -92,7 +105,7 @@ void Madgwick_Filter::Madgwick_Update(double gx, double gy, double gz, double ax
   // double pitch_g_lock = angles_euler_g_lock[1]; //converted to degrees //x-axis rot
   // double roll_new = pitch_g_lock;
   // double yaw_g_lock = angles_euler_g_lock[2]; //converted to degrees   //z-axis rot
-  //Stick with origional yaw (maybe try averaging it)
+  // Stick with origional yaw (maybe try averaging it)
 
   //Fuse these to get the best of both configs for the final roll, pitch, and yaw
   // if (abs(pitch_orig) >= 45) {
@@ -307,14 +320,4 @@ std::vector<double> Madgwick_Filter::update_quat(double gx, double gy, double gz
     return quat_update;
 }
 
-std::vector<double> Madgwick_Filter::get_euler_angles_from_quat(double q1, double q2, double q3, double q4) {
-  double roll_rad = atan2f(q1 * q2 + q3 * q4, 0.5f - q2 * q2 - q3 * q3);
-  double roll_deg = roll_rad * (180.0 / M_PI);
-  double pitch_rad = asinf(-2.0f * (q2 * q4 - q1 * q3));
-  double pitch_deg = pitch_rad * (180.0 / M_PI);
-  double yaw_rad = atan2f(q2 * q3 + q1 * q4, 0.5f - q3 * q3 - q4 * q4);
-  double yaw_deg = yaw_rad * (180.0 / M_PI);
-  std::vector<double> angles_euler = {roll_deg, pitch_deg, yaw_deg};
 
-  return angles_euler;
-}

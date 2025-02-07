@@ -82,8 +82,9 @@ CatchingBlimp::CatchingBlimp() :
     catches_(0), 
     control_mode_(INITIAL_MODE), 
     auto_state_(searching),
-    roll_command_(0),
-    yaw_command_(0) {
+    rollrate_command_(0),
+    yawrate_command_(0),
+    roll_update_count_(0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -272,12 +273,14 @@ void CatchingBlimp::imu_timer_callback() {
     //update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
     rollRateFilter.filter(BerryIMU.gyr_rateXraw);
-    rollFilter.filter(madgwick.roll_final)
+
+    std::vector<double> euler_angles = madgwick.get_euler();
+    double roll = euler_angles[0];
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
-    yaw_motor_ = yawPID_.calculate(yaw_command_, yawRateFilter.last, dt);
-    if (fabs(yaw_command_-yawRateFilter.last) < deadband) {
+    yaw_motor_ = yawPID_.calculate(yawrate_command_, yawRateFilter.last, dt);
+    if (fabs(yawrate_command_-yawRateFilter.last) < deadband) {
         yaw_motor_ = 0;
     }
     // else {
@@ -285,19 +288,24 @@ void CatchingBlimp::imu_timer_callback() {
     // }
 
     // std::cout << "GyroZ=" << yawRateFilter.last << " ZMotor=" << yaw_motor_ << std::endl;
-    double deadband_roll = 2.5;
-    roll_motor_ = rollPID_.calculate(0, rollFilter.last, dt);
-    if (fabs(0 - rollFilter.last) < deadband_roll) {
-        roll_motor_ = 0;
-    }
 
-    double deadband_rollRate = 2.5;
-    roll_rate_motor_ = rollRatePID_.calculate(roll_rate_motor_, rollRateFilter.last, dt);
-    if (fabs(0 - rollRateFilter.last) < deadband_rollRate) {
+    // Update roll controller every 4 timesteps
+    if (roll_update_count_ == 4) {
+        double deadband_roll = 3.0;
+        rollrate_command_ = rollPID_.calculate(0, roll, dt);
+        if (fabs(roll) < deadband_roll) {
+            rollrate_command_ = 0;
+        }
+
+        roll_update_count_ = 0;
+    }
+    roll_update_count_++;
+
+    double deadband_rollRate = 1.0;
+    roll_rate_motor_ = rollRatePID_.calculate(rollrate_command_, rollRateFilter.last, dt);
+    if (fabs(rollrate_command_ - rollRateFilter.last) < deadband_rollRate) {
         roll_rate_motor_ = 0;
     }
-
-    
 
     // neeed to verify this
     if ((now - start_time_).seconds() < 5.0) {
@@ -314,6 +322,7 @@ void CatchingBlimp::imu_timer_callback() {
             // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
             //forward, translation, up, yaw, roll
             // if (!ZERO_MODE) motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
+
             if (!ZERO_MODE) motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
 
             // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
@@ -360,6 +369,8 @@ void CatchingBlimp::imu_timer_callback() {
             // rightGimbal.updateGimbal(leftReady && rightReady);
         }
     }
+
+    // std::cout << "Fwd: " << forward_motor_ << ", Up: " << up_motor_ << std::endl;
 }
 
 void CatchingBlimp::baro_timer_callback() {
@@ -460,7 +471,7 @@ void CatchingBlimp::state_machine_callback() {
         //all motor commands are between -1 and 1
         //set max yaw command to 120 deg/s
 
-        yaw_command_ = -yaw_msg*120;
+        yawrate_command_ = -yaw_msg*120;
 
         if (USE_EST_VELOCITY_IN_MANUAL) {
             //set max velocities 2 m/s
@@ -468,10 +479,8 @@ void CatchingBlimp::state_machine_callback() {
             forward_command_ = forward_msg*2.0;
         } else {
             //normal mapping using max esc command 
-            // up_command_ = up_msg*2.0; //PID used and maxed out at 2m/s
-            up_command_ = up_msg*500.0; //up is negative
-            // up_command_ = up_msg*500.0-0.5*pitch; //pitch correction? (pitch in degrees, conversion factor command/degree)
-            forward_command_ = forward_msg*500.0;
+            up_command_ = up_msg*750.0; //up is negative
+            forward_command_ = forward_msg*750.0;
         }
 
         //check if shooting should be engaged
@@ -534,12 +543,12 @@ void CatchingBlimp::state_machine_callback() {
             zFilter.reset();
         }
 
-        //new target (empty target)
+        //new target (empty target)c
         std::vector<double> detected_target; // re-initialized everytime in autonomous mode
         
-        if(targets[2] > 0){
+        if (targets_[2] > 0) {
             rawZ = targets_[2]; // distance
-            tx = xFilter.filter(targets_[0]); 
+            tx = xFilter.filter(targets_[0]);
             ty = yFilter.filter(targets_[1]);  
             tz = zFilter.filter(rawZ);
 
@@ -550,7 +559,6 @@ void CatchingBlimp::state_machine_callback() {
             // update targets data if any target exists
         }
 
-        
     //-------------------------------------------------------------------------------------------------------------
        
         //modes for autonomous behavior
@@ -605,7 +613,7 @@ void CatchingBlimp::state_machine_callback() {
                     if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
 
                         //overide search commands
-                        yaw_command_ = yawA;
+                        yawrate_command_ = yawA;
                         forward_command_ = forwardA;
                         up_command_ = upA;
 
@@ -614,7 +622,7 @@ void CatchingBlimp::state_machine_callback() {
                         //spin in a small circle looking for a game ball
                         //randomize the search direciton
 
-                        // yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                        // yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         // up_command_ = 0;    //is overriden later, defined here as a safety net
                         // forward_command_ = GAME_BALL_FORWARD_SEARCH;
                         
@@ -625,7 +633,7 @@ void CatchingBlimp::state_machine_callback() {
 
                         if (elapsedSearchingTime < TIME_TO_SEARCH) {
                             backingUp = false;
-                            yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                            yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                             forward_command_ = GAME_BALL_FORWARD_SEARCH;
 
                             if (z_hat_ > CEIL_HEIGHT) {
@@ -642,7 +650,7 @@ void CatchingBlimp::state_machine_callback() {
                             }   
                             message += " Backup!";
                             
-                            yaw_command_ = 35*searchYawDirection;
+                            yawrate_command_ = 35*searchYawDirection;
                             forward_command_ = -240;
                             up_command_ = 100;
                         } else {
@@ -650,7 +658,7 @@ void CatchingBlimp::state_machine_callback() {
                             search_start_time_ = now;
                         }
 
-                        yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                        yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         forward_command_ = GAME_BALL_FORWARD_SEARCH;
 
                         if (z_hat_ > CEIL_HEIGHT) {
@@ -670,7 +678,7 @@ void CatchingBlimp::state_machine_callback() {
                         //     if (2200 > millis() - backupTimer) {
                         //         message += " first 2 seconds.";
                         //         searchYawDirection = searchDirection();
-                        //         yaw_command_ = 60*searchYawDirection;
+                        //         yawrate_command_ = 60*searchYawDirection;
                         //         up_command_ = 50;    //is overriden later, defined here as a safety net
                         //         forward_command_ = -200;
                         //     }
@@ -682,21 +690,21 @@ void CatchingBlimp::state_machine_callback() {
                         //move up and down within the set boundry
                         // if (z_hat_ > CEIL_HEIGHT) {
                         //     // if (wasUp) wasUp = false;
-                        //     yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                        //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     up_command_ = GAME_BALL_VERTICAL_SEARCH; //down
                         //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
                         // }
 
                         // if (z_hat_ < FLOOR_HEIGHT) {
                         //     // if (!wasUp) wasUp = true;
-                        //     yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                        //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     up_command_ = GAME_BALL_VERTICAL_SEARCH;  //up
                         //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
                         // }
 
                         // if (z_hat_ <= CEIL_HEIGHT && z_hat_ >=FLOOR_HEIGHT) {
                         //     // if (wasUp) wasUp = false;
-                        //     yaw_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                        //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                         //     up_command_ = 0;
                         //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
                         // }
@@ -727,7 +735,7 @@ void CatchingBlimp::state_machine_callback() {
                     target_memory_time_ = now;
 
                     //move toward the balloon
-                    yaw_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, tx, dt);
+                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, tx, dt);
                     up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, ty, dt);  
 
                     forward_command_ = GAME_BALL_CLOSURE_COM;
@@ -751,7 +759,7 @@ void CatchingBlimp::state_machine_callback() {
                     temp_tx = xFilter.filter(GAME_BALL_X_OFFSET);
                     temp_ty = yFilter.filter(GAME_BALL_Y_OFFSET);
 
-                    yaw_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, temp_tx, dt);
+                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, temp_tx, dt);
                     up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, temp_ty, dt);
 
                     forward_command_ = GAME_BALL_CLOSURE_COM;
@@ -778,7 +786,7 @@ void CatchingBlimp::state_machine_callback() {
                     up_command_ = CATCHING_UP_COM;
                 }
 
-                yaw_command_ = 0;
+                yawrate_command_ = 0;
 
                 //Turn on the SUCK
                 if (ballGrabber.is_open()) {
@@ -827,7 +835,7 @@ void CatchingBlimp::state_machine_callback() {
 
                     forward_command_ = CAUGHT_FORWARD_COM;
                     up_command_ = CAUGHT_UP_COM;
-                    yaw_command_ = 0;
+                    yawrate_command_ = 0;
                 } else {
                     auto_state_ = searching;
 
@@ -867,13 +875,13 @@ void CatchingBlimp::state_machine_callback() {
                 if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
                     //avoding obstacle
                     //overide search commands
-                    yaw_command_ = yawA;
+                    yawrate_command_ = yawA;
                     forward_command_ = forwardA;
                     up_command_ = upA;
                 } else {
                     //goal search behavior
                     //randomize the diretion selection
-                    yaw_command_ = GOAL_YAW_SEARCH*goalYawDirection;
+                    yawrate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
                     up_command_ = goalPositionHold.calculate(GOAL_HEIGHT, z_hat_);  //go up to the goal
                     forward_command_ = GOAL_FORWARD_SEARCH;
                 }
@@ -893,7 +901,7 @@ void CatchingBlimp::state_machine_callback() {
                     temp_ty = ty;
                     target_memory_time_ = now;
 
-                    yaw_command_ = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
+                    yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
                     up_command_ = yPID_.calculate(GOAL_Y_OFFSET, ty, dt);
 
                     if (tz > 4.0) {
@@ -911,7 +919,7 @@ void CatchingBlimp::state_machine_callback() {
                     temp_tx = xFilter.filter(GOAL_X_OFFSET);
                     temp_ty = yFilter.filter(GOAL_Y_OFFSET);
 
-                    yaw_command_ = xPID_.calculate(GOAL_X_OFFSET, temp_tx, dt);
+                    yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, temp_tx, dt);
                     up_command_ = yPID_.calculate(GOAL_Y_OFFSET, temp_ty, dt);
 
                     forward_command_ = GAME_BALL_CLOSURE_COM;
@@ -925,7 +933,7 @@ void CatchingBlimp::state_machine_callback() {
 
             } case scoringStart: {
                 //after correction, we can do goal alignment with a yaw and a translation 
-                yaw_command_ = SCORING_YAW_COM;
+                yawrate_command_ = SCORING_YAW_COM;
                 forward_command_ = SCORING_FORWARD_COM;
                 up_command_ = SCORING_UP_COM;
 
@@ -937,7 +945,7 @@ void CatchingBlimp::state_machine_callback() {
                 break;
 
             } case shooting: {
-                yaw_command_ = 0;
+                yawrate_command_ = 0;
                 forward_command_ = SHOOTING_FORWARD_COM;
                 up_command_ = SHOOTING_UP_COM;
 
@@ -954,7 +962,7 @@ void CatchingBlimp::state_machine_callback() {
             } case scored: {
                 ballGrabber.closeGrabber(control_mode_);
 
-                yaw_command_ = 0;
+                yawrate_command_ = 0;
                 forward_command_ = SCORED_FORWARD_COM;
                 up_command_ = SCORED_UP_COM;
 
@@ -969,7 +977,7 @@ void CatchingBlimp::state_machine_callback() {
                 break;
             } default: {
                 //shouldn't get here
-                yaw_command_ = 0;
+                yawrate_command_ = 0;
                 forward_command_ = 0;
                 up_command_ = 0;
                 break;
@@ -979,7 +987,7 @@ void CatchingBlimp::state_machine_callback() {
         //Blimp is lost
         forward_command_ = 0.0;
         up_command_ = 0.0;
-        yaw_command_ = 0.0;
+        yawrate_command_ = 0.0;
     }
     
     up_motor_ = up_command_; //up for motor
@@ -1244,13 +1252,13 @@ bool CatchingBlimp::load_pid_config() {
         xPID_ = PID(x_p, x_i, x_d);  // left and right
         yPID_ = PID(y_p, y_i, y_d);  // up and down
         zPID_ = PID(z_p, z_i, z_d);  // unused
-        yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction 
-        rollPID_ = PID(roll_p, roll_i, roll_d)
-        rollRatePID_ = PID(rollRate_p, rollRate_i, rollRate_d)
+        yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction
+        rollPID_ = PID(roll_p, roll_i, roll_d);
+        rollRatePID_ = PID(rollRate_p, rollRate_i, rollRate_d);
 
         RCLCPP_INFO(this->get_logger(), 
-            "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), yaw: (p=%.2f, i=%.2f, d=%.2f)", 
-            x_p, x_i, x_d, y_p, y_i, y_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d);
+            "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), roll: (p=%.2f, i=%.2f, d=%.2f), rollrate: (p=%.2f, i=%.2f, d=%.2f), yawrate: (p=%.2f, i=%.2f, d=%.2f)", 
+            x_p, x_i, x_d, y_p, y_i, y_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d, yaw_p, yaw_i, yaw_d);
 
         return true;
     } else {

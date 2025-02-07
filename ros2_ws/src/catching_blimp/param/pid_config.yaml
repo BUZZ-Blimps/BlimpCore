@@ -11,9 +11,9 @@
     z_d: 0.0
     yaw_p: 7.0
     yaw_i: 0.0
-    roll_p: 10.0 #subject to change
+    roll_p: 3.0 #subject to change
     roll_i: 0.0
     roll_d: 0.0
-    rollRate_p: 10.0 #subject to change
+    rollRate_p: 6.0 #subject to change
     rollRate_i: 0.0
     rollRate_d: 0.0

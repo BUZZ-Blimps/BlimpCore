@@ -54,7 +54,7 @@
 #define INITIAL_MODE              autonomous
 #define ZERO_MODE                 false
 #define GIMBAL_DEBUG              false
-#define MOTORS_OFF                false
+#define MOTORS_OFF                true
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -272,8 +272,9 @@ private:
     int control_mode_, auto_state_;
     int last_state_ = -1;
 
-    double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_, roll_motor_;
-    double forward_command_, up_command_, yaw_command_, roll_command_;
+    double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
+    double forward_command_, up_command_, yawrate_command_, rollrate_command_;
+    int roll_update_count_;
     
     rclcpp::Time start_time_;
     rclcpp::Time state_machine_time_;
@@ -295,7 +296,6 @@ private:
     PID yawPID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;
-
 
     ZEstimator z_est_;
     EMAFilter z_lowpass_;
