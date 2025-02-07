@@ -285,17 +285,19 @@ void CatchingBlimp::imu_timer_callback() {
     // }
 
     // std::cout << "GyroZ=" << yawRateFilter.last << " ZMotor=" << yaw_motor_ << std::endl;
+    double deadband_roll = 2.5;
+    roll_motor_casc = rollPID_.calculate(0, rollFilter.last, dt);
+    if (fabs(0 - rollFilter.last) < deadband_roll) {
+        roll_motor_ = 0;
+    }
+
     double deadband_rollRate = 2.5;
     roll_motor_ = rollRatePID_.calculate(0, rollRateFilter.last, dt);
     if (fabs(0 - rollRateFilter.last) < deadband_rollRate) {
         roll_motor_ = 0;
     }
 
-    double deadband_roll = 2.5;
-    roll_motor_ = rollPID_.calculate(0, rollFilter.last, dt);
-    if (fabs(0 - rollFilter.last) < deadband_roll) {
-        roll_motor_ = 0;
-    }
+    
 
     // neeed to verify this
     if ((now - start_time_).seconds() < 5.0) {
