@@ -49,25 +49,28 @@
 int main() {
     servo Servo_L;
     servo Servo_R;
-    servo Servo_G;
+    // servo Servo_G;
     Servo_L.servo_setup(L_Pitch);
     Servo_R.servo_setup(R_Pitch);
-    Servo_G.servo_setup(GATE_S);
+    // Servo_G.servo_setup(GATE_S);
     Servo_L.servo_angle(180);
     Servo_R.servo_angle(0);
-    Servo_G.servo_angle(0);
+    // Servo_G.servo_angle(0);
 
-    brushless Brushless_L;
-    brushless Brushless_R;
-    brushless Brushless_G;
+    brushless Brushless_L1;
+    brushless Brushless_R1;
+    brushless Brushless_L2;
+    brushless Brushless_R2;
 
-    Brushless_L.brushless_setup(PWM_L);
-    Brushless_R.brushless_setup(PWM_R);
-    Brushless_G.brushless_setup(PWM_G);
+    Brushless_L1.brushless_setup(PWM_L);
+    Brushless_R1.brushless_setup(PWM_R);
+    Brushless_L2.brushless_setup(GATE_S);
+    Brushless_R2.brushless_setup(PWM_G);
 
-    Brushless_L.brushless_thrust(1500);
-    Brushless_R.brushless_thrust(1500);
-    Brushless_G.brushless_thrust(1500);
+    Brushless_L1.brushless_thrust(1500);
+    Brushless_R1.brushless_thrust(1500);
+    Brushless_L2.brushless_thrust(1500);
+    Brushless_R2.brushless_thrust(1500);
     // Gimbal leftGimbal;
     // Gimbal rightGimbal; 
 
@@ -156,9 +159,11 @@ int main() {
 		// 	delay(30);
         // }
 
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-        Brushless_G.brushless_thrust(1500);
+        Brushless_L1.brushless_thrust(1500);
+        Brushless_R1.brushless_thrust(1500);
+        Brushless_L2.brushless_thrust(1500);
+        Brushless_R2.brushless_thrust(1500);
+        delay(3000);
 
         //Back Thrust
         // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, -320.0, -0.0);
@@ -188,60 +193,69 @@ int main() {
 
         // delay(33);
 
-        // printf("Testing R/L Brushless...\n");
-        // delay(1000);
-        // for(int i=1500; i<=1750; i++){
-        //     printf("Brushless Thrust: %d\n", i);
-        //     Brushless_L.brushless_thrust(i);
-        //     Brushless_R.brushless_thrust(i);
-        //     Brushless_G.brushless_thrust(i);
-        //     delay(20);
-        // }
-        // Brushless_L.brushless_thrust(1500);
-        // Brushless_R.brushless_thrust(1500);
-        // Brushless_G.brushless_thrust(1500);
-
-        // delay(1000);
-        // printf("Testing R/L Brushless backwards...\n");
-        // delay(1000);
-        // for(int i=1500; i>=1000; i--) {
-        //     printf("Brushless Thrust: %d\n", i);
-        //     Brushless_L.brushless_thrust(i);
-        //     Brushless_R.brushless_thrust(i);
-        //     Brushless_G.brushless_thrust(i);
-        //     delay(20);
-        // }  
-        // Brushless_L.brushless_thrust(1500);
-        // Brushless_R.brushless_thrust(1500);
-        // Brushless_G.brushless_thrust(1500);
-        // printf("Testing Gate Brushless...\n");
-        // delay(1000);
-        // for(int i=1500; i<=1750; i++){
-        //     printf("Brushless Thrust: %d\n", i);
-        //     Brushless_G.brushless_thrust(i);
-        //     delay(20);
-        // }
-        // Brushless_G.brushless_thrust(1500);
-
-        printf("Sweeping RLG servo up in 1 second...\n");
-	 	delay(1000);
-	 	for (int i=0; i<=180; i++){
-            printf("Servo angle: %d\n", i);
-            Servo_L.servo_angle(180 - i);
-            Servo_R.servo_angle(i);
-            Servo_G.servo_angle(i);
-            delay(5);
+        printf("Testing R/L Brushless...\n");
+        delay(2000);
+        for(int i=1500; i<=1650; i++){
+            printf("Brushless Thrust: %d\n", i);
+            Brushless_L1.brushless_thrust(i);
+            Brushless_R1.brushless_thrust(i);
+            Brushless_L2.brushless_thrust(i);
+            Brushless_R2.brushless_thrust(i);
+            
+            delay(50);
         }
+        Brushless_L1.brushless_thrust(1500);
+        Brushless_R1.brushless_thrust(1500);
+        Brushless_L2.brushless_thrust(1500);
+        Brushless_R2.brushless_thrust(1500);
+        delay(5000);
 
-        printf("Sweeping RLG servo down in 1 second...\n");
-	 	delay(1000);
-	 	for (int i=0; i<=180; i++){
-	 		printf("Servo angle: %d\n", 180 - i);
-	 		Servo_L.servo_angle(i);
-            Servo_R.servo_angle(180 - i);
-            Servo_G.servo_angle(180 - i);
-	 		delay(5);
-         }
+
+        printf("Testing R/L Brushless backwards...\n");
+        delay(2000);
+        for(int i=1500; i>=1350; i--) {
+            printf("Brushless Thrust: %d\n", i);
+            Brushless_L1.brushless_thrust(i);
+            Brushless_R1.brushless_thrust(i);
+            Brushless_L2.brushless_thrust(i);
+            Brushless_R2.brushless_thrust(i);
+
+            delay(50);
+        }  
+        Brushless_L1.brushless_thrust(1500);
+        Brushless_R1.brushless_thrust(1500);
+        Brushless_L2.brushless_thrust(1500);
+        Brushless_R2.brushless_thrust(1500);
+        delay(5000);
+
+
+        // printf("Testing Gate Brushless...\n");
+        // for(int i=1500; i<=1750; i++){
+        //     printf("Brushless Thrust: %d\n", i);
+        //     Brushless_G.brushless_thrust(i);
+        //     delay(20);
+        // }
+        // Brushless_G.brushless_thrust(1500);
+
+        // printf("Sweeping RLG servo up in 1 second...\n");
+	 	// delay(1000);
+	 	// for (int i=0; i<=180; i++){
+        //     printf("Servo angle: %d\n", i);
+        //     Servo_L.servo_angle(180 - i);
+        //     Servo_R.servo_angle(i);
+        //     Servo_G.servo_angle(i);
+        //     delay(5);
+        // }
+
+        // printf("Sweeping RLG servo down in 1 second...\n");
+	 	// delay(1000);
+	 	// for (int i=0; i<=180; i++){
+	 	// 	printf("Servo angle: %d\n", 180 - i);
+	 	// 	Servo_L.servo_angle(i);
+        //     Servo_R.servo_angle(180 - i);
+        //     Servo_G.servo_angle(180 - i);
+	 	// 	delay(5);
+        //  }
 
     //     delay(500);
     //     printf("simming gimbal\n");
@@ -278,14 +292,13 @@ int main() {
 
 
         printf("Resetting in 3 seconds...\n");
-        delay(3000);
         // Servo_L.servo_angle(0);
         // Servo_R.servo_angle(180);
         // Servo_G.servo_angle(180);
-        Brushless_L.brushless_thrust(1500);
-        Brushless_R.brushless_thrust(1500);
-        Brushless_G.brushless_thrust(1500);
-
+        Brushless_L1.brushless_thrust(1500);
+        Brushless_R1.brushless_thrust(1500);
+        Brushless_L2.brushless_thrust(1500);
+        Brushless_R2.brushless_thrust(1500);
         delay(3000);
     }
     return(1);
