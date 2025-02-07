@@ -521,16 +521,19 @@ void CatchingBlimp::state_machine_callback() {
         //new target (empty target)
         std::vector<double> detected_target; // re-initialized everytime in autonomous mode
         
-        rawZ = targets_[2]; // distance
-        tx = xFilter.filter(targets_[0]); 
-        ty = yFilter.filter(targets_[1]);  
-        tz = zFilter.filter(rawZ);
+        if(targets[2] > 0){
+            rawZ = targets_[2]; // distance
+            tx = xFilter.filter(targets_[0]); 
+            ty = yFilter.filter(targets_[1]);  
+            tz = zFilter.filter(rawZ);
 
-        // area = areaFilter.filter(target[0][3]);
-        detected_target.push_back(tx);
-        detected_target.push_back(ty);
-        detected_target.push_back(tz);
-        // update targets data if any target exists
+            // area = areaFilter.filter(target[0][3]);
+            detected_target.push_back(tx);
+            detected_target.push_back(ty);
+            detected_target.push_back(tz);
+            // update targets data if any target exists
+        }
+
         
     //-------------------------------------------------------------------------------------------------------------
        
