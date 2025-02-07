@@ -197,7 +197,7 @@ CatchingBlimp::CatchingBlimp() :
     state_msg_.data.push_back(0);
 
     vision_msg_.data.reserve(2);
-    vision_msg_.data.push_back(0);
+    vision_msg_.data.push_back(1);
     vision_msg_.data.push_back(0);
 }
 
@@ -705,7 +705,9 @@ void CatchingBlimp::state_machine_callback() {
                     //move to approaching game ball
                     RCLCPP_INFO(this->get_logger(), "Switched from Search to Approach");
                     auto_state_ = approach;
-
+                    vision_msg_.data[0] = 1;
+                    vision_msg_.data[1] = 0;
+                    vision_publisher_->publish(vision_msg_);
                     //start approaching timer
                     approach_start_time_ = now;
                 }
@@ -815,6 +817,14 @@ void CatchingBlimp::state_machine_callback() {
                     //decide if the blimp is going to game ball search or goal search
                     if ((now - caught_start_time_).seconds() >= TIME_TO_CAUGHT) {
                         if (catches_ >= TOTAL_ATTEMPTS) {
+                            if(goalColor==yellow){
+                                vision_msg_.data[0] = 0;
+                                vision_msg_.data[1] = 1;
+                            } else if(goalColor==orange){
+                                vision_msg_.data[0] = 0;
+                                vision_msg_.data[1] = 0;
+                            }
+                            vision_publisher_->publish(vision_msg_);
                             auto_state_ = goalSearch;
                             goalYawDirection = searchDirection();  //randomize search direction
                         } else {
@@ -962,6 +972,11 @@ void CatchingBlimp::state_machine_callback() {
                     //Reset catch counter and return to ball search state
                     catches_ = 0;
                     auto_state_ = searching;
+
+                    vision_msg_.data[0] = 1;
+                    vision_msg_.data[1] = 0;
+                    vision_publisher_->publish(vision_msg_);
+                    
                     search_start_time_ = now;
                     searchYawDirection = searchDirection();  //randomize the search direction
                     break;
