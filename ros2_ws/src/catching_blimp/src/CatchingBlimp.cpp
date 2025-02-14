@@ -84,7 +84,10 @@ CatchingBlimp::CatchingBlimp() :
     auto_state_(searching),
     rollrate_command_(0),
     yawrate_command_(0),
-    roll_update_count_(0) {
+    roll_update_count_(0),
+    target_detected_(false),
+    target_type_(no_target),
+    target_id_(-1) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -116,16 +119,12 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.1);
 
-    targets_ = std::vector<double> {0.0, 0.0, 0.0};
+    // targets_ = std::vector<double> {0.0, 0.0, 0.0};
 
-    ballGrabber.ballgrabber_init(GATE_S, PWM_G);
-
-    // leftGimbal.gimbal_init(L_Pitch, PWM_L, 25, 30, MIN_MOTOR, MAX_MOTOR, 135, false, true, 0.5);
-    // rightGimbal.gimbal_init(R_Pitch, PWM_R, 25, 30, MIN_MOTOR, MAX_MOTOR, 45, true, false, 0.5);
-
+    ballGrabber.ballgrabber_init(GATE_S, PIN_SCORING);
     motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR);
 
-    // create publishers (7 right now)
+    // Create publishers (7 right now)
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
     imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
     debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>("debug", 10);
@@ -134,7 +133,7 @@ CatchingBlimp::CatchingBlimp() :
     state_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("state", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
 
-    //Set QOS settings to match basestation
+    // Set QOS settings to match basestation
     auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
     bool_qos.reliable();
     bool_qos.transient_local();
@@ -211,6 +210,8 @@ void CatchingBlimp::heartbeat_timer_callback() {
 
 void CatchingBlimp::imu_timer_callback() {
 
+    
+
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now - imu_msg_.header.stamp).seconds();
     
@@ -283,15 +284,14 @@ void CatchingBlimp::imu_timer_callback() {
     if (fabs(yawrate_command_-yawRateFilter.last) < deadband) {
         yaw_motor_ = 0;
     }
+
     // else {
     //     yaw_motor_ = tanh(yaw_motor_)*fabs(yaw_motor_); // yaw for motor
     // }
 
-    // std::cout << "GyroZ=" << yawRateFilter.last << " ZMotor=" << yaw_motor_ << std::endl;
-
     // Update roll controller every 4 timesteps
     if (roll_update_count_ == 4) {
-        double deadband_roll = 3.0;
+        double deadband_roll = 5.0;
         rollrate_command_ = rollPID_.calculate(0, roll, dt);
         if (fabs(roll) < deadband_roll) {
             rollrate_command_ = 0;
@@ -307,70 +307,33 @@ void CatchingBlimp::imu_timer_callback() {
         roll_rate_motor_ = 0;
     }
 
-    // neeed to verify this
-    if ((now - start_time_).seconds() < 5.0) {
-
-        //zero motors while filters converge and esc arms
-        // motorControl.update(0, 0, 0, 0);
-        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
-        // leftGimbal.updateGimbal(leftReady && rightReady);
-        // rightGimbal.updateGimbal(leftReady && rightReady);
-        motorControl_V2.update(0, 0, 0, 0);
-    } else {
-        if (control_mode_ == manual && !MOTORS_OFF) {
-            // publish_log("Im in state_machine_callback dt<10+firstMessage/manual");
-            //forward, translation, up, yaw, roll
-            // if (!ZERO_MODE) motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
-
-            if (!ZERO_MODE) motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
-
-            // debug_msg.data = {motorControl.upLeft, motorControl.forwardLeft, motorControl.upRight, motorControl.forwardRight};
-            // debug_publisher->publish(debug_msg);
-            // debug_msg.data[10] = motorControl.upLeft;
-            // debug_msg.data[11] = motorControl.forwardLeft;
-            // debug_msg.data[12] = motorControl.upRight;
-            // debug_msg.data[13] = motorControl.forwardRight;
-            // debug_publisher->publish(debug_msg);
-
-            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight);
-            // leftGimbal.updateGimbal(leftReady && rightReady);
-            // rightGimbal.updateGimbal(leftReady && rightReady);
-
-            // RCLCPP_INFO(this->get_logger(), "Servos: Left: %.2f (%.2f us), Right: %.2f (%.2f us)", leftGimbal.getServoAngle(), leftGimbal.getServoUS(), rightGimbal.getServoAngle(), rightGimbal.getServoUS());
-            // RCLCPP_INFO(this->get_logger(), "Motors: Left: %.2f us, Right: %.2f us", leftGimbal.getBrushlessThrust(), rightGimbal.getBrushlessThrust());
-
-        } else if (control_mode_ == autonomous && !MOTORS_OFF) {
-            // debug_msg.data[10] = motorControl.upLeft;
-            // debug_msg.data[11] = motorControl.forwardLeft;
-            // debug_msg.data[12] = motorControl.upRight;
-            // debug_msg.data[13] = motorControl.forwardRight;
-            // motorControl.update(forward_motor_, up_motor_, yaw_motor_, 0);
-            motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
-
-            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
-            // leftGimbal.updateGimbal(leftReady && rightReady);
-            // rightGimbal.updateGimbal(leftReady && rightReady);
-        } else if (MOTORS_OFF){
-            motorControl_V2.update(0,0,0,0);
-            // motorControl.update(0,0,0,0);
-            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upLeft, motorControl.forwardLeft);
-            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, motorControl.upRight, motorControl.forwardRight); 
-            // leftGimbal.updateGimbal(leftReady && rightReady);
-            // rightGimbal.updateGimbal(leftReady && rightReady);
-        } else {
-            motorControl_V2.update(0,0,0,0);
-            // motorControl.update(0,0,0,0);
-            // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-            // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-            // leftGimbal.updateGimbal(leftReady && rightReady);
-            // rightGimbal.updateGimbal(leftReady && rightReady);
-        }
+    if (MOTOR_PRINT_DEBUG) {
+        RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
     }
 
-    // std::cout << "Fwd: " << forward_motor_ << ", Up: " << up_motor_ << std::endl;
+    // Wait 5 seconds before doing anything interesting
+    if ((now - start_time_).seconds() < 5.0) {
+        // Zero motors while filters converge and esc arms
+        motorControl_V2.update(0, 0, 0, 0);
+        return;
+    }
+
+    // Different modes of motor activation
+    if (ZERO_MODE) {
+        motorControl_V2.update(0, 0, 0, 0);
+        return;
+    } else if (VERT_MODE && YAW_MODE) {
+        motorControl_V2.update(0, up_motor_, yaw_motor_, 0);
+        return;
+    } else if (VERT_MODE) {
+        motorControl_V2.update(0, up_motor_, 0, 0);
+        return;
+    } else if (YAW_MODE) {
+        motorControl_V2.update(0, 0, yaw_motor_, 0);
+        return;
+    }
+
+    motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
 }
 
 void CatchingBlimp::baro_timer_callback() {
@@ -527,43 +490,12 @@ void CatchingBlimp::state_machine_callback() {
         }
     } else if (control_mode_ == autonomous) {
 
-    //-------------------------Target is determined from the state we are in-------------------------------------------
-        double tx = 0;
-        double ty = 0;
-        double tz = 0;
-
-        double temp_tx = 0;
-        double temp_ty = 0;
-        double rawZ;
-
-        // re-initialize filters if the auto_state is changed (we don't want to keep the same filtered)
-        if (auto_state_ != last_state_) {
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-        }
-
-        //new target (empty target)c
-        std::vector<double> detected_target; // re-initialized everytime in autonomous mode
-        
-        if (targets_[2] > 0) {
-            rawZ = targets_[2]; // distance
-            tx = xFilter.filter(targets_[0]);
-            ty = yFilter.filter(targets_[1]);  
-            tz = zFilter.filter(rawZ);
-
-            // area = areaFilter.filter(target[0][3]);
-            detected_target.push_back(tx);
-            detected_target.push_back(ty);
-            detected_target.push_back(tz);
-            // update targets data if any target exists
-        }
-
+    //-------------------------Target is determined from the state we are in-------------------------------------------\
     //-------------------------------------------------------------------------------------------------------------
        
-        //modes for autonomous behavior
+        // Modes for autonomous behavior
         switch (auto_state_) {
-            //autonomous state machine
+            // Autonomous state machine
             case searching: {
 
                 //check if goal scoring should be attempted
@@ -581,7 +513,7 @@ void CatchingBlimp::state_machine_callback() {
                 }
 
                 //begin search pattern spinning around at different heights
-                if (detected_target.empty()) {
+                if (!target_detected_) {
 
                     //keep ball grabber closed
                     ballGrabber.closeGrabber(control_mode_);
@@ -592,6 +524,7 @@ void CatchingBlimp::state_machine_callback() {
 
                     // Iterate through the vector to find the minimum value and its index
                     // find the minimum distance and its corresponding quadrant number (1-9)
+                    // TODO: IMPLEMENT AND TEST AVOIDANCE
                     for (int i = 0; i < 9; ++i) {
                         if (avoidance[i] < avoidanceMinVal) {
                             avoidanceMinVal = avoidance[i]; //distance
@@ -727,25 +660,20 @@ void CatchingBlimp::state_machine_callback() {
                 }
    
                 //check if target is still valid
-                if (detected_target.size() > 0) {
+                if (target_detected_) {
                     //seeing a target
-                    //add memory
-                    temp_tx = tx;
-                    temp_ty = ty;
-                    target_memory_time_ = now;
-
                     //move toward the balloon
-                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, tx, dt);
-                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, ty, dt);  
+                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
+                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);  
 
                     forward_command_ = GAME_BALL_CLOSURE_COM;
 
                     //check if the gate should be opened
-                    if (tz < BALL_GATE_OPEN_TRIGGER) {
+                    if (target_.z < BALL_GATE_OPEN_TRIGGER) {
                         ballGrabber.openGrabber(control_mode_);
 
                         //check if the catching mode should be triggered
-                        if (tz < BALL_CATCH_TRIGGER) {
+                        if (target_.z < BALL_CATCH_TRIGGER) {
                             auto_state_ = catching;
 
                             //start catching timer
@@ -754,15 +682,6 @@ void CatchingBlimp::state_machine_callback() {
                     }
                     //if target is lost within 1 second
                     //remember the previous info about where the ball is 
-                } else if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
-                    //Set filters to automatically converge to desired
-                    temp_tx = xFilter.filter(GAME_BALL_X_OFFSET);
-                    temp_ty = yFilter.filter(GAME_BALL_Y_OFFSET);
-
-                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, temp_tx, dt);
-                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, temp_ty, dt);
-
-                    forward_command_ = GAME_BALL_CLOSURE_COM;
                 } else {
                     // Target memory timeout - close grabber and start searching again
                     ballGrabber.closeGrabber(control_mode_);
@@ -778,7 +697,7 @@ void CatchingBlimp::state_machine_callback() {
             } case catching: {
 
                 //Go slower when we get up close
-                if (tz > 5.0) {
+                if (target_.z > 5.0) {
                     forward_command_ = CATCHING_FORWARD_COM;
                     up_command_ = CATCHING_UP_COM;
                 } else {
@@ -811,7 +730,7 @@ void CatchingBlimp::state_machine_callback() {
             } case caught: {
                 if (catches_ > 0) {
                     //if a target is seen right after the catch
-                    if (detected_target.size() > 0 && catches_ < TOTAL_ATTEMPTS) {
+                    if (target_detected_ && catches_ < TOTAL_ATTEMPTS) {
                         //approach next game ball if visible
                         auto_state_ = searching;
 
@@ -886,7 +805,7 @@ void CatchingBlimp::state_machine_callback() {
                     forward_command_ = GOAL_FORWARD_SEARCH;
                 }
 
-                if (detected_target.size() > 0) {
+                if (target_detected_) {
                     RCLCPP_WARN(this->get_logger(), "DETECTED GOAL - APPROACHING!");
                     goal_approach_start_time_ = now;
                     auto_state_ = approachGoal;
@@ -896,33 +815,20 @@ void CatchingBlimp::state_machine_callback() {
 
             } case approachGoal: {
 
-                if (detected_target.size() > 0) {
-                    temp_tx = tx;
-                    temp_ty = ty;
-                    target_memory_time_ = now;
+                if (target_detected_) {
+                    yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, dt);
+                    up_command_ = yPID_.calculate(GOAL_Y_OFFSET, target_.y, dt);
 
-                    yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, tx, dt);
-                    up_command_ = yPID_.calculate(GOAL_Y_OFFSET, ty, dt);
-
-                    if (tz > 4.0) {
+                    if (target_.z > 4.0) {
                         forward_command_ = GOAL_CLOSURE_COM;
                     } else {
                         forward_command_ = GOAL_CLOSE_COM;
                     }
 
-                    if (tz < GOAL_DISTANCE_TRIGGER) {
+                    if (target_.z < GOAL_DISTANCE_TRIGGER) {
                         score_start_time_ = now;
                         auto_state_ = scoringStart;
                     }
-                } else if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
-                    // Lost sight of goal
-                    temp_tx = xFilter.filter(GOAL_X_OFFSET);
-                    temp_ty = yFilter.filter(GOAL_Y_OFFSET);
-
-                    yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, temp_tx, dt);
-                    up_command_ = yPID_.calculate(GOAL_Y_OFFSET, temp_ty, dt);
-
-                    forward_command_ = GAME_BALL_CLOSURE_COM;
                 } else {
                     // Target memory timeout - start searching for goals again
                     auto_state_ = goalSearch;
@@ -1125,11 +1031,6 @@ void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::Shared
     if (msg->data == true) {
         publish_log("I'm ded xD");
         motorControl_V2.update(0,0,0,0);
-        // motorControl.update(0,0,0,0);
-        // bool leftReady = leftGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-        // bool rightReady = rightGimbal.readyGimbal(GIMBAL_DEBUG, MOTORS_OFF, 0, 0, 0, 0);
-        // leftGimbal.updateGimbal(leftReady && rightReady);
-        // rightGimbal.updateGimbal(leftReady && rightReady);
     }
 }
 
@@ -1178,16 +1079,95 @@ void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
-    // object of interest with xyz (9 elements in total)
-    for (size_t i = 0; i < 3; ++i) {
-        targets_[i] = msg->data[i];
-    }
-    
-    // target offset to set (0,0) as the center
-    targets_[0] = targets_[0]-320;
-    targets_[1] = targets_[1]-240;
-}
+    rclcpp::Time now = this->get_clock()->now();
 
+    // Todo: Make sure object type matches the current autonomous state!
+
+    // Make sure target was detected by checking for a -1 in the first element
+    if (msg->data[0] >= 0) {
+
+        // Target in sight - update filters if not previously seen
+        if (!target_detected_) {
+            // New target detected!
+            target_detected_ = true;
+
+            // Reset XYZ detection filters so value is set to current target
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+        }
+        
+        if ((int)msg->data[3] != target_id_) {
+            // Target changed!
+            // Also reset filter if the target changes
+            target_id_ = (int)msg->data[3];
+
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+        }
+        
+        if ((target_type)msg->data[4] != target_type_) {
+            // Target type changed!
+            target_type_ = (target_type)msg->data[4];
+
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+        }
+
+        // Center target at (0,0)
+        geometry_msgs::msg::Point centered_target;
+        centered_target.x = msg->data[0] - 320;
+        centered_target.y = msg->data[1] - 240;
+        centered_target.z = msg->data[2];
+
+        target_.x = xFilter.filter(centered_target.x);
+        target_.y = yFilter.filter(centered_target.y);
+        target_.z = zFilter.filter(centered_target.z);
+
+        // Update target memory every time when a detection takes place
+        target_memory_time_ = now;
+
+    } else {
+        // No target in sight
+        if (target_detected_) {
+            // Pursue "imaginary" target for a bit in case it reappears in frame
+            if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
+                // Set filters to automatically converge to desired
+
+                if (target_type_ == ball) {
+                    // Missing target was a game ball
+                    target_.x = xFilter.filter(GAME_BALL_X_OFFSET);
+                    target_.y = yFilter.filter(GAME_BALL_Y_OFFSET);
+                    target_.z = zFilter.filter(BALL_CATCH_TRIGGER);
+                } else {
+                    // Missing target was a goal
+                    target_.x = xFilter.filter(GOAL_X_OFFSET);
+                    target_.y = yFilter.filter(GOAL_Y_OFFSET);
+                    target_.z = zFilter.filter(GOAL_DISTANCE_TRIGGER);
+                }
+            } else {
+                // Target lost
+                target_detected_ = false;
+                target_id_ = -1;
+                target_type_ = no_target;
+            }
+        }
+    }
+
+    if (VISION_PRINT_DEBUG) {
+        if (target_detected_) {
+            std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
+            std::string detection_str = std::string("Target: ").append(target_str).append(" ID ").append(std::to_string(target_id_)).append(")");
+            detection_str.append(" at (" + std::to_string(target_.x) + ", " + std::to_string(target_.y) + ", " + std::to_string(target_.z));
+
+            RCLCPP_INFO(this->get_logger(), detection_str.c_str());
+        } else {
+            RCLCPP_INFO(this->get_logger(), "No target detected.");
+        }
+    }
+}
 
 float CatchingBlimp::searchDirection() {
     int ran = rand()%10; //need to check bounds

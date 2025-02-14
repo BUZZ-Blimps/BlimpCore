@@ -8,6 +8,7 @@
 //C++ includes
 #include <chrono>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <vector>
 #include <string>
@@ -46,15 +47,22 @@
 
 #include <wiringPi.h>
 
-//blimp mode
+// blimp mode
 #define BLIMP_COLOR               red      //either red or blue
 #define GOAL_COLOR                orange    //either orange or yellow
 
-//debug mode
-#define INITIAL_MODE              autonomous
-#define ZERO_MODE                 false
+// debug mode
+#define INITIAL_MODE              manual
 #define GIMBAL_DEBUG              false
-#define MOTORS_OFF                true
+
+// Motor debugging
+#define MOTOR_PRINT_DEBUG         false
+#define ZERO_MODE                 true
+#define VERT_MODE                 false
+#define YAW_MODE                  false
+
+// Vision debugging
+#define VISION_PRINT_DEBUG        true
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -77,10 +85,10 @@
 #define GOAL_HEIGHT_DEADBAND      0.4  //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    2.0   //m distance for blimp to trigger goal score 	
-#define BALL_GATE_OPEN_TRIGGER   3     //m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       1.2   //m distance for blimp to start the open-loop control
-#define AVOID_TRIGGER            0.8   //m distance for blimp to start the open-loop control
+#define GOAL_DISTANCE_TRIGGER    2.0   // m distance for blimp to trigger goal score 	
+#define BALL_GATE_OPEN_TRIGGER   3     // m distance for blimp to open the gate 	
+#define BALL_CATCH_TRIGGER       1.2   // m distance for blimp to start the open-loop control
+#define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
@@ -162,8 +170,8 @@
 // #define R_Yaw                     9     //not used, was 5
 
 // Todo: determine these pin numbers after re-wiring
-#define GATE_S                    5     // was 8 
-#define PWM_G                     3
+#define GATE_S                    5
+#define PIN_SCORING               0
 
 //10 is a valid brushless motor
 #define PIN_LEFT_UP               16
@@ -189,7 +197,8 @@ enum autoState {
     approachGoal,  //To Do: add goal aligntment (PID) in if, or add another state "align"
     scoringStart,
     shooting,
-    scored
+    scored,
+    no_state
 };
 
 enum blimpState {
@@ -216,6 +225,12 @@ enum goalType {
 enum gameballType {
     green,
     pink
+};
+
+enum target_type {
+    ball,
+    goal,
+    no_target
 };
 
 class CatchingBlimp: public rclcpp::Node {
@@ -261,16 +276,23 @@ private:
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
 
+    // Target detection
+    bool target_detected_ = false;
+    geometry_msgs::msg::Point target_;
+    int target_id_;
+    target_type target_type_;
+    
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
     int baro_count_; 
     double z_hat_;
 
-    std::vector<double> targets_;
     int catches_;
 
-    int control_mode_, auto_state_;
-    int last_state_ = -1;
+    blimpState control_mode_;
+    
+    autoState auto_state_;
+    autoState last_state_ = no_state;
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
