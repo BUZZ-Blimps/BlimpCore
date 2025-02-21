@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <numeric>
+#include <deque>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -122,6 +123,10 @@
 #define TIME_TO_SCORED            4.5
 #define MAX_APPROACH_TIME         10.0
 
+// tuning parameters for multi-stage approach
+#define FAR_APPROACH_THRESHOLD = 2.5;  // meters
+#define ALIGNMENT_DURATION = 0.5; 
+
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
@@ -207,6 +212,12 @@ enum blimpState {
     lost,
 };
 
+enum approachState {
+    far_approach,
+    alignment,
+    near_approach
+};
+
 enum grabberState {
     opened,
     closed,
@@ -232,6 +243,17 @@ enum target_type {
     goal,
     no_target
 };
+
+struct TargetData {
+  double x;
+  double y;
+  double z;
+  rclcpp::Time timestamp;
+  int id;
+  target_type type;
+};
+
+#define PATIENCE_THRESHOLD = 1.0
 
 class CatchingBlimp: public rclcpp::Node {
 public:
@@ -281,6 +303,7 @@ private:
     geometry_msgs::msg::Point target_;
     int target_id_;
     target_type target_type_;
+    std::deque<TargetData> target_history_;
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -293,6 +316,9 @@ private:
     
     autoState auto_state_;
     autoState last_state_ = no_state;
+
+    approachState approach_state_ = far_approach;
+    rclcpp::Time alignment_start_time_;
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
@@ -344,6 +370,8 @@ private:
     float searchDirection();
     bool load_pid_config();
     bool load_acc_calibration();
+
+    geometry_msgs::msg::Point predictTargetPosition();
 };
 
 #endif
