@@ -63,7 +63,7 @@
 #define YAW_MODE                  false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        true
+#define VISION_PRINT_DEBUG        false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -87,7 +87,8 @@
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.0   // m distance for blimp to trigger goal score 	
-#define BALL_GATE_OPEN_TRIGGER   3     // m distance for blimp to open the gate 	
+#define FAR_APPROACH_THRESHOLD   2.0   // m distance for blimp to alignment submode switching in approach state
+#define BALL_GATE_OPEN_TRIGGER   1.5   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.2   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
@@ -121,13 +122,10 @@
 #define TIME_TO_SCORE             2.0
 #define TIME_TO_SHOOT             4.5
 #define TIME_TO_SCORED            4.5
-#define MAX_APPROACH_TIME         10.0
-
-// tuning parameters for multi-stage approach
-#define FAR_APPROACH_THRESHOLD = 2.5;  // meters
-#define ALIGNMENT_DURATION = 0.5; 
-
-#define TARGET_MEMORY_TIMEOUT     2.0  // seconds
+#define MAX_APPROACH_TIME         15.0
+#define ALIGNMENT_DURATION        1.5  // seconds to wait between far approach and near approach
+#define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
+#define ALIGN_PREDICT_HORIZON     1.0  // seconds to forward predict game ball position for alignment
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
@@ -253,8 +251,6 @@ struct TargetData {
   target_type type;
 };
 
-#define PATIENCE_THRESHOLD = 1.0
-
 class CatchingBlimp: public rclcpp::Node {
 public:
     CatchingBlimp();
@@ -371,7 +367,7 @@ private:
     bool load_pid_config();
     bool load_acc_calibration();
 
-    geometry_msgs::msg::Point predictTargetPosition();
+    geometry_msgs::msg::Point predictTargetPosition(float offset=0.0);
 };
 
 #endif

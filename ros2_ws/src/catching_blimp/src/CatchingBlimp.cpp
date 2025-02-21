@@ -652,19 +652,21 @@ void CatchingBlimp::state_machine_callback() {
                 }
                 break;
             } case approach: {
+                RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away", approach_state_, target_.z);
+                
                 // Check if maximum time to approach has been exceeded.
                 if ((now - approach_start_time_).seconds() >= MAX_APPROACH_TIME) {
                     auto_state_ = searching;
                     search_start_time_ = now;
                     // Reset the approach sub–state for the next approach attempt.
-                    approach_sub_state_ = FAR_APPROACH;
+                    approach_state_ = far_approach;
                     break;
                 }
 
                 if (target_detected_) {
                     double distance = target_.z;  // Assuming target_.z is the distance measurement.
-                    switch (approach_sub_state_) {
-                        case FAR_APPROACH:
+                    switch (approach_state_) {
+                        case far_approach:
                             // When the target is far away, do a direct, head–on approach.
                             if (distance > FAR_APPROACH_THRESHOLD) {
                                 yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
@@ -672,7 +674,7 @@ void CatchingBlimp::state_machine_callback() {
                                 forward_command_= GAME_BALL_CLOSURE_COM;
                             } else {
                                 // Once within threshold, switch to alignment mode.
-                                approach_sub_state_ = ALIGNMENT;
+                                approach_state_ = alignment;
                                 alignment_start_time_ = now;
                                 // Pause forward motion during alignment.
                                 forward_command_ = 0;
@@ -681,11 +683,11 @@ void CatchingBlimp::state_machine_callback() {
                             }
                             break;
 
-                        case ALIGNMENT:
+                        case alignment:
                             // In alignment, use the prediction routine (which uses the target history)
                             // to estimate where the target is headed and adjust yaw to position the blimp ahead.
                             {
-                                geometry_msgs::msg::Point predicted = predictTargetPosition();
+                                geometry_msgs::msg::Point predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
                                 // Compute an alignment error relative to a desired offset (GAME_BALL_X_OFFSET)
                                 double alignment_error = predicted.x - GAME_BALL_X_OFFSET;
                                 // Adjust yaw to minimize this error.
@@ -697,21 +699,22 @@ void CatchingBlimp::state_machine_callback() {
                             }
                             // After a fixed duration, move to near approach.
                             if ((now - alignment_start_time_).seconds() >= ALIGNMENT_DURATION) {
-                                approach_sub_state_ = NEAR_APPROACH;
+                                approach_state_ = near_approach;
                             }
                             break;
 
-                        case NEAR_APPROACH:
+                        case near_approach:
                             // Resume forward approach using similar commands as before.
                             yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
                             up_command_     = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);
                             forward_command_= GAME_BALL_CLOSURE_COM;
                             // When very close, transition into the catching state.
-                            if (distance < BALL_CATCH_TRIGGER) {
+                            if (distance < BALL_GATE_OPEN_TRIGGER) {
+                                ballGrabber.openGrabber(control_mode_);
                                 auto_state_ = catching;
                                 catch_start_time_ = now;
                                 // Reset the sub–state for future approaches.
-                                approach_sub_state_ = FAR_APPROACH;
+                                approach_state_ = far_approach;
                             }
                             break;
                     }
@@ -722,7 +725,7 @@ void CatchingBlimp::state_machine_callback() {
                     search_start_time_ = now;
                     searchYawDirection = searchDirection();
                     // Reset the sub–state.
-                    approach_sub_state_ = FAR_APPROACH;
+                    approach_state_ = far_approach;
                 }
                 break;
             } case catching: {
@@ -1145,7 +1148,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         // We got a detection with a different ID/type.
         // If the time since the last valid detection is below our patience threshold,
         // we use a predicted value rather than immediately resetting.
-        if ((now - target_memory_time_).seconds() < PATIENCE_THRESHOLD) {
+        if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
             geometry_msgs::msg::Point predicted = predictTargetPosition();
             target_.x = predicted.x;
             target_.y = predicted.y;
@@ -1165,6 +1168,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         target_.y = predicted.y;
         target_.z = predicted.z;
         } else {
+        RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
         // No detection and memory window expired.
         target_detected_ = false;
         target_history_.clear();
@@ -1288,38 +1292,38 @@ bool CatchingBlimp::load_acc_calibration() {
     }
 }
 
-geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition() {
-  geometry_msgs::msg::Point predicted;
+geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition(float offset) {
+    geometry_msgs::msg::Point predicted;
 
-  // If we have fewer than two points, we cannot compute a velocity—return the last known value.
-  if (target_history_.size() < 2) {
-    predicted.x = target_.x;
-    predicted.y = target_.y;
-    predicted.z = target_.z;
+    // If we have fewer than two points, we cannot compute a velocity—return the last known value.
+    if (target_history_.size() < 2) {
+        predicted.x = target_.x;
+        predicted.y = target_.y;
+        predicted.z = target_.z;
+        return predicted;
+    }
+
+    // Compute average velocity from the oldest to the most recent detection in the history.
+    const TargetData& first = target_history_.front();
+    const TargetData& last  = target_history_.back();
+    double dt = (last.timestamp - first.timestamp).seconds();
+    if (dt <= 0) {
+        predicted.x = last.x;
+        predicted.y = last.y;
+        predicted.z = last.z;
+        return predicted;
+    }
+
+    double vx = (last.x - first.x) / dt;
+    double vy = (last.y - first.y) / dt;
+    double vz = (last.z - first.z) / dt;
+
+    // Determine the time difference between now and the last detection.
+    double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
+
+    // Predict the new position with a simple constant–velocity model:
+    predicted.x = last.x + vx * dt_pred;
+    predicted.y = last.y + vy * dt_pred;
+    predicted.z = last.z + vz * dt_pred;
     return predicted;
-  }
-
-  // Compute average velocity from the oldest to the most recent detection in the history.
-  const TargetData& first = target_history_.front();
-  const TargetData& last  = target_history_.back();
-  double dt = (last.timestamp - first.timestamp).seconds();
-  if (dt <= 0) {
-    predicted.x = last.x;
-    predicted.y = last.y;
-    predicted.z = last.z;
-    return predicted;
-  }
-
-  double vx = (last.x - first.x) / dt;
-  double vy = (last.y - first.y) / dt;
-  double vz = (last.z - first.z) / dt;
-
-  // Determine the time difference between now and the last detection.
-  double dt_pred = (this->get_clock()->now() - last.timestamp).seconds();
-
-  // Predict the new position with a simple constant–velocity model:
-  predicted.x = last.x + vx * dt_pred;
-  predicted.y = last.y + vy * dt_pred;
-  predicted.z = last.z + vz * dt_pred;
-  return predicted;
 }
