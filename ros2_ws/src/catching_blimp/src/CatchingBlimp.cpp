@@ -652,47 +652,81 @@ void CatchingBlimp::state_machine_callback() {
                 }
                 break;
             } case approach: {
-                // max time to approach
+                RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away", approach_state_, target_.z);
+                
+                // Check if maximum time to approach has been exceeded.
                 if ((now - approach_start_time_).seconds() >= MAX_APPROACH_TIME) {
                     auto_state_ = searching;
-                    // searching timer
                     search_start_time_ = now;
+                    // Reset the approach sub–state for the next approach attempt.
+                    approach_state_ = far_approach;
+                    break;
                 }
-   
-                //check if target is still valid
+
                 if (target_detected_) {
-                    //seeing a target
-                    //move toward the balloon
-                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
-                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);  
+                    double distance = target_.z;  // Assuming target_.z is the distance measurement.
+                    switch (approach_state_) {
+                        case far_approach:
+                            // When the target is far away, do a direct, head–on approach.
+                            if (distance > FAR_APPROACH_THRESHOLD) {
+                                yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
+                                up_command_     = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);
+                                forward_command_= GAME_BALL_CLOSURE_COM;
+                            } else {
+                                // Once within threshold, switch to alignment mode.
+                                approach_state_ = alignment;
+                                alignment_start_time_ = now;
+                                // Pause forward motion during alignment.
+                                forward_command_ = 0;
+                                yawrate_command_ = 0;
+                                up_command_      = 0;
+                            }
+                            break;
 
-                    forward_command_ = GAME_BALL_CLOSURE_COM;
+                        case alignment:
+                            // In alignment, use the prediction routine (which uses the target history)
+                            // to estimate where the target is headed and adjust yaw to position the blimp ahead.
+                            {
+                                geometry_msgs::msg::Point predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
+                                // Compute an alignment error relative to a desired offset (GAME_BALL_X_OFFSET)
+                                double alignment_error = predicted.x - GAME_BALL_X_OFFSET;
+                                // Adjust yaw to minimize this error.
+                                yawrate_command_ = xPID_.calculate(0, alignment_error, dt);
+                                // Optionally hold altitude during alignment.
+                                up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);
+                                // Do not command forward motion while aligning.
+                                forward_command_ = 0;
+                            }
+                            // After a fixed duration, move to near approach.
+                            if ((now - alignment_start_time_).seconds() >= ALIGNMENT_DURATION) {
+                                approach_state_ = near_approach;
+                            }
+                            break;
 
-                    //check if the gate should be opened
-                    if (target_.z < BALL_GATE_OPEN_TRIGGER) {
-                        ballGrabber.openGrabber(control_mode_);
-
-                        //check if the catching mode should be triggered
-                        if (target_.z < BALL_CATCH_TRIGGER) {
-                            auto_state_ = catching;
-
-                            //start catching timer
-                            catch_start_time_ = now;
-                        }
+                        case near_approach:
+                            // Resume forward approach using similar commands as before.
+                            yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, dt);
+                            up_command_     = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, dt);
+                            forward_command_= GAME_BALL_CLOSURE_COM;
+                            // When very close, transition into the catching state.
+                            if (distance < BALL_GATE_OPEN_TRIGGER) {
+                                ballGrabber.openGrabber(control_mode_);
+                                auto_state_ = catching;
+                                catch_start_time_ = now;
+                                // Reset the sub–state for future approaches.
+                                approach_state_ = far_approach;
+                            }
+                            break;
                     }
-                    //if target is lost within 1 second
-                    //remember the previous info about where the ball is 
                 } else {
-                    // Target memory timeout - close grabber and start searching again
+                    // No target detected: fall back to searching behavior.
                     ballGrabber.closeGrabber(control_mode_);
                     auto_state_ = searching;
-
-                    // Reset searching timer and direction
                     search_start_time_ = now;
-                    ballGrabber.closeGrabber(control_mode_);
-                    searchYawDirection = searchDirection();  //randomize the search direction
+                    searchYawDirection = searchDirection();
+                    // Reset the sub–state.
+                    approach_state_ = far_approach;
                 }
-
                 break;
             } case catching: {
 
@@ -1077,97 +1111,82 @@ void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64
 }
 
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
     rclcpp::Time now = this->get_clock()->now();
 
-    // Todo: Make sure object type matches the current autonomous state!
-
-    // Make sure target was detected by checking for a -1 in the first element
+    // Check if the detection is valid (negative values mean nothing detected)
     if (msg->data[0] >= 0) {
+        int new_id = static_cast<int>(msg->data[3]);
+        target_type new_type = static_cast<target_type>(msg->data[4]);
 
-        // Target in sight - update filters if not previously seen
-        if (!target_detected_) {
-            // New target detected!
-            target_detected_ = true;
+        // Create a new detection (centering as before)
+        TargetData new_detection;
+        new_detection.x = msg->data[0] - 320;
+        new_detection.y = msg->data[1] - 240;
+        new_detection.z = msg->data[2];
+        new_detection.timestamp = now;
+        new_detection.id = new_id;
+        new_detection.type = new_type;
 
-            // Reset XYZ detection filters so value is set to current target
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-        }
-        
-        if ((int)msg->data[3] != target_id_) {
-            // Target changed!
-            // Also reset filter if the target changes
-            target_id_ = (int)msg->data[3];
-
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-        }
-        
-        if ((target_type)msg->data[4] != target_type_) {
-            // Target type changed!
-            target_type_ = (target_type)msg->data[4];
-
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-        }
-
-        // Center target at (0,0)
-        geometry_msgs::msg::Point centered_target;
-        centered_target.x = msg->data[0] - 320;
-        centered_target.y = msg->data[1] - 240;
-        centered_target.z = msg->data[2];
-
-        target_.x = xFilter.filter(centered_target.x);
-        target_.y = yFilter.filter(centered_target.y);
-        target_.z = zFilter.filter(centered_target.z);
-
-        // Update target memory every time when a detection takes place
+        // If we have not yet detected a target or the new detection matches our current target...
+        if (!target_detected_ || (new_id == target_id_ && new_type == target_type_)) {
+        // Update the current target info
+        target_detected_ = true;
+        target_id_ = new_id;
+        target_type_ = new_type;
         target_memory_time_ = now;
 
-    } else {
-        // No target in sight
-        if (target_detected_) {
-            // Pursue "imaginary" target for a bit in case it reappears in frame
-            if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
-                // Set filters to automatically converge to desired
+        // Add to the history buffer and keep only the latest 5 entries
+        target_history_.push_back(new_detection);
+        if (target_history_.size() > 5)
+            target_history_.pop_front();
 
-                if (target_type_ == ball) {
-                    // Missing target was a game ball
-                    target_.x = xFilter.filter(GAME_BALL_X_OFFSET);
-                    target_.y = yFilter.filter(GAME_BALL_Y_OFFSET);
-                    target_.z = zFilter.filter(BALL_CATCH_TRIGGER);
-                } else {
-                    // Missing target was a goal
-                    target_.x = xFilter.filter(GOAL_X_OFFSET);
-                    target_.y = yFilter.filter(GOAL_Y_OFFSET);
-                    target_.z = zFilter.filter(GOAL_DISTANCE_TRIGGER);
-                }
-            } else {
-                // Target lost
-                target_detected_ = false;
-                target_id_ = -1;
-                target_type_ = no_target;
-            }
+        // Update filtered target coordinates
+        target_.x = xFilter.filter(new_detection.x);
+        target_.y = yFilter.filter(new_detection.y);
+        target_.z = zFilter.filter(new_detection.z);
+        } else {
+        // We got a detection with a different ID/type.
+        // If the time since the last valid detection is below our patience threshold,
+        // we use a predicted value rather than immediately resetting.
+        if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
+            geometry_msgs::msg::Point predicted = predictTargetPosition();
+            target_.x = predicted.x;
+            target_.y = predicted.y;
+            target_.z = predicted.z;
+        } else {
+            // Patience window expired: clear target and history.
+            target_detected_ = false;
+            target_history_.clear();
+        }
+        }
+    } else {
+        // No valid detection received.
+        if (target_detected_ && ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT)) {
+        // Still within memory window: predict the target’s position.
+        geometry_msgs::msg::Point predicted = predictTargetPosition();
+        target_.x = predicted.x;
+        target_.y = predicted.y;
+        target_.z = predicted.z;
+        } else {
+        RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
+        // No detection and memory window expired.
+        target_detected_ = false;
+        target_history_.clear();
         }
     }
 
+    // Optionally print or log the target’s state for debugging.
     if (VISION_PRINT_DEBUG) {
         if (target_detected_) {
-            std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
-            std::string detection_str = std::string("Target: ").append(target_str).append(" ID ").append(std::to_string(target_id_)).append(")");
-            detection_str.append(" at (" + std::to_string(target_.x) + ", " + std::to_string(target_.y) + ", " + std::to_string(target_.z));
-
-            RCLCPP_INFO(this->get_logger(), detection_str.c_str());
+        std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
+        RCLCPP_INFO(this->get_logger(), "Target: %s, ID: %d, Pos: (%.2f, %.2f, %.2f)",
+                    target_str.c_str(), target_id_, target_.x, target_.y, target_.z);
         } else {
-            RCLCPP_INFO(this->get_logger(), "No target detected.");
+        RCLCPP_INFO(this->get_logger(), "No target detected.");
         }
     }
 }
+
 
 float CatchingBlimp::searchDirection() {
     int ran = rand()%10; //need to check bounds
@@ -1271,4 +1290,40 @@ bool CatchingBlimp::load_acc_calibration() {
         acc_b_.setZero();
         return true;
     }
+}
+
+geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition(float offset) {
+    geometry_msgs::msg::Point predicted;
+
+    // If we have fewer than two points, we cannot compute a velocity—return the last known value.
+    if (target_history_.size() < 2) {
+        predicted.x = target_.x;
+        predicted.y = target_.y;
+        predicted.z = target_.z;
+        return predicted;
+    }
+
+    // Compute average velocity from the oldest to the most recent detection in the history.
+    const TargetData& first = target_history_.front();
+    const TargetData& last  = target_history_.back();
+    double dt = (last.timestamp - first.timestamp).seconds();
+    if (dt <= 0) {
+        predicted.x = last.x;
+        predicted.y = last.y;
+        predicted.z = last.z;
+        return predicted;
+    }
+
+    double vx = (last.x - first.x) / dt;
+    double vy = (last.y - first.y) / dt;
+    double vz = (last.z - first.z) / dt;
+
+    // Determine the time difference between now and the last detection.
+    double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
+
+    // Predict the new position with a simple constant–velocity model:
+    predicted.x = last.x + vx * dt_pred;
+    predicted.y = last.y + vy * dt_pred;
+    predicted.z = last.z + vz * dt_pred;
+    return predicted;
 }

@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <numeric>
+#include <deque>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -62,7 +63,7 @@
 #define YAW_MODE                  false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        true
+#define VISION_PRINT_DEBUG        false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -86,7 +87,8 @@
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.0   // m distance for blimp to trigger goal score 	
-#define BALL_GATE_OPEN_TRIGGER   3     // m distance for blimp to open the gate 	
+#define FAR_APPROACH_THRESHOLD   2.0   // m distance for blimp to alignment submode switching in approach state
+#define BALL_GATE_OPEN_TRIGGER   1.5   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.2   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
@@ -120,9 +122,10 @@
 #define TIME_TO_SCORE             2.0
 #define TIME_TO_SHOOT             4.5
 #define TIME_TO_SCORED            4.5
-#define MAX_APPROACH_TIME         10.0
-
-#define TARGET_MEMORY_TIMEOUT     2.0  // seconds
+#define MAX_APPROACH_TIME         15.0
+#define ALIGNMENT_DURATION        1.5  // seconds to wait between far approach and near approach
+#define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
+#define ALIGN_PREDICT_HORIZON     1.0  // seconds to forward predict game ball position for alignment
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
@@ -207,6 +210,12 @@ enum blimpState {
     lost,
 };
 
+enum approachState {
+    far_approach,
+    alignment,
+    near_approach
+};
+
 enum grabberState {
     opened,
     closed,
@@ -231,6 +240,15 @@ enum target_type {
     ball,
     goal,
     no_target
+};
+
+struct TargetData {
+  double x;
+  double y;
+  double z;
+  rclcpp::Time timestamp;
+  int id;
+  target_type type;
 };
 
 class CatchingBlimp: public rclcpp::Node {
@@ -281,6 +299,7 @@ private:
     geometry_msgs::msg::Point target_;
     int target_id_;
     target_type target_type_;
+    std::deque<TargetData> target_history_;
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -293,6 +312,9 @@ private:
     
     autoState auto_state_;
     autoState last_state_ = no_state;
+
+    approachState approach_state_ = far_approach;
+    rclcpp::Time alignment_start_time_;
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
@@ -344,6 +366,8 @@ private:
     float searchDirection();
     bool load_pid_config();
     bool load_acc_calibration();
+
+    geometry_msgs::msg::Point predictTargetPosition(float offset=0.0);
 };
 
 #endif
