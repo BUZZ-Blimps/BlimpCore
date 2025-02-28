@@ -583,7 +583,7 @@ void CatchingBlimp::state_machine_callback() {
                             }   
                             message += " Backup!";
                             
-                            yawrate_command_ = 35*searchYawDirection;
+                            yawrate_command_ = 25*searchYawDirection;
                             forward_command_ = -240;
                             up_command_ = 100;
                         } else {

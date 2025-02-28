@@ -58,7 +58,7 @@
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
-#define ZERO_MODE                 true
+#define ZERO_MODE                 false
 #define VERT_MODE                 false
 #define YAW_MODE                  false
 
@@ -78,8 +78,8 @@
 #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               10   //m
-#define FLOOR_HEIGHT              2.5  //m
+#define CEIL_HEIGHT               5   //m
+#define FLOOR_HEIGHT              -1  //m
 
 #define MAX_HEIGHT                12   //m  (unused)
 #define GOAL_HEIGHT               9.0  //m
@@ -87,9 +87,9 @@
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.0   // m distance for blimp to trigger goal score 	
-#define FAR_APPROACH_THRESHOLD   2.0   // m distance for blimp to alignment submode switching in approach state
-#define BALL_GATE_OPEN_TRIGGER   1.5   // m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       1.2   // m distance for blimp to start the open-loop control
+#define FAR_APPROACH_THRESHOLD   3.0   // m distance for blimp to alignment submode switching in approach state
+#define BALL_GATE_OPEN_TRIGGER   2.0   // m distance for blimp to open the gate 	
+#define BALL_CATCH_TRIGGER       2.0   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
@@ -105,7 +105,7 @@
 
 #define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
 #define GAME_BALL_X_OFFSET        0    //offset magic number
-#define GAME_BALL_Y_OFFSET        130   //approach magic number
+#define GAME_BALL_Y_OFFSET        180   //approach magic number
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
 #define GOAL_CLOSE_COM            200 
