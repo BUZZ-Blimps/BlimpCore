@@ -250,6 +250,8 @@ struct TargetData {
   double x;
   double y;
   double z;
+  double theta_x;
+  double theta_y;
   rclcpp::Time timestamp;
   int id;
   target_type type;
@@ -300,7 +302,8 @@ private:
 
     // Target detection
     bool target_detected_ = false;
-    geometry_msgs::msg::Point target_;
+    // geometry_msgs::msg::Point target_;
+    TargetData target_;
     int target_id_;
     target_type target_type_;
     std::deque<TargetData> target_history_;
