@@ -469,6 +469,7 @@ void CatchingBlimp::state_machine_manual_callback(){
     }
 }
 
+
 void CatchingBlimp::state_machine_autonomous_callback(){
 
     /*---------------------------------------------------------------------------------------------------------------
@@ -512,6 +513,7 @@ void CatchingBlimp::state_machine_autonomous_callback(){
         }
     } //End auto_mode switch
 }
+
 
 void CatchingBlimp::state_machine_searching_callback(){
     //check if goal scoring should be attempted
@@ -686,13 +688,15 @@ void CatchingBlimp::state_machine_approach_callback(){
     if (target_detected_) {
         double distance = target_.z;  // Assuming target_.z is the distance measurement.
 
-        // // DEBUGGING USE_DISTANCE_IN_BALL_APPROACH
-        // if( USE_DISTANCE_IN_BALL_APPROACH ){
-        //     float theta_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
-        //     float theta_ball = 0; // REPLACE WITH MEASURED THETA
-        //     up_command_ = yPID_.calculate(theta_target, theta_ball, state_machine_dt_);
+        // DEBUGGING USE_DISTANCE_IN_BALL_APPROACH
+        if( USE_DISTANCE_IN_BALL_APPROACH ){
+            float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
+            float theta_y_ball = target_.theta_y;
+            RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
 
-        // }
+            // up_command_ = yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+            return;
+        }
 
         switch (approach_state_) {
             case far_approach:

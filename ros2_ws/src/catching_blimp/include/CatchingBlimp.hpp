@@ -302,7 +302,6 @@ private:
 
     // Target detection
     bool target_detected_ = false;
-    // geometry_msgs::msg::Point target_;
     TargetData target_;
     int target_id_;
     target_type target_type_;
