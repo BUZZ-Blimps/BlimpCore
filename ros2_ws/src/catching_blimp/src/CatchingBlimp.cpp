@@ -853,7 +853,7 @@ void CatchingBlimp::state_machine_callback() {
                     yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, dt);
                     up_command_ = yPID_.calculate(GOAL_Y_OFFSET, target_.y, dt);
 
-                    if (target_.z > 4.0) {
+                    if (target_.z > 5) {
                         forward_command_ = GOAL_CLOSURE_COM;
                     } else {
                         forward_command_ = GOAL_CLOSE_COM;

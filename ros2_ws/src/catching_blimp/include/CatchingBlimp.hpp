@@ -74,19 +74,19 @@
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            2    // attempts at catching 
+#define TOTAL_ATTEMPTS            1    // attempts at catching 
 #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               5   //m
+#define CEIL_HEIGHT               3   //m
 #define FLOOR_HEIGHT              -1  //m
 
 #define MAX_HEIGHT                12   //m  (unused)
-#define GOAL_HEIGHT               9.0  //m
-#define GOAL_HEIGHT_DEADBAND      0.4  //m
+#define GOAL_HEIGHT               1  //m
+#define GOAL_HEIGHT_DEADBAND      0.3  //m
 
 //distance triggers
-#define GOAL_DISTANCE_TRIGGER    2.0   // m distance for blimp to trigger goal score 	
+#define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   3.0   // m distance for blimp to alignment submode switching in approach state
 #define BALL_GATE_OPEN_TRIGGER   2.0   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       2.0   // m distance for blimp to start the open-loop control
@@ -103,52 +103,52 @@
 #define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
 #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
-#define GAME_BALL_CLOSURE_COM     300  //approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        0    //offset magic number
-#define GAME_BALL_Y_OFFSET        180   //approach magic number
+#define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
+#define GAME_BALL_X_OFFSET        20    //offset magic number (more to the left)
+#define GAME_BALL_Y_OFFSET        160   //approach magic number
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
-#define GOAL_CLOSE_COM            200 
-#define GOAL_X_OFFSET             0
-#define GOAL_Y_OFFSET             100   //height alignment (approach down)
+#define GOAL_CLOSE_COM            180 
+#define GOAL_X_OFFSET             70    //more to the left
+#define GOAL_Y_OFFSET             190   //height alignment (approach down)
 
-#define CATCHING_FORWARD_COM      400  //catching at 50% throttle 
-#define CATCHING_UP_COM           0   //damp out pitch
+#define CATCHING_FORWARD_COM      430  //catching at 50% throttle 
+#define CATCHING_UP_COM           50   //damp out pitch
 
 #define TIME_TO_SEARCH            15.0
 #define TIME_TO_BACKUP            5.0
-#define TIME_TO_CATCH             5.0 //seconds
-#define TIME_TO_CAUGHT            3.0
-#define TIME_TO_SCORE             2.0
-#define TIME_TO_SHOOT             4.5
-#define TIME_TO_SCORED            4.5
+#define TIME_TO_CATCH             4.2 //seconds
+#define TIME_TO_CAUGHT            2.5
+#define TIME_TO_SCORE             1.7
+#define TIME_TO_SHOOT             3.5
+#define TIME_TO_SCORED            3.5
 #define MAX_APPROACH_TIME         15.0
-#define ALIGNMENT_DURATION        1.5  // seconds to wait between far approach and near approach
+#define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
-#define ALIGN_PREDICT_HORIZON     1.0  // seconds to forward predict game ball position for alignment
+#define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
 #define CAUGHT_UP_COM             40
 
 #define GOAL_YAW_SEARCH           15
 #define GOAL_FORWARD_SEARCH       200  //200 40% throttle
-#define GOAL_UP_VELOCITY          450
+#define GOAL_UP_VELOCITY          250
 
 //goal alignment test
 #define ALIGNING_YAW_COM           10   //test
-#define ALIGNING_FORWARD_COM       100  //test
+#define ALIGNING_FORWARD_COM       180  //test
 #define ALIGNING_UP_COM            100  //test
 #define ALIGNING_TRANSLATION_COM   300  //test
 
 #define SCORING_YAW_COM           0
-#define SCORING_FORWARD_COM       450 //40% throttle
-#define SCORING_UP_COM            0
+#define SCORING_FORWARD_COM       350 //80% throttle
+#define SCORING_UP_COM            180
 
 #define SHOOTING_FORWARD_COM      400  //counter back motion 
-#define SHOOTING_UP_COM           100
+#define SHOOTING_UP_COM           200
 //counter moment (right now we do want to shoot up because ball sinks)
 
-#define SCORED_FORWARD_COM        -500
+#define SCORED_FORWARD_COM        -400
 #define SCORED_UP_COM             0
 
 //sensor and controller rates
