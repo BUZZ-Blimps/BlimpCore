@@ -55,6 +55,8 @@ EMAFilter rollRateFilter(0.5);
 EMAFilter xFilter(0.5);
 EMAFilter yFilter(0.5);
 EMAFilter zFilter(0.5);
+EMAFilter theta_xFilter(0.5);
+EMAFilter theta_yFilter(0.5);
 
 // EMAFilter areaFilter(0.5);
 
@@ -714,7 +716,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                 // In alignment, use the prediction routine (which uses the target history)
                 // to estimate where the target is headed and adjust yaw to position the blimp ahead.
                 {
-                    geometry_msgs::msg::Point predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
+                    TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
                     // Compute an alignment error relative to a desired offset (GAME_BALL_X_OFFSET)
                     double alignment_error = predicted.x - GAME_BALL_X_OFFSET;
                     // Adjust yaw to minimize this error.
@@ -1199,6 +1201,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         new_detection.timestamp = now;
         new_detection.id = new_id;
         new_detection.type = new_type;
+        new_detection.theta_x = msg->data[5];
+        new_detection.theta_y = msg->data[6];
 
         // If we have not yet detected a target or the new detection matches our current target...
         if (!target_detected_ || (new_id == target_id_ && new_type == target_type_)) {
@@ -1210,41 +1214,59 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
 
         // Add to the history buffer and keep only the latest 5 entries
         target_history_.push_back(new_detection);
-        if (target_history_.size() > 5)
+        if (target_history_.size() > 10)
             target_history_.pop_front();
 
         // Update filtered target coordinates
         target_.x = xFilter.filter(new_detection.x);
         target_.y = yFilter.filter(new_detection.y);
         target_.z = zFilter.filter(new_detection.z);
+        target_.theta_x = zFilter.filter(new_detection.theta_x);
+        target_.theta_y = zFilter.filter(new_detection.theta_y);
+
         } else {
         // We got a detection with a different ID/type.
         // If the time since the last valid detection is below our patience threshold,
         // we use a predicted value rather than immediately resetting.
         if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
-            geometry_msgs::msg::Point predicted = predictTargetPosition();
+            TargetData predicted = predictTargetPosition();
             target_.x = predicted.x;
             target_.y = predicted.y;
             target_.z = predicted.z;
+            target_.theta_x = predicted.theta_x;
+            target_.theta_y = predicted.theta_y;
         } else {
             // Patience window expired: clear target and history.
             target_detected_ = false;
             target_history_.clear();
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+            theta_xFilter.reset();
+            theta_yFilter.reset();
         }
         }
     } else {
         // No valid detection received.
         if (target_detected_ && ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT)) {
         // Still within memory window: predict the target’s position.
-        geometry_msgs::msg::Point predicted = predictTargetPosition();
+        TargetData predicted = predictTargetPosition();
         target_.x = predicted.x;
         target_.y = predicted.y;
         target_.z = predicted.z;
+        target_.theta_x = predicted.theta_x;
+        target_.theta_y = predicted.theta_y;
+
         } else {
         RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
         // No detection and memory window expired.
         target_detected_ = false;
         target_history_.clear();
+        xFilter.reset();
+        yFilter.reset();
+        zFilter.reset();
+        theta_xFilter.reset();
+        theta_yFilter.reset();
         }
     }
 
@@ -1365,14 +1387,16 @@ bool CatchingBlimp::load_acc_calibration() {
     }
 }
 
-geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition(float offset) {
-    geometry_msgs::msg::Point predicted;
+TargetData CatchingBlimp::predictTargetPosition(float offset) {
+    TargetData predicted;
 
     // If we have fewer than two points, we cannot compute a velocity—return the last known value.
     if (target_history_.size() < 2) {
         predicted.x = target_.x;
         predicted.y = target_.y;
         predicted.z = target_.z;
+        predicted.theta_x = target_.theta_x;
+        predicted.theta_y = target_.theta_y;
         return predicted;
     }
 
@@ -1384,12 +1408,16 @@ geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition(float offset) {
         predicted.x = last.x;
         predicted.y = last.y;
         predicted.z = last.z;
+        predicted.theta_x = target_.theta_x;
+        predicted.theta_y = target_.theta_y;
         return predicted;
     }
 
     double vx = (last.x - first.x) / dt;
     double vy = (last.y - first.y) / dt;
     double vz = (last.z - first.z) / dt;
+    double vtheta_x = (last.theta_x - first.theta_x) / dt;
+    double vtheta_y = (last.theta_y - first.theta_y) / dt;
 
     // Determine the time difference between now and the last detection.
     double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
@@ -1398,5 +1426,7 @@ geometry_msgs::msg::Point CatchingBlimp::predictTargetPosition(float offset) {
     predicted.x = last.x + vx * dt_pred;
     predicted.y = last.y + vy * dt_pred;
     predicted.z = last.z + vz * dt_pred;
+    predicted.theta_x = last.theta_x + vtheta_x * dt_pred;
+    predicted.theta_y = last.theta_y + vtheta_y * dt_pred;
     return predicted;
 }

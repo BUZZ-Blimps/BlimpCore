@@ -397,7 +397,7 @@ private:
     bool load_pid_config();
     bool load_acc_calibration();
 
-    geometry_msgs::msg::Point predictTargetPosition(float offset=0.0);
+    TargetData predictTargetPosition(float offset=0.0);
 };
 
 #endif
