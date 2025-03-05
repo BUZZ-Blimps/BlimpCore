@@ -14,6 +14,7 @@
 #include <string>
 #include <numeric>
 #include <deque>
+// #include <cmath>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -64,6 +65,9 @@
 
 // Vision debugging
 #define VISION_PRINT_DEBUG        false
+
+#define USE_DISTANCE_IN_BALL_APPROACH   false
+#define BASKET_CAMERA_VERTICAL_OFFSET   0.4     // m vertical distance between center of catching basket and camera
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -300,6 +304,10 @@ private:
     int target_id_;
     target_type target_type_;
     std::deque<TargetData> target_history_;
+
+
+    //Avoidance data
+    int quadrant = 10;
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -318,6 +326,7 @@ private:
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
+    double forward_avoidance_, up_avoidance_, yaw_avoidance_;
     int roll_update_count_;
     
     rclcpp::Time start_time_;
@@ -332,6 +341,8 @@ private:
     rclcpp::Time goal_approach_start_time_;
     rclcpp::Time shoot_start_time_;
     rclcpp::Time score_start_time_;
+
+    double state_machine_dt_;
 
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
@@ -351,6 +362,22 @@ private:
     void imu_timer_callback();
     void baro_timer_callback();
     void state_machine_callback();
+
+    void state_machine_manual_callback();
+    void state_machine_autonomous_callback();
+    void state_machine_searching_callback();
+    void state_machine_approach_callback();
+    void state_machine_catching_callback();
+    void state_machine_caught_callback();
+    void state_machine_goalSearch_callback();
+    void state_machine_approachGoal_callback();
+    void state_machine_scoringStart_callback();
+    void state_machine_shooting_callback();
+    void state_machine_scored_callback();
+    void state_machine_default_callback();
+
+    void calculate_avoidance_from_quadrant(int quadrant);
+    std::string auto_state_to_string(autoState state);
     void publish_log(std::string message);
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);

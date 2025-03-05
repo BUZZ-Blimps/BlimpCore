@@ -35,6 +35,8 @@ bool TripleBallGrabber::is_open() {
 }
 
 void TripleBallGrabber::closeGrabber(int blimp_state) {
+    (void) blimp_state; // Gets rid of unused variable warning. Otherwise does nothing. Feel free to delete :)
+
     //updateMoveRate(blimp_state);
     moveRate = moveRate_fast; // Close fast, regardless of state
 
