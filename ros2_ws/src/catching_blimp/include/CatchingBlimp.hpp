@@ -67,7 +67,7 @@
 #define VISION_PRINT_DEBUG        false
 
 #define USE_DISTANCE_IN_BALL_APPROACH   false
-#define BASKET_CAMERA_VERTICAL_OFFSET   0.4     // m vertical distance between center of catching basket and camera
+#define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -127,6 +127,7 @@
 #define TIME_TO_SHOOT             3.5
 #define TIME_TO_SCORED            3.5
 #define MAX_APPROACH_TIME         15.0
+// #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
@@ -353,6 +354,7 @@ private:
     PID yawPID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;
+    PID theta_yPID_;
 
     ZEstimator z_est_;
     EMAFilter z_lowpass_;

@@ -88,7 +88,8 @@ CatchingBlimp::CatchingBlimp() :
     up_command_(0),
     yawrate_command_(0),
     rollrate_command_(0),
-    roll_update_count_(0){
+    roll_update_count_(0),
+    theta_yPID_(1000, 0, 0){
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -691,10 +692,12 @@ void CatchingBlimp::state_machine_approach_callback(){
         // DEBUGGING USE_DISTANCE_IN_BALL_APPROACH
         if( USE_DISTANCE_IN_BALL_APPROACH ){
             float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
-            float theta_y_ball = target_.theta_y;
+            float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
             RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
 
-            // up_command_ = yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+            up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+            forward_command_ = 0;
+            yawrate_command_ = 0;
             return;
         }
 
@@ -1225,8 +1228,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         target_.x = xFilter.filter(new_detection.x);
         target_.y = yFilter.filter(new_detection.y);
         target_.z = zFilter.filter(new_detection.z);
-        target_.theta_x = zFilter.filter(new_detection.theta_x);
-        target_.theta_y = zFilter.filter(new_detection.theta_y);
+        target_.theta_x = theta_xFilter.filter(new_detection.theta_x);
+        target_.theta_y = theta_yFilter.filter(new_detection.theta_y);
 
         } else {
         // We got a detection with a different ID/type.
