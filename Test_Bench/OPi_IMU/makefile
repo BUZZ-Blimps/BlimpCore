@@ -1,3 +1,3 @@
 main: main.cpp
-	g++ OPI_IMU.cpp main.cpp -lwiringPi -lm -o test
+	g++ -I /usr/include/eigen3/ OPI_IMU.cpp main.cpp -lwiringPi -lm -o test
 
