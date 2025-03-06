@@ -133,6 +133,7 @@ CatchingBlimp::CatchingBlimp() :
     z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
     state_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("state", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
+    heading_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("heading", 10);
 
     // Set QOS settings to match basestation
     auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
@@ -253,6 +254,7 @@ void CatchingBlimp::imu_timer_callback() {
 
     imu_publisher_->publish(imu_msg_);
 
+    
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 
@@ -277,6 +279,10 @@ void CatchingBlimp::imu_timer_callback() {
 
     std::vector<double> euler_angles = madgwick.get_euler();
     double roll = euler_angles[0];
+
+    std_msgs::msg::Float64MultiArray heading_msg_;
+    heading_msg_.data = {euler_angles[2], BerryIMU.MagYraw, BerryIMU.MagXraw, std::atan2(BerryIMU.MagYraw, BerryIMU.MagXraw)*180/M_PI};
+    heading_publisher_->publish(heading_msg_);
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
