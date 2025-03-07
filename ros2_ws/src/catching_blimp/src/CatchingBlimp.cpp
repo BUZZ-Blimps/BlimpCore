@@ -89,7 +89,7 @@ CatchingBlimp::CatchingBlimp() :
     yawrate_command_(0),
     rollrate_command_(0),
     roll_update_count_(0),
-    theta_yPID_(1000, 0, 0){
+    theta_yPID_(1300, 0, 0){
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -700,9 +700,18 @@ void CatchingBlimp::state_machine_approach_callback(){
             case far_approach:
                 // When the target is far away, do a direct, head–on approach.
                 if (distance > FAR_APPROACH_THRESHOLD) {
+                    if(USE_DISTANCE_IN_BALL_APPROACH){
+                        float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
+                        float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
+                        RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
+
+                        up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+            
+                    }else{
+                        up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
+                    }
                     yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
-                    up_command_     = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
-                    forward_command_= GAME_BALL_CLOSURE_COM;
+                    forward_command_ = GAME_BALL_CLOSURE_COM;
                 } else {
                     // Once within threshold, switch to alignment mode.
                     approach_state_ = alignment;
@@ -717,17 +726,23 @@ void CatchingBlimp::state_machine_approach_callback(){
             case alignment:
                 // In alignment, use the prediction routine (which uses the target history)
                 // to estimate where the target is headed and adjust yaw to position the blimp ahead.
-                {
-                    TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
-                    // Compute an alignment error relative to a desired offset (GAME_BALL_X_OFFSET)
-                    double alignment_error = predicted.x - GAME_BALL_X_OFFSET;
-                    // Adjust yaw to minimize this error.
-                    yawrate_command_ = xPID_.calculate(0, alignment_error, state_machine_dt_);
-                    // Optionally hold altitude during alignment.
-                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
-                    // Do not command forward motion while aligning.
-                    forward_command_ = 0;
+                TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
+                // Adjust yaw to minimize the alignment error relative to a desired offset (GAME_BALL_X_OFFSET).
+                yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, predicted.x, state_machine_dt_);
+                // Optionally hold altitude during alignment.
+                if(USE_DISTANCE_IN_BALL_APPROACH){
+                    float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
+                    float theta_y_ball = -predicted.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
+                    RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
+
+                    up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+        
+                }else{
+                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, predicted.y, state_machine_dt_);
                 }
+                // Do not command forward motion while aligning.
+                forward_command_ = 0;
+                
                 // After a fixed duration, move to near approach.
                 if ((state_machine_time_ - alignment_start_time_).seconds() >= ALIGNMENT_DURATION) {
                     approach_state_ = near_approach;
@@ -737,8 +752,18 @@ void CatchingBlimp::state_machine_approach_callback(){
             case near_approach:
                 // Resume forward approach using similar commands as before.
                 yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
-                up_command_     = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
+                if(USE_DISTANCE_IN_BALL_APPROACH){
+                    float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
+                    float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
+                    RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
+
+                    up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
+        
+                }else{
+                    up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
+                }
                 forward_command_= GAME_BALL_CLOSURE_COM;
+
                 // When very close, transition into the catching state.
                 if (distance < BALL_GATE_OPEN_TRIGGER) {
                     ballGrabber.openGrabber(control_mode_);
