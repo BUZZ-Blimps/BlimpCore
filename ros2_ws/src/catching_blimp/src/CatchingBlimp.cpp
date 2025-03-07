@@ -373,11 +373,6 @@ void CatchingBlimp::state_machine_callback() {
     //from base station
     //compute control mode machine
     
-    // CHECK IF THIS LINE SHOULD BE HERE!
-    // If searchYawDirection is supposed to be randomized at specific times, this needs to be removed
-    // because this is randomizing it at every time step
-    searchYawDirection = searchDirection(); // this used to only be in manual, moved it here so its also reflected in autonomy -vd 11/20
-    
     // Big state machine
     if (control_mode_ == manual) {
         state_machine_manual_callback();
