@@ -684,18 +684,6 @@ void CatchingBlimp::state_machine_approach_callback(){
     if (target_detected_) {
         double distance = target_.z;  // Assuming target_.z is the distance measurement.
 
-        // DEBUGGING USE_DISTANCE_IN_BALL_APPROACH
-        if( USE_DISTANCE_IN_BALL_APPROACH ){
-            float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
-            float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
-            RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
-
-            up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
-            forward_command_ = 0;
-            yawrate_command_ = 0;
-            return;
-        }
-
         switch (approach_state_) {
             case far_approach:
                 // When the target is far away, do a direct, head–on approach.
