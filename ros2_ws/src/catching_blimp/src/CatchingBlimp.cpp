@@ -686,6 +686,7 @@ void CatchingBlimp::state_machine_approach_callback(){
 
         switch (approach_state_) {
             case far_approach:
+            {
                 // When the target is far away, do a direct, head–on approach.
                 if (distance > FAR_APPROACH_THRESHOLD) {
                     if(USE_DISTANCE_IN_BALL_APPROACH){
@@ -710,8 +711,10 @@ void CatchingBlimp::state_machine_approach_callback(){
                     up_command_      = 0;
                 }
                 break;
+            }
 
             case alignment:
+            {
                 // In alignment, use the prediction routine (which uses the target history)
                 // to estimate where the target is headed and adjust yaw to position the blimp ahead.
                 TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
@@ -736,8 +739,10 @@ void CatchingBlimp::state_machine_approach_callback(){
                     approach_state_ = near_approach;
                 }
                 break;
+            }
 
             case near_approach:
+            {
                 // Resume forward approach using similar commands as before.
                 yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                 if(USE_DISTANCE_IN_BALL_APPROACH){
@@ -753,7 +758,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                 forward_command_= GAME_BALL_CLOSURE_COM;
 
                 // When very close, transition into the catching state.
-                if (distance < BALL_GATE_OPEN_TRIGGER) {
+                if (distance < BALL_CATCH_TRIGGER) {
                     ballGrabber.openGrabber(control_mode_);
                     auto_state_ = catching;
                     catch_start_time_ = state_machine_time_;
@@ -761,6 +766,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                     approach_state_ = far_approach;
                 }
                 break;
+            }
         }
     } else {
         // No target detected: fall back to searching behavior.
