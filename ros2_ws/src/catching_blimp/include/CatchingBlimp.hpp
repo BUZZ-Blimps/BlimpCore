@@ -64,10 +64,11 @@
 #define YAW_MODE                  false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        false
+#define VISION_PRINT_DEBUG        true
 
 #define USE_DISTANCE_IN_BALL_APPROACH   false
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
+#define BALL_TRACKING_TESTING           false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -129,6 +130,7 @@
 #define MAX_APPROACH_TIME         15.0
 // #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
+#define TARGET_PREDICTION_USE_DELAY     0.5 // seconds to wait until prediction is used
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
@@ -443,6 +445,7 @@ private:
     void imu_timer_callback();
     void baro_timer_callback();
     void state_machine_callback();
+    void vision_timer_callback();
 
     void state_machine_manual_callback();
     void state_machine_autonomous_callback();
@@ -459,6 +462,7 @@ private:
 
     void calculate_avoidance_from_quadrant(int quadrant);
     std::string auto_state_to_string(autoState state);
+    target_type auto_state_to_desired_target_type(autoState state);
     void publish_log(std::string message);
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);

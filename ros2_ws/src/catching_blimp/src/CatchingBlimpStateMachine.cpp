@@ -1,7 +1,8 @@
 #include "CatchingBlimp.hpp"
 
 void CatchingBlimp::state_machine_callback() {
-
+    vision_timer_callback();
+    
     rclcpp::Time now = this->get_clock()->now();
     state_machine_dt_ = (now - state_machine_time_).seconds();
     state_machine_time_ = now;
@@ -308,10 +309,10 @@ void CatchingBlimp::state_machine_searching_callback(){
 
 
 void CatchingBlimp::state_machine_approach_callback(){
-    RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away", approach_state_, target_.z);
+    RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away (target detected: %s)", approach_state_, target_.z, (target_detected_ ? "true" : "false"));
             
     // Check if maximum time to approach has been exceeded.
-    if ((state_machine_time_ - approach_start_time_).seconds() >= MAX_APPROACH_TIME) {
+    if ((state_machine_time_ - approach_start_time_).seconds() >= MAX_APPROACH_TIME && !BALL_TRACKING_TESTING) {
         auto_state_ = searching;
         search_start_time_ = state_machine_time_;
         // Reset the approach sub–state for the next approach attempt.
@@ -338,7 +339,12 @@ void CatchingBlimp::state_machine_approach_callback(){
                         up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
                     }
                     yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
-                    forward_command_ = GAME_BALL_CLOSURE_COM;
+                    
+                    if(BALL_TRACKING_TESTING){
+                        forward_command_= 0;
+                    }else{
+                        forward_command_= GAME_BALL_CLOSURE_COM;
+                    }
                 } else {
                     // Once within threshold, switch to alignment mode.
                     approach_state_ = alignment;
@@ -393,10 +399,15 @@ void CatchingBlimp::state_machine_approach_callback(){
                 }else{
                     up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
                 }
-                forward_command_= GAME_BALL_CLOSURE_COM;
+
+                if(BALL_TRACKING_TESTING){
+                    forward_command_= 0;
+                }else{
+                    forward_command_= GAME_BALL_CLOSURE_COM;
+                }
 
                 // When very close, transition into the catching state.
-                if (distance < BALL_CATCH_TRIGGER) {
+                if (distance < BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING) {
                     ballGrabber.openGrabber(control_mode_);
                     auto_state_ = catching;
                     catch_start_time_ = state_machine_time_;

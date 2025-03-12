@@ -413,6 +413,25 @@ std::string CatchingBlimp::auto_state_to_string(autoState state){
     return state_str;
 }
 
+target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state){
+    target_type desired_target_type;
+    if(state == searching ||
+       state == approach ||
+       state == catching ||
+       state == caught){
+        desired_target_type = ball;
+    }else if(state == goalSearch ||
+             state == approachGoal ||
+             state == scoringStart ||
+             state == shooting ||
+             state == scored){
+        desired_target_type = goal;
+    }else{
+        desired_target_type = no_target;
+    }
+    return desired_target_type;
+}
+
 void CatchingBlimp::publish_log(std::string message) {
     auto log_msg = std_msgs::msg::String();
     log_msg.data = message;
@@ -557,8 +576,23 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         new_detection.theta_x = msg->data[5];
         new_detection.theta_y = msg->data[6];
 
+        // Check desired target type
+        target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
+
+        // Check if previous target misaligns with desired target
+        if(target_detected_ && (target_type_ != desired_target_type)){
+            // Reset target
+            target_detected_ = false;
+            target_history_.clear();
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+            theta_xFilter.reset();
+            theta_yFilter.reset();
+        }
+
         // If we have not yet detected a target or the new detection matches our current target...
-        if (!target_detected_ || (new_id == target_id_ && new_type == target_type_)) {
+        if ((!target_detected_ && new_type == desired_target_type) || (new_id == target_id_ && new_type == target_type_)) {
             // Update the current target info
             target_detected_ = true;
             target_id_ = new_id;
@@ -576,61 +610,48 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             target_.z = zFilter.filter(new_detection.z);
             target_.theta_x = theta_xFilter.filter(new_detection.theta_x);
             target_.theta_y = theta_yFilter.filter(new_detection.theta_y);
-
-        } else {
-            // We got a detection with a different ID/type.
-            // If the time since the last valid detection is below our patience threshold,
-            // we use a predicted value rather than immediately resetting.
-            if ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT) {
-                TargetData predicted = predictTargetPosition();
-                target_.x = predicted.x;
-                target_.y = predicted.y;
-                target_.z = predicted.z;
-                target_.theta_x = predicted.theta_x;
-                target_.theta_y = predicted.theta_y;
-            } else {
-                // Patience window expired: clear target and history.
-                target_detected_ = false;
-                target_history_.clear();
-                xFilter.reset();
-                yFilter.reset();
-                zFilter.reset();
-                theta_xFilter.reset();
-                theta_yFilter.reset();
-            }
         }
-    } else {
-        // No valid detection received.
-        if (target_detected_ && ((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT)) {
-        // Still within memory window: predict the target’s position.
-        TargetData predicted = predictTargetPosition();
-        target_.x = predicted.x;
-        target_.y = predicted.y;
-        target_.z = predicted.z;
-        target_.theta_x = predicted.theta_x;
-        target_.theta_y = predicted.theta_y;
+    }
+}
 
-        } else {
-        RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
-        // No detection and memory window expired.
-        target_detected_ = false;
-        target_history_.clear();
-        xFilter.reset();
-        yFilter.reset();
-        zFilter.reset();
-        theta_xFilter.reset();
-        theta_yFilter.reset();
+void CatchingBlimp::vision_timer_callback() {
+    rclcpp::Time now = this->get_clock()->now();
+
+    if(target_detected_){
+        // Check desired target type
+        target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
+
+        if((now - target_memory_time_).seconds() < TARGET_PREDICTION_USE_DELAY && target_type_ == desired_target_type){
+            // Target is recent, use it!
+        }else if((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT  && target_type_ == desired_target_type){
+            // Target isn't super recent, use prediction!
+            TargetData predicted = predictTargetPosition();
+            target_.x = predicted.x;
+            target_.y = predicted.y;
+            target_.z = predicted.z;
+            target_.theta_x = predicted.theta_x;
+            target_.theta_y = predicted.theta_y;
+        }else{
+            // Target is old, clear target and history
+            RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
+            target_detected_ = false;
+            target_history_.clear();
+            xFilter.reset();
+            yFilter.reset();
+            zFilter.reset();
+            theta_xFilter.reset();
+            theta_yFilter.reset();
         }
     }
 
     // Optionally print or log the target’s state for debugging.
     if (VISION_PRINT_DEBUG) {
         if (target_detected_) {
-        std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
-        RCLCPP_INFO(this->get_logger(), "Target: %s, ID: %d, Pos: (%.2f, %.2f, %.2f)",
-                    target_str.c_str(), target_id_, target_.x, target_.y, target_.z);
+            std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
+            RCLCPP_INFO(this->get_logger(), "Target: %s, ID: %d, Pos: (%.2f, %.2f, %.2f)",
+                        target_str.c_str(), target_id_, target_.x, target_.y, target_.z);
         } else {
-        RCLCPP_INFO(this->get_logger(), "No target detected.");
+            RCLCPP_INFO(this->get_logger(), "No target detected.");
         }
     }
 }
