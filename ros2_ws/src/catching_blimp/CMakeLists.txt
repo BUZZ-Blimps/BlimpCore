@@ -32,6 +32,7 @@ set(
     src/tripleBallGrabber.cpp
     src/math_helpers.cpp
     src/CatchingBlimp.cpp
+    src/CatchingBlimpStateMachine.cpp
     src/catching_blimp_node.cpp
     src/MotorControl_V2.cpp
 )

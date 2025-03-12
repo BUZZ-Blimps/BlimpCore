@@ -263,6 +263,56 @@ public:
     CatchingBlimp();
         
 private: 
+    //Global variables
+    //sensor fusion objects
+    OPI_IMU BerryIMU;
+    Madgwick_Filter madgwick;
+
+    // MotorControl motorControl;
+    // Gimbal leftGimbal;
+    // Gimbal rightGimbal;
+    MotorControl_V2 motorControl_V2;
+
+    // //Goal positioning controller
+    // BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
+
+    // //filter on yaw gyro
+    // EMAFilter yawRateFilter(0.2);
+    // EMAFilter rollRateFilter(0.5);
+
+    // //Low pass filter for computer vision parameters
+    // EMAFilter xFilter(0.5);
+    // EMAFilter yFilter(0.5);
+    // EMAFilter zFilter(0.5);
+    // EMAFilter theta_xFilter(0.5);
+    // EMAFilter theta_yFilter(0.5);
+
+    //Goal positioning controller
+    BangBang goalPositionHold; //Dead band, velocity to center itself
+
+    //filter on yaw gyro
+    EMAFilter yawRateFilter;
+    EMAFilter rollRateFilter;
+
+    //Low pass filter for computer vision parameters
+    EMAFilter xFilter;
+    EMAFilter yFilter;
+    EMAFilter zFilter;
+    EMAFilter theta_xFilter;
+    EMAFilter theta_yFilter;
+
+    // EMAFilter areaFilter(0.5);
+
+    //baro offset computation from base station value
+    // EMAFilter baroOffset(0.5);
+
+    //roll offset computation from imu
+    // EMAFilter rollOffset(0.5);
+
+    //ball grabber object
+    TripleBallGrabber ballGrabber;
+
+
     rclcpp::TimerBase::SharedPtr timer_imu;
     rclcpp::TimerBase::SharedPtr timer_baro;
     rclcpp::TimerBase::SharedPtr timer_state_machine;
@@ -293,6 +343,7 @@ private:
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     geometry_msgs::msg::TransformStamped blimp_tf_;
 
+
     size_t count_;
     std::string blimp_name_;
 
@@ -301,6 +352,10 @@ private:
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
 
+    //blimp game parameters
+    int blimpColor = BLIMP_COLOR;
+    int goalColor = GOAL_COLOR;
+
     // Target detection
     bool target_detected_ = false;
     TargetData target_;
@@ -308,9 +363,26 @@ private:
     target_type target_type_;
     std::deque<TargetData> target_history_;
 
+    //timers for state machine
+    bool backingUp = false;
+
+    //grabber data
+    int shoot = 0;
+    int grab = 0;
+    int shootCom = 0;
+    int grabCom = 0;
+
+    double searchYawDirection = -1;
+    double goalYawDirection = -1;
+    
 
     //Avoidance data
     int quadrant = 10;
+
+    //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
+    //1000 means object is not present
+    std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
+
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -326,6 +398,11 @@ private:
 
     approachState approach_state_ = far_approach;
     rclcpp::Time alignment_start_time_;
+
+    //msg for commands
+    float forward_msg = 0;
+    float yaw_msg = 0;
+    float up_msg = 0;
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
