@@ -34,6 +34,7 @@ set(
     src/CatchingBlimp.cpp
     src/catching_blimp_node.cpp
     src/MotorControl_V2.cpp
+    src/TOF_Sense.cpp
 )
 
 add_executable(

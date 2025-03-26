@@ -37,6 +37,7 @@ bool last_lost = true;
 //Global variables
 //sensor fusion objects
 OPI_IMU BerryIMU;
+TOF_Sense lidar;
 Madgwick_Filter madgwick;
 
 // MotorControl motorControl;
@@ -117,6 +118,7 @@ CatchingBlimp::CatchingBlimp() :
     // initialize
     wiringPiSetup();
     BerryIMU.OPI_IMU_Setup();
+    lidar.uart_setup();
     z_est_.initialize();
     z_lowpass_.setAlpha(0.1);
 
@@ -218,7 +220,7 @@ void CatchingBlimp::imu_timer_callback() {
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
-
+    lidar.TOF_read();
     //Apply IMU calibration
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
@@ -258,7 +260,8 @@ void CatchingBlimp::imu_timer_callback() {
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 
-    z_msg_.data = z_hat_;
+    // z_msg_.data = z_hat_;
+    z_msg_.data = lidar.dis;
     height_publisher_->publish(z_msg_);
 
     z_vel_msg_.data = z_est_.xHat(1);
