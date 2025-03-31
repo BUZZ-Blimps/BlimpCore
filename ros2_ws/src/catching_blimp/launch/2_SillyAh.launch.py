@@ -1,27 +1,25 @@
+from launch import LaunchDescription, LaunchContext
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration, ThisLaunchFileDir
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 import os
 
-from ament_index_python.packages import get_package_share_directory
-from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
-
 def generate_launch_description():
-    blimp_name = 'SillyAh'
+    # Define the namespace for this instance
+    namespace = 'SillyAh'
 
-    catching_blimp_cmd = Node(
-        package='catching_blimp',
-        executable='catching_blimp_node',
-        name='catching_blimp_node',
-        namespace=blimp_name,
-        parameters=[
-            os.path.join(get_package_share_directory('catching_blimp'), 'param', 'pid_config.yaml'),
-            os.path.join(get_package_share_directory('catching_blimp'), 'calibration', '{}_accel_cal.yaml'.format(blimp_name))
-        ],
-        output='screen'
+    # Path to the main launch file
+    catchingblimp_launch_path = os.path.join(
+        os.path.dirname(__file__),
+        'catchingblimp.launch.py'
     )
 
-    ld = LaunchDescription()
-    ld.add_action(catching_blimp_cmd)
-    
-    return ld
+    # Include the main launch file with the specified namespace
+    include_catchingblimp_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(catchingblimp_launch_path),
+        launch_arguments={'namespace': namespace}.items(),
+    )
+
+    return LaunchDescription([
+        include_catchingblimp_launch
+    ])

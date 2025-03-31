@@ -82,4 +82,13 @@ install(
     DESTINATION share/${PROJECT_NAME}/
 )
 
+install(
+  PROGRAMS scripts/battery_monitor_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  CODE "execute_process(COMMAND chmod +x ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}/battery_monitor_node.py)"
+)
+
 ament_package()
