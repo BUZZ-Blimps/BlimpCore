@@ -32,6 +32,7 @@ set(
     src/tripleBallGrabber.cpp
     src/math_helpers.cpp
     src/CatchingBlimp.cpp
+    src/CatchingBlimpStateMachine.cpp
     src/catching_blimp_node.cpp
     src/MotorControl_V2.cpp
     src/TOF_Sense.cpp
@@ -80,6 +81,15 @@ install(
 install(
     DIRECTORY param
     DESTINATION share/${PROJECT_NAME}/
+)
+
+install(
+  PROGRAMS scripts/battery_monitor_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  CODE "execute_process(COMMAND chmod +x ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}/battery_monitor_node.py)"
 )
 
 ament_package()

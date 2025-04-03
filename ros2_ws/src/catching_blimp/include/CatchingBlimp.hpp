@@ -64,10 +64,11 @@
 #define YAW_MODE                  false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        false
+#define VISION_PRINT_DEBUG        true
 
 #define USE_DISTANCE_IN_BALL_APPROACH   false
-#define BASKET_CAMERA_VERTICAL_OFFSET   0.4     // m vertical distance between center of catching basket and camera
+#define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
+#define BALL_TRACKING_TESTING           false
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -93,7 +94,7 @@
 #define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   3.0   // m distance for blimp to alignment submode switching in approach state
 #define BALL_GATE_OPEN_TRIGGER   2.0   // m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       2.0   // m distance for blimp to start the open-loop control
+#define BALL_CATCH_TRIGGER       1.5   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
@@ -127,7 +128,9 @@
 #define TIME_TO_SHOOT             3.5
 #define TIME_TO_SCORED            3.5
 #define MAX_APPROACH_TIME         15.0
+// #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
+#define TARGET_PREDICTION_USE_DELAY     0.5 // seconds to wait until prediction is used
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
@@ -266,6 +269,56 @@ public:
     CatchingBlimp();
         
 private: 
+    //Global variables
+    //sensor fusion objects
+    OPI_IMU BerryIMU;
+    Madgwick_Filter madgwick;
+
+    // MotorControl motorControl;
+    // Gimbal leftGimbal;
+    // Gimbal rightGimbal;
+    MotorControl_V2 motorControl_V2;
+
+    // //Goal positioning controller
+    // BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
+
+    // //filter on yaw gyro
+    // EMAFilter yawRateFilter(0.2);
+    // EMAFilter rollRateFilter(0.5);
+
+    // //Low pass filter for computer vision parameters
+    // EMAFilter xFilter(0.5);
+    // EMAFilter yFilter(0.5);
+    // EMAFilter zFilter(0.5);
+    // EMAFilter theta_xFilter(0.5);
+    // EMAFilter theta_yFilter(0.5);
+
+    //Goal positioning controller
+    BangBang goalPositionHold; //Dead band, velocity to center itself
+
+    //filter on yaw gyro
+    EMAFilter yawRateFilter;
+    EMAFilter rollRateFilter;
+
+    //Low pass filter for computer vision parameters
+    EMAFilter xFilter;
+    EMAFilter yFilter;
+    EMAFilter zFilter;
+    EMAFilter theta_xFilter;
+    EMAFilter theta_yFilter;
+
+    // EMAFilter areaFilter(0.5);
+
+    //baro offset computation from base station value
+    // EMAFilter baroOffset(0.5);
+
+    //roll offset computation from imu
+    // EMAFilter rollOffset(0.5);
+
+    //ball grabber object
+    TripleBallGrabber ballGrabber;
+
+
     rclcpp::TimerBase::SharedPtr timer_imu;
     rclcpp::TimerBase::SharedPtr timer_baro;
     rclcpp::TimerBase::SharedPtr timer_state_machine;
@@ -297,6 +350,7 @@ private:
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     geometry_msgs::msg::TransformStamped blimp_tf_;
 
+
     size_t count_;
     std::string blimp_name_;
 
@@ -305,6 +359,10 @@ private:
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
 
+    //blimp game parameters
+    int blimpColor = BLIMP_COLOR;
+    int goalColor = GOAL_COLOR;
+
     // Target detection
     bool target_detected_ = false;
     TargetData target_;
@@ -312,9 +370,26 @@ private:
     target_type target_type_;
     std::deque<TargetData> target_history_;
 
+    //timers for state machine
+    bool backingUp = false;
+
+    //grabber data
+    int shoot = 0;
+    int grab = 0;
+    int shootCom = 0;
+    int grabCom = 0;
+
+    double searchYawDirection = -1;
+    double goalYawDirection = -1;
+    
 
     //Avoidance data
     int quadrant = 10;
+
+    //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
+    //1000 means object is not present
+    std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
+
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -330,6 +405,11 @@ private:
 
     approachState approach_state_ = far_approach;
     rclcpp::Time alignment_start_time_;
+
+    //msg for commands
+    float forward_msg = 0;
+    float yaw_msg = 0;
+    float up_msg = 0;
 
     double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yawrate_command_, rollrate_command_;
@@ -358,6 +438,7 @@ private:
     PID yawPID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;
+    PID theta_yPID_;
 
     ZEstimator z_est_;
     EMAFilter z_lowpass_;
@@ -369,6 +450,7 @@ private:
     void imu_timer_callback();
     void baro_timer_callback();
     void state_machine_callback();
+    void vision_timer_callback();
 
     void state_machine_manual_callback();
     void state_machine_autonomous_callback();
@@ -385,6 +467,7 @@ private:
 
     void calculate_avoidance_from_quadrant(int quadrant);
     std::string auto_state_to_string(autoState state);
+    target_type auto_state_to_desired_target_type(autoState state);
     void publish_log(std::string message);
     void auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);
     void cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg);

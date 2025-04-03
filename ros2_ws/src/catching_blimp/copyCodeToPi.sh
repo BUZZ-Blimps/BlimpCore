@@ -12,14 +12,16 @@ if [ "$1" != "" ]; then
     timeout=2
     ping $hostname -c 1 -W $timeout > /dev/null
     if [ $? == 0 ]; then
-        echo ">>Removing old testing files from $user@$hostname"
-        ssh $user@$hostname "rm -r $user_dir/ros2_ws/src/catching_blimp"
+        # echo ">>Removing old testing files from $user@$hostname"
+        # ssh $user@$hostname "rm -r $user_dir/ros2_ws/src/catching_blimp"
         
-        echo ">>Copying files to $user@$hostname"
-        ssh $user@$hostname "mkdir -p $user_dir/ros2_ws/src/catching_blimp"
-        scp -r ./* $user@$hostname:$user_dir/ros2_ws/src/catching_blimp
+        # echo ">>Copying files to $user@$hostname"
+        # ssh $user@$hostname "mkdir -p $user_dir/ros2_ws/src/catching_blimp"
+        # scp -r ./* $user@$hostname:$user_dir/ros2_ws/src/catching_blimp
         
-        echo ">>Done."
+        # echo ">>Done."
+
+        rsync -vrt ../catching_blimp $user@$hostname:$user_dir/ros2_ws/src
     else
         echo "$hostname is offline :("
     fi
