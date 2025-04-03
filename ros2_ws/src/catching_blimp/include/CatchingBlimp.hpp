@@ -170,6 +170,10 @@
 #define BALL_APPROACH_THRESHOLD   2500
 #define BALL_CATCH_THRESHOLD      62000
 
+//Z estimator sensor variance
+double R_bar = 1.0;
+
+double R_lid = 0.8;
 //OrangePi5 Pinout
 // #define L_Pitch                   5     // was 2
 // #define L_Yaw                     3     //not used, not changed

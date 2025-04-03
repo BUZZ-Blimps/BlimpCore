@@ -40,8 +40,8 @@ public:
     ZEstimator();
     void initialize();
     void propagate(double ax, double ay, double az, std::vector<double> q, double dt);
-    void update(double bz);
-    void partialUpdate(double bz);
+    void update(double bz, double R_in);
+    void partialUpdate(double bz, double R_in);
     void reset();
 
     Eigen::Matrix3d quat_to_rot(std::vector<double> q);

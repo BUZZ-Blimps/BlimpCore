@@ -220,7 +220,7 @@ void CatchingBlimp::imu_timer_callback() {
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
-    lidar.TOF_read();
+    
     //Apply IMU calibration
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
@@ -260,8 +260,7 @@ void CatchingBlimp::imu_timer_callback() {
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 
-    // z_msg_.data = z_hat_;
-    z_msg_.data = lidar.dis;
+    z_msg_.data = z_hat_;
     height_publisher_->publish(z_msg_);
 
     z_vel_msg_.data = z_est_.xHat(1);
@@ -349,6 +348,7 @@ void CatchingBlimp::baro_timer_callback() {
 
     // Get current barometer reading
     BerryIMU.baro_read();
+    lidar.TOF_read();
 
     if (!baro_init_) return;
 
@@ -359,8 +359,15 @@ void CatchingBlimp::baro_timer_callback() {
     //Average barometer every 5 samples (5Hz)
     if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/(double)baro_count_;
+
+        //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
+        if(abs(baro_mean_ - R_lid) > 10){
+            R_bar = 1.0;
+            R_lid = 10.0;
+        }
         
-        z_est_.partialUpdate(baro_mean_);
+        z_est_.partialUpdate(baro_mean_, R_bar);
+        z_est_.partialUpdate(lidar.dis, R_lid);
 
         //Lowpass current estimate
         z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
