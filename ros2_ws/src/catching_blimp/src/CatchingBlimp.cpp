@@ -83,6 +83,7 @@ CatchingBlimp::CatchingBlimp() :
     baro_sum_(0.0), 
     baro_count_(0),
     z_hat_(0), 
+    z_hat_2(0),
     catches_(0), 
     control_mode_(INITIAL_MODE), 
     auto_state_(searching),
@@ -122,7 +123,9 @@ CatchingBlimp::CatchingBlimp() :
     BerryIMU.OPI_IMU_Setup();
     lidar.uart_setup();
     z_est_.initialize();
+    z_est_2.initialize();
     z_lowpass_.setAlpha(0.1);
+    z_lowpass_2.setAlpha(0.1);
 
     // targets_ = std::vector<double> {0.0, 0.0, 0.0};
 
@@ -204,6 +207,12 @@ CatchingBlimp::CatchingBlimp() :
     state_msg_.data.reserve(2);
     state_msg_.data.push_back(0);
     state_msg_.data.push_back(0);
+
+    debug_msg_.data.reserve(4);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
 }
 
 void CatchingBlimp::heartbeat_timer_callback() {
@@ -222,6 +231,7 @@ void CatchingBlimp::imu_timer_callback() {
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
+    lidar.TOF_read();
     
     //Apply IMU calibration
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
@@ -238,6 +248,7 @@ void CatchingBlimp::imu_timer_callback() {
     if (imu_init_) {
         //Only propagate after first IMU sample so dt makes sense
         z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
+        z_est_2.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
     } else {
         imu_init_ = true;
     }
@@ -261,9 +272,17 @@ void CatchingBlimp::imu_timer_callback() {
     
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+    z_hat_2 = z_lowpass_2.filter(z_est_2.xHat(0));
 
-    z_msg_.data = z_hat_;
+    // z_msg_.data = z_hat_;
+    z_msg_.data = double(lidar.dis)/1000;
     height_publisher_->publish(z_msg_);
+
+    debug_msg_.data[0] = z_hat_; //kalman and lidar kalman
+    debug_msg_.data[1] = z_hat_2; //only baro kalman
+    debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
+
+    debug_publisher->publish(debug_msg_);
 
     z_vel_msg_.data = z_est_.xHat(1);
     z_velocity_publisher_->publish(z_vel_msg_);
@@ -361,18 +380,22 @@ void CatchingBlimp::baro_timer_callback() {
     //Average barometer every 5 samples (5Hz)
     if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/(double)baro_count_;
-
+        debug_msg_.data[3] = baro_mean_;
         //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
-        if(abs(baro_mean_ - R_lid) > 10){
-            R_bar = 1.0;
-            R_lid = 10.0;
-        }
+        // if(abs(baro_mean_ - R_lid) > 10){
+        //     R_bar = 1.0;
+        //     R_lid = 10.0;
+        // }
         
         z_est_.partialUpdate(baro_mean_, R_bar);
-        z_est_.partialUpdate(lidar.dis, R_lid);
+        z_est_.partialUpdate(double(lidar.dis)/1000, R_lid);
+
+        z_est_2.partialUpdate(baro_mean_, R_bar);
 
         //Lowpass current estimate
         z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+
+        z_hat_2 = z_lowpass_2.filter(z_est_2.xHat(0));
 
         baro_sum_ = 0.0;
         baro_count_ = 0;

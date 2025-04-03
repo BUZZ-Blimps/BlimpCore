@@ -16,7 +16,7 @@ class TOF_Sense{
   public:
     uint8_t id;//TOF模块的id
     uint32_t system_time;//TOF模块上电后经过的时间，单位：ms
-    uint32_t dis;//TOF模块输出的距离，单位：m
+    uint32_t dis;//TOF模块输出的距离，单位：distance in mm
     uint8_t dis_status;//TOF模块输出的距离状态指示
     uint16_t signal_strength;//TOF模块输出的信号强度
     uint8_t range_precision;//TOF模块输出的重复测距精度参考值，TOFSense-F系列有效，单位：cm

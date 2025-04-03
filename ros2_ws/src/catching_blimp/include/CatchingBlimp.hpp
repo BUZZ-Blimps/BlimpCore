@@ -173,10 +173,6 @@
 #define BALL_APPROACH_THRESHOLD   2500
 #define BALL_CATCH_THRESHOLD      62000
 
-//Z estimator sensor variance
-double R_bar = 1.0;
-
-double R_lid = 0.8;
 //OrangePi5 Pinout
 // #define L_Pitch                   5     // was 2
 // #define L_Yaw                     3     //not used, not changed
@@ -273,6 +269,9 @@ private:
     //sensor fusion objects
     OPI_IMU BerryIMU;
     Madgwick_Filter madgwick;
+    //Z estimator sensor variance
+    double R_bar = 1.0;
+    double R_lid = 0.1;
 
     // MotorControl motorControl;
     // Gimbal leftGimbal;
@@ -358,6 +357,7 @@ private:
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
+    std_msgs::msg::Float64MultiArray debug_msg_;
 
     //blimp game parameters
     int blimpColor = BLIMP_COLOR;
@@ -395,6 +395,7 @@ private:
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
     int baro_count_; 
     double z_hat_;
+    double z_hat_2;
 
     int catches_;
 
@@ -441,7 +442,9 @@ private:
     PID theta_yPID_;
 
     ZEstimator z_est_;
+    ZEstimator z_est_2;
     EMAFilter z_lowpass_;
+    EMAFilter z_lowpass_2;
 
     Eigen::Matrix3d acc_A_;
     Eigen::Vector3d acc_b_;
