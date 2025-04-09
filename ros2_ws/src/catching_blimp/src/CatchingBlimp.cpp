@@ -274,11 +274,11 @@ void CatchingBlimp::imu_timer_callback() {
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
     z_hat_2 = z_lowpass_2.filter(z_est_2.xHat(0));
 
-    // z_msg_.data = z_hat_;
-    z_msg_.data = double(lidar.dis)/1000;
+    z_msg_.data = z_hat_2;
+    // z_msg_.data = double(lidar.dis)/1000;
     height_publisher_->publish(z_msg_);
 
-    debug_msg_.data[0] = z_hat_; //kalman and lidar kalman
+    debug_msg_.data[0] = z_hat_; //baro and lidar kalman
     debug_msg_.data[1] = z_hat_2; //only baro kalman
     debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
 
@@ -381,11 +381,12 @@ void CatchingBlimp::baro_timer_callback() {
     if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/(double)baro_count_;
         debug_msg_.data[3] = baro_mean_;
+
         //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
-        // if(abs(baro_mean_ - R_lid) > 10){
-        //     R_bar = 1.0;
-        //     R_lid = 10.0;
-        // }
+        if(abs(baro_mean_ - R_lid) > 1.5){
+            R_bar = 1.0;
+            R_lid = 10.0;
+        }
         
         z_est_.partialUpdate(baro_mean_, R_bar);
         z_est_.partialUpdate(double(lidar.dis)/1000, R_lid);
