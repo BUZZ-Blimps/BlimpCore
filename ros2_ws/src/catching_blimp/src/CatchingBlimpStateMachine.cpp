@@ -415,6 +415,10 @@ void CatchingBlimp::state_machine_approach_callback(){
                 // When very close, transition into the catching state.
                 if (distance < BALL_GATE_OPEN_TRIGGER) {
                     ballGrabber.openGrabber(control_mode_);
+                    
+                    if (ballGrabber.is_open()) {
+                        ballGrabber.suck();
+                    }
 
                     if (distance < BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING)
                     {   

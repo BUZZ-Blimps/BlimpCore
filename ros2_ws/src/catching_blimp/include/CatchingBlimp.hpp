@@ -114,7 +114,7 @@
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
 #define GOAL_CLOSE_COM            180 
-#define GOAL_X_OFFSET             70    //more to the left
+#define GOAL_X_OFFSET             0    //more to the left
 #define GOAL_Y_OFFSET             190   //height alignment (approach down)
 
 #define CATCHING_FORWARD_COM      430  //catching at 50% throttle 
