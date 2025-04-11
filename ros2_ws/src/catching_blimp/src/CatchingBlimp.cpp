@@ -83,7 +83,6 @@ CatchingBlimp::CatchingBlimp() :
     baro_sum_(0.0), 
     baro_count_(0),
     z_hat_(0), 
-    z_hat_2(0),
     catches_(0), 
     control_mode_(INITIAL_MODE), 
     auto_state_(searching),
@@ -123,7 +122,6 @@ CatchingBlimp::CatchingBlimp() :
     BerryIMU.OPI_IMU_Setup();
     lidar.uart_setup();
     z_est_.initialize();
-    z_est_2.initialize();
     z_lowpass_.setAlpha(0.1);
     z_lowpass_2.setAlpha(0.1);
 
@@ -248,7 +246,6 @@ void CatchingBlimp::imu_timer_callback() {
     if (imu_init_) {
         //Only propagate after first IMU sample so dt makes sense
         z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
-        z_est_2.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
     } else {
         imu_init_ = true;
     }
@@ -272,17 +269,15 @@ void CatchingBlimp::imu_timer_callback() {
     
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
-    z_hat_2 = z_lowpass_2.filter(z_est_2.xHat(0));
 
-    z_msg_.data = z_hat_2;
+    z_msg_.data = z_hat_;
     // z_msg_.data = double(lidar.dis)/1000;
     height_publisher_->publish(z_msg_);
 
-    debug_msg_.data[0] = z_hat_; //baro and lidar kalman
-    debug_msg_.data[1] = z_hat_2; //only baro kalman
-    debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
+    // debug_msg_.data[0] = z_hat_; //baro and lidar kalman
+    // debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
 
-    debug_publisher->publish(debug_msg_);
+    // debug_publisher->publish(debug_msg_);
 
     z_vel_msg_.data = z_est_.xHat(1);
     z_velocity_publisher_->publish(z_vel_msg_);
@@ -391,12 +386,8 @@ void CatchingBlimp::baro_timer_callback() {
         z_est_.partialUpdate(baro_mean_, R_bar);
         z_est_.partialUpdate(double(lidar.dis)/1000, R_lid);
 
-        z_est_2.partialUpdate(baro_mean_, R_bar);
-
         //Lowpass current estimate
         z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
-
-        z_hat_2 = z_lowpass_2.filter(z_est_2.xHat(0));
 
         baro_sum_ = 0.0;
         baro_count_ = 0;
