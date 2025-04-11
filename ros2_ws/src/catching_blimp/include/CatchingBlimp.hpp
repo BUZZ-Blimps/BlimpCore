@@ -393,6 +393,7 @@ private:
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
+    double lidar_calibration_offset_;
     int baro_count_; 
     double z_hat_;
     double z_hat_2;

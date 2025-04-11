@@ -271,11 +271,10 @@ void CatchingBlimp::imu_timer_callback() {
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 
     z_msg_.data = z_hat_;
-    // z_msg_.data = double(lidar.dis)/1000;
     height_publisher_->publish(z_msg_);
 
     // debug_msg_.data[0] = z_hat_; //baro and lidar kalman
-    // debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
+    // debug_msg_.data[2] = double(lidar.dis)/1000; //only  
 
     // debug_publisher->publish(debug_msg_);
 
@@ -384,7 +383,7 @@ void CatchingBlimp::baro_timer_callback() {
         }
         
         z_est_.partialUpdate(baro_mean_, R_bar);
-        z_est_.partialUpdate(double(lidar.dis)/1000, R_lid);
+        z_est_.partialUpdate(double(lidar.dis - lidar_calibration_offset_)/1000, R_lid);
 
         //Lowpass current estimate
         z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
@@ -547,7 +546,16 @@ void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::Sh
     // Barometer Calibration
     // Read latest pressure value
     BerryIMU.baro_read();
+    lidar.TOF_read();
     baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
+
+    try {
+        lidar_calibration_offset_ = lidar.dis; //mm
+    } catch (const std::exception& e) {
+        std::cout << "Lidar offset error: " << e.what() << std::endl;
+        lidar_calibration_offset_ = 0.0; // Assign fallback value
+    }
+    
 
     // Reset (zero) kalman filter
     z_est_.reset();
@@ -613,7 +621,7 @@ void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::Share
 
 void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-    // Manual control commands from basestation
+    // Manual control commands from basestationz_
     forward_msg = msg->data[3];
     up_msg = msg->data[1];
     yaw_msg = msg->data[0];
