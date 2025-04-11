@@ -393,7 +393,34 @@ void CatchingBlimp::state_machine_approach_callback(){
             case near_approach:
             {
                 // Resume forward approach using similar commands as before.
-                yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                double old_yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                double x_distance = 0;
+
+                if (target_.z <= 20){
+                    last_non_hundred_distance = target_.z;
+                    x_distance = std::sin(target_.theta_x) * target_.z;
+                    if(target_.z <= 1.0){
+                        x_distance *= 1.5;
+                    }
+                    
+                    yawrate_command_ = xPID_.calculate(0, x_distance, state_machine_dt_);
+                } else {
+                    // use last non 100 distance from array
+                    // if(last_non_hundred_distance == 100){
+                    //     x_distance = 0; //change to x offset once paramterize setpoint
+                    // } else{
+                    //     x_distance = last_non_hundred_distance;
+                    // }
+
+                    yawrate_command_ = xPID_.calculate(0, 0, state_machine_dt_);
+                }
+
+                debug_msg_.data[0] = x_distance;
+                debug_msg_.data[1] = yawrate_command_;
+                debug_msg_.data[2] = -1* 0.14*target_.x;
+                debug_publisher->publish(debug_msg_);
+
+
                 if(USE_DISTANCE_IN_BALL_APPROACH){
                     float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
                     float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
@@ -407,6 +434,7 @@ void CatchingBlimp::state_machine_approach_callback(){
 
                 if(BALL_TRACKING_TESTING){
                     forward_command_= 0;
+                    up_command_ = 0;
                 }else{
                     forward_command_= GAME_BALL_CLOSURE_COM;
                 }

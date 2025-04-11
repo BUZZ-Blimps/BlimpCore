@@ -374,7 +374,7 @@ void CatchingBlimp::baro_timer_callback() {
     //Average barometer every 5 samples (5Hz)
     if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/(double)baro_count_;
-        debug_msg_.data[3] = baro_mean_;
+        // debug_msg_.data[3] = baro_mean_;
 
         //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
         if(abs(baro_mean_ - R_lid) > 1.5){

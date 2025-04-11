@@ -370,6 +370,8 @@ private:
     target_type target_type_;
     std::deque<TargetData> target_history_;
 
+    double last_non_hundred_distance = 100;
+
     //timers for state machine
     bool backingUp = false;
 
