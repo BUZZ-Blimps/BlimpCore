@@ -14,7 +14,7 @@
 #include <string>
 #include <numeric>
 #include <deque>
-// #include <cmath>
+#include <cmath>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -44,7 +44,7 @@
 // #include "Gimbal.hpp"
 #include "MotorControl_V2.hpp"
 #include "ZEstimator.hpp"
-
+#include "TOF_Sense.hpp"
 #include "math_helpers.hpp"
 
 #include <wiringPi.h>
@@ -269,6 +269,9 @@ private:
     //sensor fusion objects
     OPI_IMU BerryIMU;
     Madgwick_Filter madgwick;
+    //Z estimator sensor variance
+    double R_bar = 1.0;
+    double R_lid = 0.1;
 
     // MotorControl motorControl;
     // Gimbal leftGimbal;
@@ -327,6 +330,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr z_velocity_publisher_;
     rclcpp::Publisher<std_msgs::msg::Int64MultiArray>::SharedPtr state_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_publisher;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr heading_publisher_;
 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr auto_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr base_baro_subscription;
@@ -353,6 +357,7 @@ private:
     sensor_msgs::msg::Imu imu_msg_;
     std_msgs::msg::Float64 z_msg_, z_vel_msg_;
     std_msgs::msg::Int64MultiArray state_msg_;
+    std_msgs::msg::Float64MultiArray debug_msg_;
 
     //blimp game parameters
     int blimpColor = BLIMP_COLOR;
@@ -390,6 +395,7 @@ private:
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
     int baro_count_; 
     double z_hat_;
+    double z_hat_2;
 
     int catches_;
 
@@ -436,7 +442,9 @@ private:
     PID theta_yPID_;
 
     ZEstimator z_est_;
+    ZEstimator z_est_2;
     EMAFilter z_lowpass_;
+    EMAFilter z_lowpass_2;
 
     Eigen::Matrix3d acc_A_;
     Eigen::Vector3d acc_b_;

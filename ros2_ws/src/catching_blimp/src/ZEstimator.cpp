@@ -37,8 +37,8 @@ ZEstimator::ZEstimator() {
     
     xHat0 = Eigen::MatrixXd::Zero(3,1);
 
-    R = Eigen::MatrixXd(1,1);
-    R << 1.0;
+    // R = Eigen::MatrixXd(1,1);
+    // R << 1.0;
 
     //Beta values for partial update
     betaVector = Eigen::MatrixXd(3,1);
@@ -124,7 +124,10 @@ void ZEstimator::propagate(double ax, double ay, double az, std::vector<double> 
     P = F*P*F.transpose() + G*Q*G.transpose();
 }
 
-void ZEstimator::update(double bz) {
+void ZEstimator::update(double bz, double R_in) {
+    R = Eigen::MatrixXd(1,1);
+    R << R_in;
+    
     z(0) = bz;
 
     Eigen::MatrixXd S;
@@ -139,7 +142,10 @@ void ZEstimator::update(double bz) {
 //Partial update for states based on beta (%) parameters
 //See "Partial-Update Schmidt–Kalman Filter" by Brink for details:
 //https://arc.aiaa.org/doi/10.2514/1.G002808
-void ZEstimator::partialUpdate(double bz) {
+void ZEstimator::partialUpdate(double bz, double R_in) {
+    R = Eigen::MatrixXd(1,1);
+    R << R_in;
+
     z(0) = bz;
 
     Eigen::MatrixXd S;

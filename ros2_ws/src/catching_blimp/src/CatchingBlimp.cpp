@@ -5,6 +5,60 @@ using std::placeholders::_1;
 
 // bool check = false;
 
+//grabber data
+int shoot = 0;
+int grab = 0;
+int shootCom = 0;
+int grabCom = 0;
+
+double searchYawDirection = -1;
+double goalYawDirection = -1;
+
+//avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
+//1000 means object is not present
+std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
+
+bool check = false;
+
+int counter = 0;
+bool last_connected = false;
+bool last_lost = true;
+
+//Global variables
+//sensor fusion objects
+OPI_IMU BerryIMU;
+TOF_Sense lidar;
+Madgwick_Filter madgwick;
+
+// MotorControl motorControl;
+// Gimbal leftGimbal;
+// Gimbal rightGimbal;
+MotorControl_V2 motorControl_V2;
+
+//Goal positioning controller
+BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
+
+//filter on yaw gyro
+EMAFilter yawRateFilter(0.2);
+EMAFilter rollRateFilter(0.5);
+
+//Low pass filter for computer vision parameters
+EMAFilter xFilter(0.5);
+EMAFilter yFilter(0.5);
+EMAFilter zFilter(0.5);
+EMAFilter theta_xFilter(0.5);
+EMAFilter theta_yFilter(0.5);
+
+// EMAFilter areaFilter(0.5);
+
+//baro offset computation from base station value
+// EMAFilter baroOffset(0.5);
+
+//roll offset computation from imu
+// EMAFilter rollOffset(0.5);
+
+//ball grabber object
+TripleBallGrabber ballGrabber;
 // int counter = 0;
 // bool last_connected = false;
 // bool last_lost = true;
@@ -66,8 +120,10 @@ CatchingBlimp::CatchingBlimp() :
     // initialize
     wiringPiSetup();
     BerryIMU.OPI_IMU_Setup();
+    lidar.uart_setup();
     z_est_.initialize();
     z_lowpass_.setAlpha(0.1);
+    z_lowpass_2.setAlpha(0.1);
 
     // targets_ = std::vector<double> {0.0, 0.0, 0.0};
 
@@ -82,6 +138,7 @@ CatchingBlimp::CatchingBlimp() :
     z_velocity_publisher_ = this->create_publisher<std_msgs::msg::Float64>("z_velocity", 10);
     state_publisher_ = this->create_publisher<std_msgs::msg::Int64MultiArray>("state", 10);
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
+    heading_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("heading", 10);
 
     // Set QOS settings to match basestation
     auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
@@ -148,6 +205,12 @@ CatchingBlimp::CatchingBlimp() :
     state_msg_.data.reserve(2);
     state_msg_.data.push_back(0);
     state_msg_.data.push_back(0);
+
+    debug_msg_.data.reserve(4);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
+    debug_msg_.data.push_back(0);
 }
 
 void CatchingBlimp::heartbeat_timer_callback() {
@@ -166,7 +229,8 @@ void CatchingBlimp::imu_timer_callback() {
     
     //read sensor values and update madgwick
     BerryIMU.IMU_read();
-
+    lidar.TOF_read();
+    
     //Apply IMU calibration
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
@@ -202,11 +266,18 @@ void CatchingBlimp::imu_timer_callback() {
 
     imu_publisher_->publish(imu_msg_);
 
+    
     //Lowpass propogated z estimate
     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 
     z_msg_.data = z_hat_;
+    // z_msg_.data = double(lidar.dis)/1000;
     height_publisher_->publish(z_msg_);
+
+    // debug_msg_.data[0] = z_hat_; //baro and lidar kalman
+    // debug_msg_.data[2] = double(lidar.dis)/1000; //only lidar
+
+    // debug_publisher->publish(debug_msg_);
 
     z_vel_msg_.data = z_est_.xHat(1);
     z_velocity_publisher_->publish(z_vel_msg_);
@@ -226,6 +297,10 @@ void CatchingBlimp::imu_timer_callback() {
 
     std::vector<double> euler_angles = madgwick.get_euler();
     double roll = euler_angles[0];
+
+    std_msgs::msg::Float64MultiArray heading_msg_;
+    heading_msg_.data = {euler_angles[2], BerryIMU.MagYraw, BerryIMU.MagXraw, std::atan2(BerryIMU.MagYraw, BerryIMU.MagXraw)*180/M_PI};
+    heading_publisher_->publish(heading_msg_);
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
@@ -289,6 +364,7 @@ void CatchingBlimp::baro_timer_callback() {
 
     // Get current barometer reading
     BerryIMU.baro_read();
+    lidar.TOF_read();
 
     if (!baro_init_) return;
 
@@ -299,8 +375,16 @@ void CatchingBlimp::baro_timer_callback() {
     //Average barometer every 5 samples (5Hz)
     if (baro_count_ == 5) {
         double baro_mean_ = baro_sum_/(double)baro_count_;
+        debug_msg_.data[3] = baro_mean_;
+
+        //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
+        if(abs(baro_mean_ - R_lid) > 1.5){
+            R_bar = 1.0;
+            R_lid = 10.0;
+        }
         
-        z_est_.partialUpdate(baro_mean_);
+        z_est_.partialUpdate(baro_mean_, R_bar);
+        z_est_.partialUpdate(double(lidar.dis)/1000, R_lid);
 
         //Lowpass current estimate
         z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
