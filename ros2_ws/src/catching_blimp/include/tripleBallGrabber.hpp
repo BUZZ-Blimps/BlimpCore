@@ -36,7 +36,7 @@ private:
     double moveRate;
     double lastCommandTime = 0; // [s]
 
-    const double moveRate_fast = 180.0; // [deg/s]
+    const double moveRate_fast = 200.0; // [deg/s]
     const double moveRate_slow = 180.0; // [deg/s]
 
     const double angle_closed = 0; // [deg]

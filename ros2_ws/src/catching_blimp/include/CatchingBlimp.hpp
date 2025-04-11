@@ -93,7 +93,7 @@
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   3.0   // m distance for blimp to alignment submode switching in approach state
-#define BALL_GATE_OPEN_TRIGGER   2.0   // m distance for blimp to open the gate 	
+#define BALL_GATE_OPEN_TRIGGER   3.5   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.5   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
