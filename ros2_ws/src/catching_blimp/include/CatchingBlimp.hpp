@@ -180,8 +180,8 @@
 // #define R_Yaw                     9     //not used, was 5
 
 // Todo: determine these pin numbers after re-wiring
-#define GATE_S                    5
-#define PIN_SCORING               0
+#define GATE_S                    0
+#define PIN_SCORING               5
 
 //10 is a valid brushless motor
 #define PIN_LEFT_UP               16

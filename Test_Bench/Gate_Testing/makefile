@@ -1,2 +1,2 @@
 main: main.cpp
-	g++ brushless.cpp servo.cpp Gimbal.cpp OPI_IMU.cpp main.cpp -lm -lwiringPi -o test
+	g++ math_helpers.cpp Servo.cpp main.cpp -lm -lwiringPi -o test

@@ -40,7 +40,7 @@ private:
     const double moveRate_slow = 180.0; // [deg/s]
 
     const double angle_closed = 0; // [deg]
-    const double angle_open = 100; // [deg]
+    const double angle_open = 180; // [deg]
 
     const double shooter_shooting = 1900; // 80% thrust
     const double shooter_sucking = 1200; // 40%  thrust

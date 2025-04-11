@@ -3,13 +3,9 @@
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
-#include "OPI_IMU.h"
 #include "iostream"
 
-#include "servo.h"
-#include "brushless.h"
-#include "OPI_IMU.h"
-#include "Gimbal.h"
+#include "Servo.hpp"
 
 #define GIMBAL_DEBUG              false
 #define MOTORS_OFF                false
@@ -24,7 +20,7 @@
 #define R_Pitch_FB                21                    
 #define R_Yaw_FB                  20                  
 
-#define GATE_S                    2  // was 8              
+#define GATE_S                    0  // was 8              
 
 #define PWM_R                     8              
 #define PWM_G                     10   // was10           
@@ -38,16 +34,17 @@
 using namespace std;
 
 int main(){
-    servo Servo_L;
-    servo Servo_R;
-    servo Servo_G;
-    Servo_L.servo_setup(L_Pitch);
-    Servo_R.servo_setup(R_Pitch);
-    Servo_G.servo_setup(GATE_S);
+    // servo Servo_L;
+    // servo Servo_R;
+    Servo Servo_G;
+    // Servo_L.servo_setup(L_Pitch);
+    // Servo_R.servo_setup(R_Pitch);
+    Servo_G.setup(GATE_S);
+    // Servo_G.set_pin(GATE_S);
 
-    Servo_L.servo_angle(0);
-    Servo_R.servo_angle(0);
-    Servo_G.servo_angle(0);
+    // Servo_L.servo_angle(0);
+    // Servo_R.servo_angle(0);
+    Servo_G.write_angle(0);
     // Servo_R.servo_angle(180);
     // brushless Brushless_L;
     // brushless Brushless_R;
@@ -62,11 +59,8 @@ int main(){
     // OPI_IMU imu;
     // imu.OPI_IMU_Setup();
 
-    Gimbal leftGimbal;
-    Gimbal rightGimbal;
-
     
-    delay(5000);
+    delay(1000);
     while(1){
         cout<<"Servo Angle: "<<endl;
         cin>>new_angle;
@@ -76,7 +70,7 @@ int main(){
         printf("Angle: %d\n", angle);
         // Brushless_L.brushless_thrust(thrust);
         // Brushless_R.brushless_thrust(thrust);
-        Servo_G.servo_angle(angle);
+        Servo_G.write_angle(angle);
         delay(1000);
     }
     return(1);
