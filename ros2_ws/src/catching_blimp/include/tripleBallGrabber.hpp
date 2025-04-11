@@ -52,7 +52,8 @@ private:
     const double angle_closed = 0; // [deg]
     const double angle_open = 180; // [deg]
 
-    const double shooter_change_rate = 110; // [#/s]
+    const double shooter_change_rate_mag_increase = 110; // [#/s]
+    const double shooter_change_rate_mag_decrease = 550; // [#/s], we let it change significantly faster when the magnitude is decreasing 
     const double shooter_shooting = 1900; // 80% thrust
     const double shooter_sucking = 1000; // 40%  thrust
     const double shooter_off = 1500; // shooter off

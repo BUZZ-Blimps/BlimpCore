@@ -115,6 +115,14 @@ void TripleBallGrabber::update() {
     this->servo_.write_angle(round(currentAngle));
 
     // motor update
+    double shooter_change_rate;
+    if(fabs(targetThrust-shooter_off) > fabs(currentThrust-shooter_off)){
+        // Magnitude is increasing
+        shooter_change_rate = shooter_change_rate_mag_increase;
+    }else{
+        shooter_change_rate = shooter_change_rate_mag_decrease;
+    }
+
     double maxThurstRamp = elapsedTime * shooter_change_rate; //tunable
 
     double errorThrust = targetThrust - currentThrust;
