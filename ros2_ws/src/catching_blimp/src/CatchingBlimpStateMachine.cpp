@@ -406,13 +406,18 @@ void CatchingBlimp::state_machine_approach_callback(){
                     forward_command_= GAME_BALL_CLOSURE_COM;
                 }
 
+                
                 // When very close, transition into the catching state.
-                if (distance < BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING) {
+                if (distance < BALL_GATE_OPEN_TRIGGER) {
                     ballGrabber.openGrabber(control_mode_);
-                    auto_state_ = catching;
-                    catch_start_time_ = state_machine_time_;
-                    // Reset the sub–state for future approaches.
-                    approach_state_ = far_approach;
+
+                    if (distance < BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING)
+                    {   
+                        auto_state_ = catching;
+                        catch_start_time_ = state_machine_time_;
+                        // Reset the sub–state for future approaches.
+                        approach_state_ = far_approach;
+                    }
                 }
                 break;
             }

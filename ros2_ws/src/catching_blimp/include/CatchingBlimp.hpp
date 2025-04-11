@@ -92,8 +92,8 @@
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
-#define FAR_APPROACH_THRESHOLD   3.0   // m distance for blimp to alignment submode switching in approach state
-#define BALL_GATE_OPEN_TRIGGER   3.5   // m distance for blimp to open the gate 	
+#define FAR_APPROACH_THRESHOLD   200.0   // m distance for blimp to alignment submode switching in approach state 
+#define BALL_GATE_OPEN_TRIGGER   5.5   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       1.5   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
@@ -109,7 +109,7 @@
 #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
 #define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        20    //offset magic number (more to the left)
+#define GAME_BALL_X_OFFSET        80    //offset magic number (more to the left)
 #define GAME_BALL_Y_OFFSET        160   //approach magic number
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
