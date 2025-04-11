@@ -65,11 +65,10 @@ void CatchingBlimp::state_machine_manual_callback(){
     if (shoot != shootCom) {
         shoot = shootCom;
 
-        //change shoot control mode
-        if (ballGrabber.state_ == 2) {
-            //stop shooting
-            ballGrabber.closeGrabber(control_mode_);
-        } else {
+        if(shoot == 1){
+            // Start shooting
+            ballGrabber.shoot(control_mode_);
+
             //reset catch counter
             catches_ = 0;
 
@@ -79,19 +78,20 @@ void CatchingBlimp::state_machine_manual_callback(){
             search_start_time_ = state_machine_time_;
             searchYawDirection = searchDirection();  //randomize the search direction
 
-            //start shooting
-            ballGrabber.shoot(control_mode_);
+        }else if(shoot == 0){
+            // Stop shooting
+            ballGrabber.closeGrabber(control_mode_);
         }
+    }
+
     //check if grabbing should be engaged
     //this block switches the control mode to the oposite that it is currently in
-    } else if (grab != grabCom) {
+    if (grab != grabCom) {
         grab = grabCom;
 
-        //change grab control mode
-        if (ballGrabber.state_ == 0) {
+        if(grab == 1){
+            // Start grabbing
             ballGrabber.openGrabber(control_mode_);
-        } else {
-            ballGrabber.closeGrabber(control_mode_);
 
             //increase catch counter
             catches_++;
@@ -100,6 +100,11 @@ void CatchingBlimp::state_machine_manual_callback(){
             if (catches_ >= 1) {
                 last_catch_time_ = state_machine_time_;
             }
+
+        }else if(grab == 0){
+            // Stop grabbing
+            ballGrabber.closeGrabber(control_mode_);
+
         }
     }
 }

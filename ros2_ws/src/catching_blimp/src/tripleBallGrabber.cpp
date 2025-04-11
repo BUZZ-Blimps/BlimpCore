@@ -3,14 +3,23 @@
 #include "tripleBallGrabber.hpp"
 
 TripleBallGrabber::TripleBallGrabber() {
+    // Start at slow speed
+    moveRate = moveRate_slow;
+
+    // Get current time
+    double current_time = micros()/1000000.0;
+
     // Start closed
     currentAngle = angle_closed;
     targetAngle = currentAngle;
-    state_ = state_closed;
-    moveRate = moveRate_slow;
+    grabber_state_ = state_closed;
+    time_change_angle = current_time;
+
     // Start with motor off 
     currentThrust = shooter_off;
     targetThrust = currentThrust;
+    shooting_state_ = state_off;
+    time_change_thrust = current_time;
     
 }
 
@@ -21,31 +30,64 @@ void TripleBallGrabber::ballgrabber_init(int servoPin, int motorPin){
     this->motor_.write_thrust(currentThrust);
 }
 
+bool TripleBallGrabber::is_open() {
+    return grabber_state_ == state_open && currentAngle == angle_open;
+}
+
+// Opens gate
 void TripleBallGrabber::openGrabber(int blimp_state) {
+    double current_time = micros()/1000000.0;
+    
     updateMoveRate(blimp_state);
 
+    if(grabber_state_ != state_open) time_change_angle = current_time;
+    grabber_state_ = state_open;
     targetAngle = angle_open;
-    currentThrust = shooter_off;
-    this->motor_.write_thrust(currentThrust);
-    state_ = state_open;
 }
 
-bool TripleBallGrabber::is_open() {
-    return state_ == state_open && currentAngle == angle_open;
-}
-
+// Closes gate, turns off motor
 void TripleBallGrabber::closeGrabber(int blimp_state) {
     (void) blimp_state; // Gets rid of unused variable warning. Otherwise does nothing. Feel free to delete :)
+    double current_time = micros()/1000000.0;
 
     //updateMoveRate(blimp_state);
     moveRate = moveRate_fast; // Close fast, regardless of state
 
+    if(grabber_state_ != state_closed) time_change_angle = current_time;
+    grabber_state_ = state_closed;    
     targetAngle = angle_closed;
-    targetThrust = shooter_off;
-    currentThrust = targetThrust;
 
-    this->motor_.write_thrust(currentThrust); //turn off
-    state_ = state_closed;
+    if(shooting_state_ != state_off) time_change_thrust = current_time;
+    shooting_state_ = state_off;
+    targetThrust = shooter_off;
+}
+
+// Opens gate, uses motor to shoot
+void TripleBallGrabber::shoot(int blimp_state) {
+    updateMoveRate(blimp_state);
+    double current_time = micros()/1000000.0;
+
+    if(grabber_state_ != state_open) time_change_angle = current_time;
+    grabber_state_ = state_open;
+    targetAngle = angle_open;
+
+    if(shooting_state_ != state_shooting) time_change_thrust = current_time;
+    shooting_state_ = state_shooting;
+    targetThrust = shooter_shooting;
+}
+
+//For when you gotta give the ball that GROK GROK
+// Opens gate, uses motor to suck
+void TripleBallGrabber::suck() {
+    double current_time = micros()/1000000.0;
+
+    if(grabber_state_ != state_open) time_change_angle = current_time;
+    grabber_state_ = state_open;
+    targetAngle = angle_open;
+
+    if(shooting_state_ != state_sucking) time_change_thrust = current_time;
+    shooting_state_ = state_sucking;
+    targetThrust = shooter_sucking;
 }
 
 void TripleBallGrabber::update() {
@@ -73,7 +115,7 @@ void TripleBallGrabber::update() {
     this->servo_.write_angle(round(currentAngle));
 
     // motor update
-    double maxThurstRamp = elapsedTime * 110; //tunable
+    double maxThurstRamp = elapsedTime * shooter_change_rate; //tunable
 
     double errorThrust = targetThrust - currentThrust;
 
@@ -92,26 +134,6 @@ void TripleBallGrabber::update() {
     this->motor_.write_thrust(round(currentThrust));
 }
 
-void TripleBallGrabber::shoot(int blimp_state) {
-    updateMoveRate(blimp_state);
-
-    targetAngle = angle_open;
-    currentAngle = targetAngle;
-    targetThrust = shooter_shooting;
-    currentThrust = targetThrust;
-
-    state_ = state_shooting;
-    // this->motor_.write_thrust(1800); 
-}
-
-//For when you gotta give the ball that GROK GROK
-void TripleBallGrabber::suck() {
-    currentThrust = shooter_off;
-    targetThrust = shooter_sucking;
-
-    state_ = state_sucking;
-    // this->motor_.write_thrust(1250);
-}
 
 void TripleBallGrabber::updateMoveRate(int blimp_state) {
     if (blimp_state == 0) { // blimpState::manual
