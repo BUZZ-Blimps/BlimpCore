@@ -18,6 +18,7 @@ class PID
         void setOutputLimits(double min, double max);
         void setILimit(double iLimit);
         void setDLimit(double dLimit);
+        void setPGain(double pGain);
 
         //Constraint Function to simplify math
         double constrain(double x, double a, double b);

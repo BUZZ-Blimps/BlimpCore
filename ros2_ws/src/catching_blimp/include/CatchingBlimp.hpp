@@ -64,11 +64,11 @@
 #define YAW_MODE                  false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        true
-
+#define VISION_PRINT_DEBUG              true
+#define USE_X_DISTANCE_OFFSET           true
 #define USE_DISTANCE_IN_BALL_APPROACH   false
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
-#define BALL_TRACKING_TESTING           false
+#define BALL_TRACKING_TESTING           true
 
 //optional controllers
 #define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
@@ -437,6 +437,7 @@ private:
 
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
+    double x_p;
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
     PID zPID_;   //not used for now due to baro reading malfunction
     PID yawPID_; //can also tune kd with a little overshoot induced

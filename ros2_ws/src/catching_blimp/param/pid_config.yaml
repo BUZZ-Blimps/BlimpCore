@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    x_p: 35.0
+    x_p: 0.14
     x_i: 0.0
     x_d: 0.0
     y_p: 1.3

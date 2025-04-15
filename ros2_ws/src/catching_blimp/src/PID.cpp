@@ -99,6 +99,10 @@ double PID::calculate(double setpoint, double pv, double dt) {
     return output;
 }
 
+void PID::setPGain(double pGain){
+    _kp = pGain;
+}
+
 void PID::reset() {
     _error = 0;
     _pre_error = 0;

@@ -787,7 +787,7 @@ bool CatchingBlimp::load_pid_config() {
     this->declare_parameter("rollRate_i", 0.0);
     this->declare_parameter("rollRate_d", 0.0);
     
-    double x_p, x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d;
+    double x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d; //x_p made global to access it in CatchingBlimpStateMachine.cpp in case near_approach
     if (
         this->get_parameter("x_p", x_p) &&
         this->get_parameter("x_i", x_i) &&
