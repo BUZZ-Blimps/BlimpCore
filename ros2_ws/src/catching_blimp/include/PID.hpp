@@ -19,6 +19,8 @@ class PID
         void setILimit(double iLimit);
         void setDLimit(double dLimit);
         void setPGain(double pGain);
+        void setIGain(double iGain);
+        void setDGain(double dGain);
 
         //Constraint Function to simplify math
         double constrain(double x, double a, double b);

@@ -255,6 +255,7 @@ struct TargetData {
   double z;
   double theta_x;
   double theta_y;
+  double bbox_area;
   rclcpp::Time timestamp;
   int id;
   target_type type;
@@ -269,28 +270,15 @@ private:
     //sensor fusion objects
     OPI_IMU BerryIMU;
     Madgwick_Filter madgwick;
+
     //Z estimator sensor variance
     double R_bar = 1.0;
     double R_lid = 0.1;
 
-    // MotorControl motorControl;
-    // Gimbal leftGimbal;
-    // Gimbal rightGimbal;
     MotorControl_V2 motorControl_V2;
 
     // //Goal positioning controller
     // BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
-
-    // //filter on yaw gyro
-    // EMAFilter yawRateFilter(0.2);
-    // EMAFilter rollRateFilter(0.5);
-
-    // //Low pass filter for computer vision parameters
-    // EMAFilter xFilter(0.5);
-    // EMAFilter yFilter(0.5);
-    // EMAFilter zFilter(0.5);
-    // EMAFilter theta_xFilter(0.5);
-    // EMAFilter theta_yFilter(0.5);
 
     //Goal positioning controller
     BangBang goalPositionHold; //Dead band, velocity to center itself
@@ -305,8 +293,7 @@ private:
     EMAFilter zFilter;
     EMAFilter theta_xFilter;
     EMAFilter theta_yFilter;
-
-    // EMAFilter areaFilter(0.5);
+    EMAFilter areaFilter;
 
     //baro offset computation from base station value
     // EMAFilter baroOffset(0.5);
@@ -316,7 +303,6 @@ private:
 
     //ball grabber object
     TripleBallGrabber ballGrabber;
-
 
     rclcpp::TimerBase::SharedPtr timer_imu;
     rclcpp::TimerBase::SharedPtr timer_baro;
@@ -383,7 +369,6 @@ private:
 
     double searchYawDirection = -1;
     double goalYawDirection = -1;
-    
 
     //Avoidance data
     int quadrant = 10;
@@ -435,9 +420,11 @@ private:
 
     double state_machine_dt_;
 
+    // PID gains
+    double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_p_, yaw_i_, yaw_d_, roll_p_, roll_i_, roll_d_, rollRate_p_, rollRate_i_, rollRate_d_;
+
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
-    double x_p;
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
     PID zPID_;   //not used for now due to baro reading malfunction
     PID yawPID_; //can also tune kd with a little overshoot induced

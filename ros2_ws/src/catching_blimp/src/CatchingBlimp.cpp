@@ -3,65 +3,12 @@
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 
-// bool check = false;
-
-//grabber data
-int shoot = 0;
-int grab = 0;
-int shootCom = 0;
-int grabCom = 0;
-
-double searchYawDirection = -1;
-double goalYawDirection = -1;
-
-//avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
-//1000 means object is not present
-std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
-
-bool check = false;
-
-int counter = 0;
-bool last_connected = false;
-bool last_lost = true;
-
 //Global variables
 //sensor fusion objects
-OPI_IMU BerryIMU;
 TOF_Sense lidar;
-Madgwick_Filter madgwick;
-
-// MotorControl motorControl;
-// Gimbal leftGimbal;
-// Gimbal rightGimbal;
-MotorControl_V2 motorControl_V2;
 
 //Goal positioning controller
 BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
-
-//filter on yaw gyro
-EMAFilter yawRateFilter(0.2);
-EMAFilter rollRateFilter(0.5);
-
-//Low pass filter for computer vision parameters
-EMAFilter xFilter(0.5);
-EMAFilter yFilter(0.5);
-EMAFilter zFilter(0.5);
-EMAFilter theta_xFilter(0.5);
-EMAFilter theta_yFilter(0.5);
-
-// EMAFilter areaFilter(0.5);
-
-//baro offset computation from base station value
-// EMAFilter baroOffset(0.5);
-
-//roll offset computation from imu
-// EMAFilter rollOffset(0.5);
-
-//ball grabber object
-TripleBallGrabber ballGrabber;
-// int counter = 0;
-// bool last_connected = false;
-// bool last_lost = true;
 
 CatchingBlimp::CatchingBlimp() : 
     Node("catching_blimp_node"), 
@@ -71,8 +18,9 @@ CatchingBlimp::CatchingBlimp() :
     xFilter(0.5),
     yFilter(0.5),
     zFilter(0.5),
-    theta_xFilter(0.5),
-    theta_yFilter(0.5),
+    theta_xFilter(0.95),
+    theta_yFilter(0.95),
+    areaFilter(0.95),
     count_(0), 
     target_detected_(false),
     target_id_(-1),
@@ -667,12 +615,13 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
         new_detection.type = new_type;
         new_detection.theta_x = msg->data[5];
         new_detection.theta_y = msg->data[6];
+        new_detection.bbox_area = (double)msg->data[7] * (double)msg->data[8];
 
         // Check desired target type
         target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
 
         // Check if previous target misaligns with desired target
-        if(target_detected_ && (target_type_ != desired_target_type)){
+        if (target_detected_ && (target_type_ != desired_target_type)){
             // Reset target
             target_detected_ = false;
             target_history_.clear();
@@ -681,6 +630,11 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             zFilter.reset();
             theta_xFilter.reset();
             theta_yFilter.reset();
+
+            areaFilter.reset();
+
+            xPID_.reset();
+            yPID_.reset();
         }
 
         // If we have not yet detected a target or the new detection matches our current target...
@@ -693,15 +647,19 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
 
             // Add to the history buffer and keep only the latest 5 entries
             target_history_.push_back(new_detection);
-            if (target_history_.size() > 10)
+            if (target_history_.size() > 10) {
                 target_history_.pop_front();
+            }
 
             // Update filtered target coordinates
             target_.x = xFilter.filter(new_detection.x);
             target_.y = yFilter.filter(new_detection.y);
             target_.z = zFilter.filter(new_detection.z);
-            target_.theta_x = theta_xFilter.filter(new_detection.theta_x);
-            target_.theta_y = theta_yFilter.filter(new_detection.theta_y);
+
+            target_.theta_x = theta_xFilter.filter(new_detection.theta_x*180.0/M_PI);
+            target_.theta_y = theta_yFilter.filter(new_detection.theta_y*180.0/M_PI);
+
+            target_.bbox_area = areaFilter.filter(new_detection.bbox_area);
         }
     }
 }
@@ -709,7 +667,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
 void CatchingBlimp::vision_timer_callback() {
     rclcpp::Time now = this->get_clock()->now();
 
-    if(target_detected_){
+    if (target_detected_) {
         // Check desired target type
         target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
 
@@ -786,39 +744,37 @@ bool CatchingBlimp::load_pid_config() {
     this->declare_parameter("rollRate_p", 0.0);
     this->declare_parameter("rollRate_i", 0.0);
     this->declare_parameter("rollRate_d", 0.0);
-    
-    double x_i, x_d, y_p, y_i, y_d, z_p, z_i, z_d, yaw_p, yaw_i, yaw_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d; //x_p made global to access it in CatchingBlimpStateMachine.cpp in case near_approach
     if (
-        this->get_parameter("x_p", x_p) &&
-        this->get_parameter("x_i", x_i) &&
-        this->get_parameter("x_d", x_d) &&
-        this->get_parameter("y_p", y_p) &&
-        this->get_parameter("y_i", y_i) &&
-        this->get_parameter("y_d", y_d) &&
-        this->get_parameter("z_p", z_p) &&
-        this->get_parameter("z_i", z_i) &&
-        this->get_parameter("z_d", z_d) &&
-        this->get_parameter("yaw_p", yaw_p) &&
-        this->get_parameter("yaw_i", yaw_i) &&
-        this->get_parameter("yaw_d", yaw_d) &&
-        this->get_parameter("roll_p", roll_p) &&
-        this->get_parameter("roll_i", roll_i) &&
-        this->get_parameter("roll_d", roll_d) &&
-        this->get_parameter("rollRate_p", rollRate_p) &&
-        this->get_parameter("rollRate_i", rollRate_i) &&
-        this->get_parameter("rollRate_d", rollRate_d) 
+        this->get_parameter("x_p", x_p_) &&
+        this->get_parameter("x_i", x_i_) &&
+        this->get_parameter("x_d", x_d_) &&
+        this->get_parameter("y_p", y_p_) &&
+        this->get_parameter("y_i", y_i_) &&
+        this->get_parameter("y_d", y_d_) &&
+        this->get_parameter("z_p", z_p_) &&
+        this->get_parameter("z_i", z_i_) &&
+        this->get_parameter("z_d", z_d_) &&
+        this->get_parameter("yaw_p", yaw_p_) &&
+        this->get_parameter("yaw_i", yaw_i_) &&
+        this->get_parameter("yaw_d", yaw_d_) &&
+        this->get_parameter("roll_p", roll_p_) &&
+        this->get_parameter("roll_i", roll_i_) &&
+        this->get_parameter("roll_d", roll_d_) &&
+        this->get_parameter("rollRate_p", rollRate_p_) &&
+        this->get_parameter("rollRate_i", rollRate_i_) &&
+        this->get_parameter("rollRate_d", rollRate_d_) 
     ){
         //Set gains
-        xPID_ = PID(x_p, x_i, x_d);  // left and right
-        yPID_ = PID(y_p, y_i, y_d);  // up and down
-        zPID_ = PID(z_p, z_i, z_d);  // unused
-        yawPID_ = PID(yaw_p, yaw_i, yaw_d); // yaw correction
-        rollPID_ = PID(roll_p, roll_i, roll_d);
-        rollRatePID_ = PID(rollRate_p, rollRate_i, rollRate_d);
+        xPID_ = PID(x_p_, x_i_, x_d_);  // left and right
+        yPID_ = PID(y_p_, y_i_, y_d_);  // up and down
+        zPID_ = PID(z_p_, z_i_, z_d_);  // unused
+        yawPID_ = PID(yaw_p_, yaw_i_, yaw_d_); // yaw correction
+        rollPID_ = PID(roll_p_, roll_i_, roll_d_);
+        rollRatePID_ = PID(rollRate_p_, rollRate_i_, rollRate_d_);
 
         RCLCPP_INFO(this->get_logger(), 
             "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), roll: (p=%.2f, i=%.2f, d=%.2f), rollrate: (p=%.2f, i=%.2f, d=%.2f), yawrate: (p=%.2f, i=%.2f, d=%.2f)", 
-            x_p, x_i, x_d, y_p, y_i, y_d, roll_p, roll_i, roll_d, rollRate_p, rollRate_i, rollRate_d, yaw_p, yaw_i, yaw_d);
+            x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, roll_p_, roll_i_, roll_d_, rollRate_p_, rollRate_i_, rollRate_d_, yaw_p_, yaw_i_, yaw_d_);
 
         return true;
     } else {
@@ -879,11 +835,11 @@ TargetData CatchingBlimp::predictTargetPosition(float offset) {
         return predicted;
     }
 
-    double vx = (last.x - first.x) / dt;
-    double vy = (last.y - first.y) / dt;
-    double vz = (last.z - first.z) / dt;
-    double vtheta_x = (last.theta_x - first.theta_x) / dt;
-    double vtheta_y = (last.theta_y - first.theta_y) / dt;
+    double vx = 0.1*(last.x - first.x) / dt;
+    double vy = 0.1*(last.y - first.y) / dt;
+    double vz = 0.1*(last.z - first.z) / dt;
+    double vtheta_x = 0.1*(last.theta_x - first.theta_x) / dt;
+    double vtheta_y = 0.1*(last.theta_y - first.theta_y) / dt;
 
     // Determine the time difference between now and the last detection.
     double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
@@ -892,7 +848,18 @@ TargetData CatchingBlimp::predictTargetPosition(float offset) {
     predicted.x = last.x + vx * dt_pred;
     predicted.y = last.y + vy * dt_pred;
     predicted.z = last.z + vz * dt_pred;
+
     predicted.theta_x = last.theta_x + vtheta_x * dt_pred;
     predicted.theta_y = last.theta_y + vtheta_y * dt_pred;
+
+    predicted.bbox_area = 
+
+    // predicted.x = last.x;
+    // predicted.y = last.y;
+    // predicted.z = last.z;
+
+    // predicted.theta_x = target_.theta_x;
+    // predicted.theta_y = target_.theta_y;
+
     return predicted;
 }

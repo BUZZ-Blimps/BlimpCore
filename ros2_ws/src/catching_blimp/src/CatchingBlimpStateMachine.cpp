@@ -109,7 +109,6 @@ void CatchingBlimp::state_machine_manual_callback(){
     }
 }
 
-
 void CatchingBlimp::state_machine_autonomous_callback(){
 
     /*---------------------------------------------------------------------------------------------------------------
@@ -334,21 +333,20 @@ void CatchingBlimp::state_machine_approach_callback(){
             {
                 // When the target is far away, do a direct, head–on approach.
                 if (distance > FAR_APPROACH_THRESHOLD) {
-                    if(USE_DISTANCE_IN_BALL_APPROACH){
+                    if (USE_DISTANCE_IN_BALL_APPROACH) {
                         float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
                         float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
                         RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
 
                         up_command_ = -theta_yPID_.calculate(theta_y_target, theta_y_ball, state_machine_dt_);
-            
-                    }else{
+                    } else {
                         up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
                     }
                     yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                     
-                    if(BALL_TRACKING_TESTING){
+                    if (BALL_TRACKING_TESTING) {
                         forward_command_= 0;
-                    }else{
+                    } else {
                         forward_command_= GAME_BALL_CLOSURE_COM;
                     }
                 } else {
@@ -368,8 +366,10 @@ void CatchingBlimp::state_machine_approach_callback(){
                 // In alignment, use the prediction routine (which uses the target history)
                 // to estimate where the target is headed and adjust yaw to position the blimp ahead.
                 TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
+
                 // Adjust yaw to minimize the alignment error relative to a desired offset (GAME_BALL_X_OFFSET).
                 yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, predicted.x, state_machine_dt_);
+
                 // Optionally hold altitude during alignment.
                 if (USE_DISTANCE_IN_BALL_APPROACH) {
                     float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
@@ -393,20 +393,33 @@ void CatchingBlimp::state_machine_approach_callback(){
             case near_approach:
             {
                 // Resume forward approach using similar commands as before.
-                if(USE_X_DISTANCE_OFFSET) {
-                    xPID_.setPGain(35);
-                    // double old_yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
-                    double x_distance = 0;
+                if (USE_X_DISTANCE_OFFSET) {
 
-                    if (target_.z <= 20) {
-                        last_non_hundred_distance = target_.z;
-                        x_distance = std::tan(target_.theta_x) * target_.z;
+                    // double old_yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                    // double x_distance = std::tan(target_.theta_x * M_PI / 180.0) * target_.bbox_area;
+
+                    
+
+                    // RCLCPP_INFO(this->get_logger(), "target_.theta_x: %f", target_.theta_x);
+                    // RCLCPP_INFO(this->get_logger(), "target_.bbox_area: %f", target_.bbox_area);
+                    // RCLCPP_INFO(this->get_logger(), "x_distance = %f", x_distance);
+
+                    // RCLCPP_INFO(this->get_logger(), "yawrate_command_ = %f", yawrate_command_);
+
+                    if (predicted.bbox_area <= 900.0) {
+                        // last_non_hundred_distance = target_.z;
                         // if (target_.z <= 1.0) {
                         //     xPID_.setPGain(1.5*x_p);
                         // }
+                        // debug_msg_.data[0] = x_distance;
+                        // yawrate_command_ = xPID_.calculate(0, x_distance, state_machine_dt_);
+                        // RCLCPP_INFO(this->get_logger(), "yawrate_command_ = %.4f", yawrate_command_);
 
-                        debug_msg_.data[0] = x_distance;
-                        yawrate_command_ = xPID_.calculate(0, x_distance, state_machine_dt_);
+                        double scaling = math_helpers::constrain(math_helpers::map(predicted.bbox_area, 900.0, 20000.0, 1.0, 0.1), 0.1, 1.0);
+
+                        xPID_.setPGain(scaling*x_p_);
+                        xPID_.setDGain(scaling*x_d_);
+
                     } else {
                         // use last non 100 distance from array
                         // if(last_non_hundred_distance == 100){
@@ -414,16 +427,20 @@ void CatchingBlimp::state_machine_approach_callback(){
                         // } else{
                         //     x_distance = last_non_hundred_distance;
                         // }
-                        xPID_.setPGain(x_p);
-                        yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_); //default to pixel based offset
+                        // xPID_.setPGain(x_p);
+                        // yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_); //default to pixel based offset
+
+                        xPID_.setPGain(x_p_);
+                        xPID_.setDGain(x_d_);
                     }
+
+                    yawrate_command_ = xPID_.calculate(0, predicted.theta_x, state_machine_dt_);
+
                 } else {
                     //reset P gain
-                    xPID_.setPGain(x_p);
+                    xPID_.setPGain(x_p_);
                     yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                 }
-                
-
                 
                 debug_msg_.data[1] = yawrate_command_;
                 debug_msg_.data[2] = -1* 0.14*target_.x;
@@ -477,7 +494,7 @@ void CatchingBlimp::state_machine_approach_callback(){
     }
 }
 
-void CatchingBlimp::state_machine_catching_callback(){
+void CatchingBlimp::state_machine_catching_callback() {
     //Go slower when we get up close
     if (target_.z > 5.0) {
         forward_command_ = CATCHING_FORWARD_COM;
@@ -508,7 +525,6 @@ void CatchingBlimp::state_machine_catching_callback(){
         last_catch_time_ = state_machine_time_;
     }
 }
-
 
 void CatchingBlimp::state_machine_caught_callback() {
     if (catches_ > 0) {
@@ -547,8 +563,7 @@ void CatchingBlimp::state_machine_caught_callback() {
     }
 }
 
-
-void CatchingBlimp::state_machine_goalSearch_callback(){
+void CatchingBlimp::state_machine_goalSearch_callback() {
     //keep ball grabber closed
     ballGrabber.closeGrabber(control_mode_);
 
@@ -633,7 +648,6 @@ void CatchingBlimp::state_machine_scoringStart_callback(){
     }
 }
 
-
 void CatchingBlimp::state_machine_shooting_callback(){
     yawrate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
@@ -648,7 +662,6 @@ void CatchingBlimp::state_machine_shooting_callback(){
         return;
     }
 }
-
 
 void CatchingBlimp::state_machine_scored_callback(){
     ballGrabber.closeGrabber(control_mode_);
@@ -666,9 +679,9 @@ void CatchingBlimp::state_machine_scored_callback(){
     }
 }
 
-
 void CatchingBlimp::state_machine_default_callback(){
     yawrate_command_ = 0;
     forward_command_ = 0;
     up_command_ = 0;
 }
+

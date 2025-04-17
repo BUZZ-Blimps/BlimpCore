@@ -47,6 +47,18 @@ void PID::setDLimit(double dLimit) {
     _d_limit = abs(dLimit);
 }
 
+void PID::setPGain(double pGain) {
+    _kp = pGain;
+}
+
+void PID::setIGain(double iGain) {
+    _ki = iGain;
+}
+
+void PID::setDGain(double dGain) {
+    _kd = dGain;
+}
+
 double PID::constrain(double x, double a, double b) {
     if(x < a) {
         return a;
@@ -97,10 +109,6 @@ double PID::calculate(double setpoint, double pv, double dt) {
     _pre_error = _error;
 
     return output;
-}
-
-void PID::setPGain(double pGain){
-    _kp = pGain;
 }
 
 void PID::reset() {
