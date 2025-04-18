@@ -15,16 +15,15 @@ CatchingBlimp::CatchingBlimp() :
     goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY),
     yawRateFilter(0.2),
     rollRateFilter(0.5),
-    xFilter(0.5),
-    yFilter(0.5),
-    zFilter(0.5),
+    xFilter(0.95),
+    yFilter(0.95),
+    zFilter(0.95),
     theta_xFilter(0.95),
     theta_yFilter(0.95),
     areaFilter(0.95),
-    count_(0), 
+    count_(0),
     target_detected_(false),
-    target_id_(-1),
-    target_type_(no_target),
+    target_active_(false),
     imu_init_(false), 
     baro_init_(false), 
     baro_calibration_offset_(0.0),
@@ -36,10 +35,10 @@ CatchingBlimp::CatchingBlimp() :
     auto_state_(searching),
     forward_command_(0),
     up_command_(0),
-    yawrate_command_(0),
-    rollrate_command_(0),
+    yaw_rate_command_(0),
+    roll_rate_command_(0),
     roll_update_count_(0),
-    theta_yPID_(1300, 0, 0){
+    theta_yPID_(1300, 0, 0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -72,6 +71,9 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.1);
     z_lowpass_2.setAlpha(0.1);
+
+    target_.id = -1;
+    target_.type = no_target;
 
     // targets_ = std::vector<double> {0.0, 0.0, 0.0};
 
@@ -251,21 +253,21 @@ void CatchingBlimp::imu_timer_callback() {
 
     //hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
-    yaw_motor_ = yawPID_.calculate(yawrate_command_, yawRateFilter.last, dt);
-    if (fabs(yawrate_command_-yawRateFilter.last) < deadband) {
-        yaw_motor_ = 0;
+    yaw_rate_motor_ = yawRatePID_.calculate(yaw_rate_command_, yawRateFilter.last, dt);
+    if (fabs(yaw_rate_command_-yawRateFilter.last) < deadband) {
+        yaw_rate_motor_ = 0;
     }
 
     // else {
-    //     yaw_motor_ = tanh(yaw_motor_)*fabs(yaw_motor_); // yaw for motor
+    //     yaw_rate_motor_ = tanh(yaw_rate_motor_)*fabs(yaw_rate_motor_); // yaw for motor
     // }
 
     // Update roll controller every 4 timesteps
     if (roll_update_count_ == 4) {
         double deadband_roll = 5.0;
-        rollrate_command_ = rollPID_.calculate(0, roll, dt);
+        roll_rate_command_ = rollPID_.calculate(0, roll, dt);
         if (fabs(roll) < deadband_roll) {
-            rollrate_command_ = 0;
+            roll_rate_command_ = 0;
         }
 
         roll_update_count_ = 0;
@@ -273,13 +275,13 @@ void CatchingBlimp::imu_timer_callback() {
     roll_update_count_++;
 
     double deadband_rollRate = 1.0;
-    roll_rate_motor_ = rollRatePID_.calculate(rollrate_command_, rollRateFilter.last, dt);
-    if (fabs(rollrate_command_ - rollRateFilter.last) < deadband_rollRate) {
+    roll_rate_motor_ = rollRatePID_.calculate(roll_rate_command_, rollRateFilter.last, dt);
+    if (fabs(roll_rate_command_ - rollRateFilter.last) < deadband_rollRate) {
         roll_rate_motor_ = 0;
     }
 
     if (MOTOR_PRINT_DEBUG) {
-        RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
+        RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
     }
 
     // Wait 5 seconds before doing anything interesting
@@ -293,18 +295,18 @@ void CatchingBlimp::imu_timer_callback() {
     if (ZERO_MODE) {
         motorControl_V2.update(0, 0, 0, 0);
         return;
-    } else if (VERT_MODE && YAW_MODE) {
-        motorControl_V2.update(0, up_motor_, yaw_motor_, 0);
+    } else if (VERT_MODE && YAW_RATE_MODE) {
+        motorControl_V2.update(0, up_motor_, yaw_rate_motor_, 0);
         return;
     } else if (VERT_MODE) {
         motorControl_V2.update(0, up_motor_, 0, 0);
         return;
-    } else if (YAW_MODE) {
-        motorControl_V2.update(0, 0, yaw_motor_, 0);
+    } else if (YAW_RATE_MODE) {
+        motorControl_V2.update(0, 0, yaw_rate_motor_, 0);
         return;
     }
 
-    motorControl_V2.update(forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_);
+    motorControl_V2.update(forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
 }
 
 void CatchingBlimp::baro_timer_callback() {
@@ -341,65 +343,64 @@ void CatchingBlimp::baro_timer_callback() {
     }
 }
 
-
-void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant){
+void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
     forward_avoidance_ = 0.0;
     up_avoidance_ = 0.0;
-    yaw_avoidance_ = 0.0;
+    yaw_rate_avoidance_ = 0.0;
 
     //set avoidence command based on quadrant that contains object to avoid
     switch (quadrant) {
     case 1:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = -UP_AVOID;
-        yaw_avoidance_ = -YAW_AVOID;
+        yaw_rate_avoidance_ = -YAW_RATE_AVOID;
         break;
     case 2:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = -UP_AVOID;
-        yaw_avoidance_ = 0;
+        yaw_rate_avoidance_ = 0;
         break;
     case 3:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = -UP_AVOID;
-        yaw_avoidance_ = YAW_AVOID;
+        yaw_rate_avoidance_ = YAW_RATE_AVOID;
         break;
     case 4:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = 0;
-        yaw_avoidance_ = -YAW_AVOID;
+        yaw_rate_avoidance_ = -YAW_RATE_AVOID;
         break;
     case 5:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = 0;
-        yaw_avoidance_ = 0;
+        yaw_rate_avoidance_ = 0;
         break;
     case 6:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = 0;
-        yaw_avoidance_ = YAW_AVOID;
+        yaw_rate_avoidance_ = YAW_RATE_AVOID;
         break;
     case 7:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = UP_AVOID;
-        yaw_avoidance_ = -YAW_AVOID;
+        yaw_rate_avoidance_ = -YAW_RATE_AVOID;
         break;
     case 8:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = UP_AVOID;
-        yaw_avoidance_ = 0;
+        yaw_rate_avoidance_ = 0;
         break;
     case 9:
         forward_avoidance_ = -FORWARD_AVOID;
         up_avoidance_ = UP_AVOID;
-        yaw_avoidance_ = YAW_AVOID;
+        yaw_rate_avoidance_ = YAW_RATE_AVOID;
         break;
     default:
         break;
     }
 }
 
-std::string CatchingBlimp::auto_state_to_string(autoState state){
+std::string CatchingBlimp::auto_state_to_string(autoState state) {
     std::string state_str;
     switch(state) {
         case searching: {
@@ -444,20 +445,20 @@ std::string CatchingBlimp::auto_state_to_string(autoState state){
     return state_str;
 }
 
-target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state){
+target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state) {
     target_type desired_target_type;
-    if(state == searching ||
+    if (state == searching ||
        state == approach ||
        state == catching ||
-       state == caught){
+       state == caught) {
         desired_target_type = ball;
-    }else if(state == goalSearch ||
+    } else if(state == goalSearch ||
              state == approachGoal ||
              state == scoringStart ||
              state == shooting ||
-             state == scored){
+             state == scored) {
         desired_target_type = goal;
-    }else{
+    } else {
         desired_target_type = no_target;
     }
     return desired_target_type;
@@ -504,7 +505,6 @@ void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::Sh
         lidar_calibration_offset_ = 0.0; // Assign fallback value
     }
     
-
     // Reset (zero) kalman filter
     z_est_.reset();
 
@@ -570,9 +570,9 @@ void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::Share
 void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
     // Manual control commands from basestationz_
-    forward_msg = msg->data[3];
-    up_msg = msg->data[1];
-    yaw_msg = msg->data[0];
+    forward_msg_ = msg->data[3];
+    up_msg_ = msg->data[1];
+    yaw_rate_msg_ = msg->data[0];
 }
 
 void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
@@ -597,109 +597,140 @@ void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64
     }
 }
 
+
+
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     rclcpp::Time now = this->get_clock()->now();
 
     // Check if the detection is valid (negative values mean nothing detected)
-    if (msg->data[0] >= 0) {
+    bool valid_detection = (msg->data[0] >= 0);
+    if (valid_detection) {
         int new_id = static_cast<int>(msg->data[3]);
         target_type new_type = static_cast<target_type>(msg->data[4]);
-
-        // Create a new detection (centering as before)
-        TargetData new_detection;
-        new_detection.x = msg->data[0] - 320;
-        new_detection.y = msg->data[1] - 240;
-        new_detection.z = msg->data[2];
-        new_detection.timestamp = now;
-        new_detection.id = new_id;
-        new_detection.type = new_type;
-        new_detection.theta_x = msg->data[5];
-        new_detection.theta_y = msg->data[6];
-        new_detection.bbox_area = (double)msg->data[7] * (double)msg->data[8];
 
         // Check desired target type
         target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
 
         // Check if previous target misaligns with desired target
-        if (target_detected_ && (target_type_ != desired_target_type)){
-            // Reset target
-            target_detected_ = false;
-            target_history_.clear();
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-            theta_xFilter.reset();
-            theta_yFilter.reset();
-
-            areaFilter.reset();
-
-            xPID_.reset();
-            yPID_.reset();
-        }
-
-        // If we have not yet detected a target or the new detection matches our current target...
-        if ((!target_detected_ && new_type == desired_target_type) || (new_id == target_id_ && new_type == target_type_)) {
-            // Update the current target info
-            target_detected_ = true;
-            target_id_ = new_id;
-            target_type_ = new_type;
-            target_memory_time_ = now;
-
-            // Add to the history buffer and keep only the latest 5 entries
-            target_history_.push_back(new_detection);
-            if (target_history_.size() > 10) {
-                target_history_.pop_front();
+        if (new_type == desired_target_type) {
+            if (!target_detected_) {
+                target_detected_ = true;
             }
 
+            // ID mismatch -> reset filters
+            if (target_.id != new_id || target_.type != new_type) {
+                // Set the target ID
+                target_.id = new_id;
+                target_.type = new_type;
+
+                // Reset target
+                reset_target();
+            }
+
+            // Save the new detection as the current target(centering as before)
+            double target_x = msg->data[0] - 320;
+            double target_y = msg->data[1] - 240;
+            double target_z = msg->data[2];
+            double target_theta_x = msg->data[5]*180.0/M_PI;
+            double target_theta_y = msg->data[6]*180.0/M_PI;
+            double bbox_x = (double)msg->data[7];
+            double bbox_y = (double)msg->data[8];
+            double bbox_area = bbox_x * bbox_y;
+
+            // Filter everything
+            double filtered_x = xFilter.filter(target_x);
+            double filtered_y = xFilter.filter(target_y);
+            double filtered_z = xFilter.filter(target_z);
+            double filtered_theta_x = theta_xFilter.filter(target_theta_x);
+            double filtered_theta_y = theta_yFilter.filter(target_theta_y);
+            double filtered_area = areaFilter.filter(bbox_area);
+
             // Update filtered target coordinates
-            target_.x = xFilter.filter(new_detection.x);
-            target_.y = yFilter.filter(new_detection.y);
-            target_.z = zFilter.filter(new_detection.z);
+            target_.timestamp = now;
+            target_.x = filtered_x;
+            target_.y = filtered_y;
+            target_.z = filtered_z;
+            target_.theta_x = filtered_theta_x;
+            target_.theta_y = filtered_theta_y;
+            target_.bbox_area = filtered_area;
 
-            target_.theta_x = theta_xFilter.filter(new_detection.theta_x*180.0/M_PI);
-            target_.theta_y = theta_yFilter.filter(new_detection.theta_y*180.0/M_PI);
-
-            target_.bbox_area = areaFilter.filter(new_detection.bbox_area);
+            // Add to the history buffer and keep only the latest TARGET_HISTORY_SIZE entries
+            target_history_.push_back(target_);
+            if (target_history_.size() > TARGET_HISTORY_SIZE) {
+                target_history_.pop_front();
+            }
+        } else if (target_detected_) {
+            // Wrong target = no target :(
+            // (This should NEVER happen)
+            target_detected_ = false;
         }
+    } else if (target_detected_) {
+        target_detected_ = false;
+
+        if (VISION_PRINT_DEBUG) RCLCPP_INFO(this->get_logger(), "LOST DETECTION ON OBJECT.");
     }
 }
 
-void CatchingBlimp::vision_timer_callback() {
+void CatchingBlimp::reset_target() {
+    // Reset target
+    target_history_.clear();
+
+    xFilter.reset();
+    yFilter.reset();
+    zFilter.reset();
+
+    theta_xFilter.reset();
+    theta_yFilter.reset();
+    areaFilter.reset();
+
+    xPID_.reset();
+    yPID_.reset();
+}
+
+void CatchingBlimp::update_target() {
     rclcpp::Time now = this->get_clock()->now();
 
-    if (target_detected_) {
-        // Check desired target type
-        target_type desired_target_type = auto_state_to_desired_target_type(auto_state_);
+    // Target detection timeout
+    if (target_detected_ && (now - target_.timestamp).seconds() >= TARGET_DETECT_TIMEOUT) {
+        target_detected_ = false;
 
-        if((now - target_memory_time_).seconds() < TARGET_PREDICTION_USE_DELAY && target_type_ == desired_target_type){
-            // Target is recent, use it!
-        }else if((now - target_memory_time_).seconds() < TARGET_MEMORY_TIMEOUT  && target_type_ == desired_target_type){
-            // Target isn't super recent, use prediction!
-            TargetData predicted = predictTargetPosition();
-            target_.x = predicted.x;
-            target_.y = predicted.y;
-            target_.z = predicted.z;
-            target_.theta_x = predicted.theta_x;
-            target_.theta_y = predicted.theta_y;
-        }else{
-            // Target is old, clear target and history
-            RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
-            target_detected_ = false;
-            target_history_.clear();
-            xFilter.reset();
-            yFilter.reset();
-            zFilter.reset();
-            theta_xFilter.reset();
-            theta_yFilter.reset();
+        if (VISION_PRINT_DEBUG) RCLCPP_INFO(this->get_logger(), "DETECTION TIMEOUT ON OBJECT.");
+    }
+
+    if (target_detected_ && !target_active_) {
+        target_active_ = true;
+
+        if (VISION_PRINT_DEBUG) RCLCPP_INFO(this->get_logger(), "GOT TRACKING ON OBJECT.");
+    }
+
+    if (target_active_) {
+        if (!target_detected_) {
+            // Actively pursuing target, but detection dropped out
+            if ((now - target_.timestamp).seconds() < TARGET_MEMORY_TIMEOUT) {
+                // Target isn't super recent, use prediction!
+                TargetData predicted = predictTargetPosition();
+                target_.x = predicted.x;
+                target_.y = predicted.y;
+                target_.z = predicted.z;
+                target_.theta_x = predicted.theta_x;
+                target_.theta_y = predicted.theta_y;
+                target_.bbox_area = predicted.bbox_area;
+            } else {
+                // Target is old, clear target and history
+                if (VISION_PRINT_DEBUG) RCLCPP_INFO(this->get_logger(), "LOST TRACKING ON OBJECT.");
+                
+                target_active_ = false;
+                reset_target();
+            }
         }
     }
 
     // Optionally print or log the target’s state for debugging.
     if (VISION_PRINT_DEBUG) {
-        if (target_detected_) {
-            std::string target_str = (target_type_ == ball ? "Ball" : (target_type_ == goal ? "Goal" : "None"));
+        if (target_active_) {
+            std::string target_str = (target_.type == ball ? "Ball" : (target_.type == goal ? "Goal" : "None"));
             RCLCPP_INFO(this->get_logger(), "Target: %s, ID: %d, Pos: (%.2f, %.2f, %.2f)",
-                        target_str.c_str(), target_id_, target_.x, target_.y, target_.z);
+                        target_str.c_str(), target_.id, target_.x, target_.y, target_.z);
         } else {
             RCLCPP_INFO(this->get_logger(), "No target detected.");
         }
@@ -710,9 +741,9 @@ void CatchingBlimp::vision_timer_callback() {
 float CatchingBlimp::searchDirection() {
     int ran = rand()%10; //need to check bounds
     float binary = 1.0;
-    if (ran <= 4){
+    if (ran <= 4) {
         binary = 1.0;
-    }else if (ran > 4){
+    } else if (ran > 4) {
         binary = -1.0;
     }
     return binary;
@@ -722,7 +753,7 @@ float CatchingBlimp::searchDirection() {
 // PID yPID_(0.8,0,0);       //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
 // PID xPID_(0.035,0,0);     //TODO:retune these 0.162 for pixel PID
 // PID zPID_(350, 0, 0);     //not used for now due to baro reading malfunction
-// PID yawPID_(12.0, 0, 0);  //can also tune kd with a little overshoot induced
+// PID yawRatePID_(12.0, 0, 0);  //can also tune kd with a little overshoot induced
 
 bool CatchingBlimp::load_pid_config() {
     //PID gains
@@ -735,15 +766,15 @@ bool CatchingBlimp::load_pid_config() {
     this->declare_parameter("z_p", 0.0);
     this->declare_parameter("z_i", 0.0);
     this->declare_parameter("z_d", 0.0);
-    this->declare_parameter("yaw_p", 0.0);
-    this->declare_parameter("yaw_i", 0.0);
-    this->declare_parameter("yaw_d", 0.0);
+    this->declare_parameter("yaw_rate_p", 0.0);
+    this->declare_parameter("yaw_rate_i", 0.0);
+    this->declare_parameter("yaw_rate_d", 0.0);
     this->declare_parameter("roll_p", 0.0);
     this->declare_parameter("roll_i", 0.0);
     this->declare_parameter("roll_d", 0.0);
-    this->declare_parameter("rollRate_p", 0.0);
-    this->declare_parameter("rollRate_i", 0.0);
-    this->declare_parameter("rollRate_d", 0.0);
+    this->declare_parameter("roll_rate_p", 0.0);
+    this->declare_parameter("roll_rate_i", 0.0);
+    this->declare_parameter("roll_rate_d", 0.0);
     if (
         this->get_parameter("x_p", x_p_) &&
         this->get_parameter("x_i", x_i_) &&
@@ -754,27 +785,27 @@ bool CatchingBlimp::load_pid_config() {
         this->get_parameter("z_p", z_p_) &&
         this->get_parameter("z_i", z_i_) &&
         this->get_parameter("z_d", z_d_) &&
-        this->get_parameter("yaw_p", yaw_p_) &&
-        this->get_parameter("yaw_i", yaw_i_) &&
-        this->get_parameter("yaw_d", yaw_d_) &&
+        this->get_parameter("yaw_rate_p", yaw_rate_p_) &&
+        this->get_parameter("yaw_rate_i", yaw_rate_i_) &&
+        this->get_parameter("yaw_rate_d", yaw_rate_d_) &&
         this->get_parameter("roll_p", roll_p_) &&
         this->get_parameter("roll_i", roll_i_) &&
         this->get_parameter("roll_d", roll_d_) &&
-        this->get_parameter("rollRate_p", rollRate_p_) &&
-        this->get_parameter("rollRate_i", rollRate_i_) &&
-        this->get_parameter("rollRate_d", rollRate_d_) 
-    ){
+        this->get_parameter("roll_rate_p", roll_rate_p_) &&
+        this->get_parameter("roll_rate_i", roll_rate_i_) &&
+        this->get_parameter("roll_rate_d", roll_rate_d_) 
+    ) {
         //Set gains
         xPID_ = PID(x_p_, x_i_, x_d_);  // left and right
         yPID_ = PID(y_p_, y_i_, y_d_);  // up and down
         zPID_ = PID(z_p_, z_i_, z_d_);  // unused
-        yawPID_ = PID(yaw_p_, yaw_i_, yaw_d_); // yaw correction
+        yawRatePID_ = PID(yaw_rate_p_, yaw_rate_i_, yaw_rate_d_); // yaw correction
         rollPID_ = PID(roll_p_, roll_i_, roll_d_);
-        rollRatePID_ = PID(rollRate_p_, rollRate_i_, rollRate_d_);
+        rollRatePID_ = PID(roll_rate_p_, roll_rate_i_, roll_rate_d_);
 
         RCLCPP_INFO(this->get_logger(), 
             "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), roll: (p=%.2f, i=%.2f, d=%.2f), rollrate: (p=%.2f, i=%.2f, d=%.2f), yawrate: (p=%.2f, i=%.2f, d=%.2f)", 
-            x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, roll_p_, roll_i_, roll_d_, rollRate_p_, rollRate_i_, rollRate_d_, yaw_p_, yaw_i_, yaw_d_);
+            x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_);
 
         return true;
     } else {
@@ -819,12 +850,15 @@ TargetData CatchingBlimp::predictTargetPosition(float offset) {
         predicted.z = target_.z;
         predicted.theta_x = target_.theta_x;
         predicted.theta_y = target_.theta_y;
+        predicted.bbox_area = target_.bbox_area;
+
         return predicted;
     }
 
     // Compute average velocity from the oldest to the most recent detection in the history.
     const TargetData& first = target_history_.front();
     const TargetData& last  = target_history_.back();
+
     double dt = (last.timestamp - first.timestamp).seconds();
     if (dt <= 0) {
         predicted.x = last.x;
@@ -832,14 +866,16 @@ TargetData CatchingBlimp::predictTargetPosition(float offset) {
         predicted.z = last.z;
         predicted.theta_x = target_.theta_x;
         predicted.theta_y = target_.theta_y;
+
         return predicted;
     }
 
-    double vx = 0.1*(last.x - first.x) / dt;
-    double vy = 0.1*(last.y - first.y) / dt;
-    double vz = 0.1*(last.z - first.z) / dt;
-    double vtheta_x = 0.1*(last.theta_x - first.theta_x) / dt;
-    double vtheta_y = 0.1*(last.theta_y - first.theta_y) / dt;
+    double vx = (last.x - first.x) / dt;
+    double vy = (last.y - first.y) / dt;
+    double vz = (last.z - first.z) / dt;
+    double vtheta_x = (last.theta_x - first.theta_x) / dt;
+    double vtheta_y = (last.theta_y - first.theta_y) / dt;
+    double varea = (last.bbox_area - first.bbox_area) / dt;
 
     // Determine the time difference between now and the last detection.
     double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
@@ -848,18 +884,9 @@ TargetData CatchingBlimp::predictTargetPosition(float offset) {
     predicted.x = last.x + vx * dt_pred;
     predicted.y = last.y + vy * dt_pred;
     predicted.z = last.z + vz * dt_pred;
-
     predicted.theta_x = last.theta_x + vtheta_x * dt_pred;
     predicted.theta_y = last.theta_y + vtheta_y * dt_pred;
-
-    predicted.bbox_area = 
-
-    // predicted.x = last.x;
-    // predicted.y = last.y;
-    // predicted.z = last.z;
-
-    // predicted.theta_x = target_.theta_x;
-    // predicted.theta_y = target_.theta_y;
+    predicted.bbox_area = last.bbox_area + varea * dt_pred;
 
     return predicted;
 }

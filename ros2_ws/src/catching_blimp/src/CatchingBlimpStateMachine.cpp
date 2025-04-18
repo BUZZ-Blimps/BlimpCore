@@ -1,7 +1,7 @@
 #include "CatchingBlimp.hpp"
 
 void CatchingBlimp::state_machine_callback() {
-    vision_timer_callback();
+    update_target();
     
     rclcpp::Time now = this->get_clock()->now();
     state_machine_dt_ = (now - state_machine_time_).seconds();
@@ -23,7 +23,7 @@ void CatchingBlimp::state_machine_callback() {
         //Blimp is lost
         forward_command_ = 0.0;
         up_command_ = 0.0;
-        yawrate_command_ = 0.0;
+        yaw_rate_command_ = 0.0;
     }
 
     up_motor_ = up_command_; //up for motor
@@ -40,24 +40,22 @@ void CatchingBlimp::state_machine_callback() {
     last_state_ = auto_state_;
 }
 
-
-
-void CatchingBlimp::state_machine_manual_callback(){
+void CatchingBlimp::state_machine_manual_callback() {
     // publish_log("Im in state_machine_callback, manual");
     //get manual data
     //all motor commands are between -1 and 1
     //set max yaw command to 120 deg/s
 
-    yawrate_command_ = -yaw_msg*120;
+    yaw_rate_command_ = -yaw_rate_msg_*120;
 
     if (USE_EST_VELOCITY_IN_MANUAL) {
         //set max velocities 2 m/s
-        up_command_ = up_msg*2.0;
-        forward_command_ = forward_msg*2.0;
+        up_command_ = up_msg_*2.0;
+        forward_command_ = forward_msg_*2.0;
     } else {
         //normal mapping using max esc command 
-        up_command_ = up_msg*750.0; //up is negative
-        forward_command_ = forward_msg*750.0;
+        up_command_ = up_msg_*750.0; //up is negative
+        forward_command_ = forward_msg_*750.0;
     }
 
     //check if shooting should be engaged
@@ -65,7 +63,7 @@ void CatchingBlimp::state_machine_manual_callback(){
     if (shoot != shootCom) {
         shoot = shootCom;
 
-        if(shoot == 1){
+        if(shoot == 1) {
             // Start shooting
             ballGrabber.shoot(control_mode_);
 
@@ -78,7 +76,7 @@ void CatchingBlimp::state_machine_manual_callback(){
             search_start_time_ = state_machine_time_;
             searchYawDirection = searchDirection();  //randomize the search direction
 
-        }else if(shoot == 0){
+        } else if (shoot == 0) {
             // Stop shooting
             ballGrabber.closeGrabber(control_mode_);
         }
@@ -89,7 +87,7 @@ void CatchingBlimp::state_machine_manual_callback(){
     if (grab != grabCom) {
         grab = grabCom;
 
-        if(grab == 1){
+        if (grab == 1) {
             // Start grabbing
             ballGrabber.openGrabber(control_mode_);
 
@@ -100,8 +98,7 @@ void CatchingBlimp::state_machine_manual_callback(){
             if (catches_ >= 1) {
                 last_catch_time_ = state_machine_time_;
             }
-
-        }else if(grab == 0){
+        } else if (grab == 0) {
             // Stop grabbing
             ballGrabber.closeGrabber(control_mode_);
 
@@ -109,7 +106,7 @@ void CatchingBlimp::state_machine_manual_callback(){
     }
 }
 
-void CatchingBlimp::state_machine_autonomous_callback(){
+void CatchingBlimp::state_machine_autonomous_callback() {
 
     /*---------------------------------------------------------------------------------------------------------------
     ---------------------------Target is determined from the state we are in-----------------------------------------
@@ -153,8 +150,7 @@ void CatchingBlimp::state_machine_autonomous_callback(){
     } //End auto_mode switch
 }
 
-
-void CatchingBlimp::state_machine_searching_callback(){
+void CatchingBlimp::state_machine_searching_callback() {
     //check if goal scoring should be attempted
     if (catches_ >= 1 && ((state_machine_time_ - last_catch_time_).seconds() >= (MAX_SEARCH_WAIT_AFTER_ONE - (catches_-1)*GAME_BALL_WAIT_TIME_PENALTY))) {
         catches_ = TOTAL_ATTEMPTS;
@@ -170,7 +166,7 @@ void CatchingBlimp::state_machine_searching_callback(){
     }
 
     //begin search pattern spinning around at different heights
-    if (!(target_detected_ && target_type_ == ball)) {
+    if (!(target_active_ && target_.type == ball)) {
 
         //keep ball grabber closed
         ballGrabber.closeGrabber(control_mode_);
@@ -207,14 +203,14 @@ void CatchingBlimp::state_machine_searching_callback(){
             //overide search commands
             forward_command_ = forward_avoidance_;
             up_command_ = up_avoidance_;
-            yawrate_command_ = yaw_avoidance_;
+            yaw_rate_command_ = yaw_rate_avoidance_;
 
         } else {
             //search behavior (no detected_target)
             //spin in a small circle looking for a game ball
             //randomize the search direciton
 
-            // yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            // yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
             // up_command_ = 0;    //is overriden later, defined here as a safety net
             // forward_command_ = GAME_BALL_FORWARD_SEARCH;
             
@@ -225,7 +221,7 @@ void CatchingBlimp::state_machine_searching_callback(){
 
             if (elapsedSearchingTime < TIME_TO_SEARCH) {
                 backingUp = false;
-                yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+                yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
                 forward_command_ = GAME_BALL_FORWARD_SEARCH;
 
                 if (z_hat_ > CEIL_HEIGHT) {
@@ -242,7 +238,7 @@ void CatchingBlimp::state_machine_searching_callback(){
                 }   
                 message += " Backup!";
                 
-                yawrate_command_ = 25*searchYawDirection;
+                yaw_rate_command_ = 25*searchYawDirection;
                 forward_command_ = -240;
                 up_command_ = 100;
             } else {
@@ -250,7 +246,7 @@ void CatchingBlimp::state_machine_searching_callback(){
                 search_start_time_ = state_machine_time_;
             }
 
-            yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
             forward_command_ = GAME_BALL_FORWARD_SEARCH;
 
             if (z_hat_ > CEIL_HEIGHT) {
@@ -270,7 +266,7 @@ void CatchingBlimp::state_machine_searching_callback(){
             //     if (2200 > millis() - backupTimer) {
             //         message += " first 2 seconds.";
             //         searchYawDirection = searchDirection();
-            //         yawrate_command_ = 60*searchYawDirection;
+            //         yaw_rate_command_ = 60*searchYawDirection;
             //         up_command_ = 50;    //is overriden later, defined here as a safety net
             //         forward_command_ = -200;
             //     }
@@ -282,21 +278,21 @@ void CatchingBlimp::state_machine_searching_callback(){
             //move up and down within the set boundry
             // if (z_hat_ > CEIL_HEIGHT) {
             //     // if (wasUp) wasUp = false;
-            //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            //     yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
             //     up_command_ = GAME_BALL_VERTICAL_SEARCH; //down
             //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
             // }
 
             // if (z_hat_ < FLOOR_HEIGHT) {
             //     // if (!wasUp) wasUp = true;
-            //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            //     yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
             //     up_command_ = GAME_BALL_VERTICAL_SEARCH;  //up
             //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
             // }
 
             // if (z_hat_ <= CEIL_HEIGHT && z_hat_ >=FLOOR_HEIGHT) {
             //     // if (wasUp) wasUp = false;
-            //     yawrate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            //     yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
             //     up_command_ = 0;
             //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
             // }
@@ -311,9 +307,8 @@ void CatchingBlimp::state_machine_searching_callback(){
     }
 }
 
-
-void CatchingBlimp::state_machine_approach_callback(){
-    RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away (target detected: %s)", approach_state_, target_.z, (target_detected_ ? "true" : "false"));
+void CatchingBlimp::state_machine_approach_callback() {
+    RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away (target detected: %s)", approach_state_, target_.z, (target_active_ ? "true" : "false"));
             
     // Check if maximum time to approach has been exceeded.
     if ((state_machine_time_ - approach_start_time_).seconds() >= MAX_APPROACH_TIME && !BALL_TRACKING_TESTING) {
@@ -324,7 +319,8 @@ void CatchingBlimp::state_machine_approach_callback(){
         return;
     }
 
-    if (target_detected_ && target_type_ == ball) {
+    if (target_active_ && target_.type == ball) {
+
         double distance = target_.z;  // Assuming target_.z is the distance measurement.
 
         switch (approach_state_) {
@@ -342,7 +338,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                     } else {
                         up_command_ = yPID_.calculate(GAME_BALL_Y_OFFSET, target_.y, state_machine_dt_);
                     }
-                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                    yaw_rate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                     
                     if (BALL_TRACKING_TESTING) {
                         forward_command_= 0;
@@ -355,8 +351,8 @@ void CatchingBlimp::state_machine_approach_callback(){
                     alignment_start_time_ = state_machine_time_;
                     // Pause forward motion during alignment.
                     forward_command_ = 0;
-                    yawrate_command_ = 0;
-                    up_command_      = 0;
+                    yaw_rate_command_ = 0;
+                    up_command_ = 0;
                 }
                 break;
             }
@@ -368,7 +364,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                 TargetData predicted = predictTargetPosition(ALIGN_PREDICT_HORIZON);
 
                 // Adjust yaw to minimize the alignment error relative to a desired offset (GAME_BALL_X_OFFSET).
-                yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, predicted.x, state_machine_dt_);
+                yaw_rate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, predicted.x, state_machine_dt_);
 
                 // Optionally hold altitude during alignment.
                 if (USE_DISTANCE_IN_BALL_APPROACH) {
@@ -387,6 +383,7 @@ void CatchingBlimp::state_machine_approach_callback(){
                 if ((state_machine_time_ - alignment_start_time_).seconds() >= ALIGNMENT_DURATION) {
                     approach_state_ = near_approach;
                 }
+
                 break;
             }
 
@@ -395,27 +392,23 @@ void CatchingBlimp::state_machine_approach_callback(){
                 // Resume forward approach using similar commands as before.
                 if (USE_X_DISTANCE_OFFSET) {
 
-                    // double old_yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                    // double old_yaw_rate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                     // double x_distance = std::tan(target_.theta_x * M_PI / 180.0) * target_.bbox_area;
-
-                    
-
                     // RCLCPP_INFO(this->get_logger(), "target_.theta_x: %f", target_.theta_x);
                     // RCLCPP_INFO(this->get_logger(), "target_.bbox_area: %f", target_.bbox_area);
                     // RCLCPP_INFO(this->get_logger(), "x_distance = %f", x_distance);
+                    // RCLCPP_INFO(this->get_logger(), "yaw_rate_command_ = %f", yaw_rate_command_);
 
-                    // RCLCPP_INFO(this->get_logger(), "yawrate_command_ = %f", yawrate_command_);
-
-                    if (predicted.bbox_area <= 900.0) {
+                    if (target_.bbox_area <= 900.0) {
                         // last_non_hundred_distance = target_.z;
                         // if (target_.z <= 1.0) {
                         //     xPID_.setPGain(1.5*x_p);
                         // }
                         // debug_msg_.data[0] = x_distance;
-                        // yawrate_command_ = xPID_.calculate(0, x_distance, state_machine_dt_);
-                        // RCLCPP_INFO(this->get_logger(), "yawrate_command_ = %.4f", yawrate_command_);
+                        // yaw_rate_command_ = xPID_.calculate(0, x_distance, state_machine_dt_);
+                        // RCLCPP_INFO(this->get_logger(), "yaw_rate_command_ = %.4f", yaw_rate_command_);
 
-                        double scaling = math_helpers::constrain(math_helpers::map(predicted.bbox_area, 900.0, 20000.0, 1.0, 0.1), 0.1, 1.0);
+                        double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, 900.0, 20000.0, 1.0, 0.1), 0.1, 1.0);
 
                         xPID_.setPGain(scaling*x_p_);
                         xPID_.setDGain(scaling*x_d_);
@@ -428,25 +421,25 @@ void CatchingBlimp::state_machine_approach_callback(){
                         //     x_distance = last_non_hundred_distance;
                         // }
                         // xPID_.setPGain(x_p);
-                        // yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_); //default to pixel based offset
+                        // yaw_rate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_); //default to pixel based offset
 
                         xPID_.setPGain(x_p_);
                         xPID_.setDGain(x_d_);
                     }
 
-                    yawrate_command_ = xPID_.calculate(0, predicted.theta_x, state_machine_dt_);
+                    yaw_rate_command_ = xPID_.calculate(0, target_.theta_x, state_machine_dt_);
 
                 } else {
                     //reset P gain
                     xPID_.setPGain(x_p_);
-                    yawrate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
+                    yaw_rate_command_ = xPID_.calculate(GAME_BALL_X_OFFSET, target_.x, state_machine_dt_);
                 }
                 
-                debug_msg_.data[1] = yawrate_command_;
-                debug_msg_.data[2] = -1* 0.14*target_.x;
+                debug_msg_.data[1] = yaw_rate_command_;
+                debug_msg_.data[2] = -1*0.14*target_.x;
                 debug_publisher->publish(debug_msg_);
 
-                if (USE_DISTANCE_IN_BALL_APPROACH){
+                if (USE_DISTANCE_IN_BALL_APPROACH) {
                     float theta_y_target = asin(BASKET_CAMERA_VERTICAL_OFFSET / distance);
                     float theta_y_ball = -target_.theta_y; // target_.theta_y is positive when ball is below center; intentionally flip sign to make it negative
                     RCLCPP_INFO(this->get_logger(), "theta_y_target: %f,  theta_y_ball: %f", theta_y_target, theta_y_ball);
@@ -504,7 +497,7 @@ void CatchingBlimp::state_machine_catching_callback() {
         up_command_ = CATCHING_UP_COM;
     }
 
-    yawrate_command_ = 0;
+    yaw_rate_command_ = 0;
 
     //Turn on the SUCK
     if (ballGrabber.is_open()) {
@@ -529,7 +522,7 @@ void CatchingBlimp::state_machine_catching_callback() {
 void CatchingBlimp::state_machine_caught_callback() {
     if (catches_ > 0) {
         //if a target is seen right after the catch
-        if (target_detected_ && target_type_ == ball && catches_ < TOTAL_ATTEMPTS) {
+        if (target_active_ && target_.type == ball && catches_ < TOTAL_ATTEMPTS) {
             //approach next game ball if visible
             auto_state_ = searching;
 
@@ -553,7 +546,7 @@ void CatchingBlimp::state_machine_caught_callback() {
 
         forward_command_ = CAUGHT_FORWARD_COM;
         up_command_ = CAUGHT_UP_COM;
-        yawrate_command_ = 0;
+        yaw_rate_command_ = 0;
     } else {
         auto_state_ = searching;
 
@@ -568,7 +561,7 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     ballGrabber.closeGrabber(control_mode_);
 
     //use object avoidence
-    double avoidanceMinVal = 1000.0; // Initialize 
+    double avoidanceMinVal = 1000.0; // Initialize
     int avoidanceMinIndex = 10;
 
     // Iterate through the vector to find the minimum value and its index
@@ -597,16 +590,16 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
         //override search commands
         forward_command_ = forward_avoidance_;
         up_command_ = up_avoidance_;
-        yawrate_command_ = yaw_avoidance_;
+        yaw_rate_command_ = yaw_rate_avoidance_;
     } else {
         //goal search behavior
         //randomize the diretion selection
-        yawrate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
+        yaw_rate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
         up_command_ = goalPositionHold.calculate(GOAL_HEIGHT, z_hat_);  //go up to the goal
         forward_command_ = GOAL_FORWARD_SEARCH;
     }
 
-    if (target_detected_ && target_type_ == goal) {
+    if (target_active_ && target_.type == goal) {
         RCLCPP_WARN(this->get_logger(), "DETECTED GOAL - APPROACHING!");
         goal_approach_start_time_ = state_machine_time_;
         auto_state_ = approachGoal;
@@ -614,8 +607,8 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
 }
 
 void CatchingBlimp::state_machine_approachGoal_callback(){
-    if (target_detected_ && target_type_ == goal) {
-        yawrate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, state_machine_dt_);
+    if (target_active_ && target_.type == goal) {
+        yaw_rate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, state_machine_dt_);
         up_command_ = yPID_.calculate(GOAL_Y_OFFSET, target_.y, state_machine_dt_);
 
         if (target_.z > 5) {
@@ -637,7 +630,7 @@ void CatchingBlimp::state_machine_approachGoal_callback(){
 
 void CatchingBlimp::state_machine_scoringStart_callback(){
     //after correction, we can do goal alignment with a yaw and a translation 
-    yawrate_command_ = SCORING_YAW_COM;
+    yaw_rate_command_ = SCORING_YAW_COM;
     forward_command_ = SCORING_FORWARD_COM;
     up_command_ = SCORING_UP_COM;
 
@@ -649,7 +642,7 @@ void CatchingBlimp::state_machine_scoringStart_callback(){
 }
 
 void CatchingBlimp::state_machine_shooting_callback(){
-    yawrate_command_ = 0;
+    yaw_rate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
     up_command_ = SHOOTING_UP_COM;
 
@@ -666,7 +659,7 @@ void CatchingBlimp::state_machine_shooting_callback(){
 void CatchingBlimp::state_machine_scored_callback(){
     ballGrabber.closeGrabber(control_mode_);
 
-    yawrate_command_ = 0;
+    yaw_rate_command_ = 0;
     forward_command_ = SCORED_FORWARD_COM;
     up_command_ = SCORED_UP_COM;
 
@@ -680,7 +673,7 @@ void CatchingBlimp::state_machine_scored_callback(){
 }
 
 void CatchingBlimp::state_machine_default_callback(){
-    yawrate_command_ = 0;
+    yaw_rate_command_ = 0;
     forward_command_ = 0;
     up_command_ = 0;
 }

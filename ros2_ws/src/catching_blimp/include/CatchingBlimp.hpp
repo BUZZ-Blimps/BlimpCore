@@ -59,9 +59,9 @@
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
-#define ZERO_MODE                 false
+#define ZERO_MODE                 true
 #define VERT_MODE                 false
-#define YAW_MODE                  false
+#define YAW_RATE_MODE             false
 
 // Vision debugging
 #define VISION_PRINT_DEBUG              true
@@ -99,7 +99,7 @@
 
 //object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
-#define YAW_AVOID                 30   // deg/s
+#define YAW_RATE_AVOID            30   // deg/s
 #define UP_AVOID                  125  // % throttle 
 
 //autonomy tunning parameters
@@ -128,10 +128,12 @@
 #define TIME_TO_SHOOT             3.5
 #define TIME_TO_SCORED            3.5
 #define MAX_APPROACH_TIME         15.0
+
 // #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
-#define TARGET_PREDICTION_USE_DELAY     0.5 // seconds to wait until prediction is used
+#define TARGET_DETECT_TIMEOUT     0.5  // seconds to wait until prediction is used for TIMEOUT
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
+#define TARGET_HISTORY_SIZE       10
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
@@ -148,10 +150,10 @@
 #define ALIGNING_TRANSLATION_COM   300  //test
 
 #define SCORING_YAW_COM           0
-#define SCORING_FORWARD_COM       350 //80% throttle
+#define SCORING_FORWARD_COM       350   //80% throttle
 #define SCORING_UP_COM            180
 
-#define SHOOTING_FORWARD_COM      400  //counter back motion 
+#define SHOOTING_FORWARD_COM      400   //counter back motion 
 #define SHOOTING_UP_COM           200
 //counter moment (right now we do want to shoot up because ball sinks)
 
@@ -250,15 +252,15 @@ enum target_type {
 };
 
 struct TargetData {
-  double x;
-  double y;
-  double z;
-  double theta_x;
-  double theta_y;
-  double bbox_area;
-  rclcpp::Time timestamp;
-  int id;
-  target_type type;
+    rclcpp::Time timestamp;
+    int id;
+    target_type type;
+    double x;
+    double y;
+    double z;
+    double theta_x;
+    double theta_y;
+    double bbox_area;
 };
 
 class CatchingBlimp: public rclcpp::Node {
@@ -335,7 +337,6 @@ private:
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     geometry_msgs::msg::TransformStamped blimp_tf_;
 
-
     size_t count_;
     std::string blimp_name_;
 
@@ -351,9 +352,8 @@ private:
 
     // Target detection
     bool target_detected_ = false;
+    bool target_active_ = false;
     TargetData target_;
-    int target_id_;
-    target_type target_type_;
     std::deque<TargetData> target_history_;
 
     double last_non_hundred_distance = 100;
@@ -376,7 +376,6 @@ private:
     //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
     //1000 means object is not present
     std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
-
     
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
@@ -396,13 +395,13 @@ private:
     rclcpp::Time alignment_start_time_;
 
     //msg for commands
-    float forward_msg = 0;
-    float yaw_msg = 0;
-    float up_msg = 0;
+    float forward_msg_ = 0;
+    float yaw_rate_msg_ = 0;
+    float up_msg_ = 0;
 
-    double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
-    double forward_command_, up_command_, yawrate_command_, rollrate_command_;
-    double forward_avoidance_, up_avoidance_, yaw_avoidance_;
+    double forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_;
+    double forward_command_, up_command_, yaw_rate_command_, roll_rate_command_;
+    double forward_avoidance_, up_avoidance_, yaw_rate_avoidance_;
     int roll_update_count_;
     
     rclcpp::Time start_time_;
@@ -421,13 +420,13 @@ private:
     double state_machine_dt_;
 
     // PID gains
-    double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_p_, yaw_i_, yaw_d_, roll_p_, roll_i_, roll_d_, rollRate_p_, rollRate_i_, rollRate_d_;
+    double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_;
 
     //Auto PID control (output fed into manual controller)
     PID xPID_;   //TODO:retune these 0.162 for pixel PID
     PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
     PID zPID_;   //not used for now due to baro reading malfunction
-    PID yawPID_; //can also tune kd with a little overshoot induced
+    PID yawRatePID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;
     PID theta_yPID_;
@@ -444,7 +443,6 @@ private:
     void imu_timer_callback();
     void baro_timer_callback();
     void state_machine_callback();
-    void vision_timer_callback();
 
     void state_machine_manual_callback();
     void state_machine_autonomous_callback();
@@ -478,6 +476,8 @@ private:
     bool load_pid_config();
     bool load_acc_calibration();
 
+    void reset_target();
+    void update_target();
     TargetData predictTargetPosition(float offset=0.0);
 };
 
