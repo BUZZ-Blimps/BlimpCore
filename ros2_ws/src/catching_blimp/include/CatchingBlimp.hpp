@@ -59,42 +59,40 @@
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
-#define ZERO_MODE                 true
+#define ZERO_MODE                 false
 #define VERT_MODE                 false
 #define YAW_RATE_MODE             false
 
 // Vision debugging
 #define VISION_PRINT_DEBUG              true
-#define USE_X_DISTANCE_OFFSET           true
-#define USE_DISTANCE_IN_BALL_APPROACH   false
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
-#define BALL_TRACKING_TESTING           true
+#define BALL_TRACKING_TESTING           false
 
 //optional controllers
-#define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
-#define USE_OBJECT_AVOIDENCE        false     //use false to turn off the obstacle avoidance 
+#define USE_EST_VELOCITY_IN_MANUAL  false    // use false to turn off the velosity control to see the blimp's behavior 
+#define USE_OBJECT_AVOIDENCE        false    // use false to turn off the obstacle avoidance 
 
 //catch search time after one
 #define MAX_SEARCH_WAIT_AFTER_ONE     80.0    //max searching 
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            1    // attempts at catching 
-#define MAX_ATTEMPTS              5    // should be set to 5
+#define TOTAL_ATTEMPTS            100    // attempts at catching 
+// #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               3   //m
+#define CEIL_HEIGHT               5   //m
 #define FLOOR_HEIGHT              -1  //m
 
-#define MAX_HEIGHT                12   //m  (unused)
-#define GOAL_HEIGHT               1  //m
-#define GOAL_HEIGHT_DEADBAND      0.3  //m
+#define MAX_HEIGHT                12    //m  (unused)
+#define GOAL_HEIGHT               1.5   //m
+#define GOAL_HEIGHT_DEADBAND      0.25  //m
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   200.0   // m distance for blimp to alignment submode switching in approach state 
-#define BALL_GATE_OPEN_TRIGGER   5.5   // m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       1.5   // m distance for blimp to start the open-loop control
+#define BALL_GATE_OPEN_TRIGGER   4.0   // m distance for blimp to open the gate 	
+#define BALL_CATCH_TRIGGER       0.75   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
 //object avoidence motor coms
@@ -109,7 +107,7 @@
 #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
 #define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        80    //offset magic number (more to the left)
+#define GAME_BALL_X_OFFSET        15.0    //offset magic number (more to the left)
 #define GAME_BALL_Y_OFFSET        160   //approach magic number
 
 #define GOAL_CLOSURE_COM          275  //forward command 25% throttle
@@ -122,7 +120,7 @@
 
 #define TIME_TO_SEARCH            15.0
 #define TIME_TO_BACKUP            5.0
-#define TIME_TO_CATCH             4.2 //seconds
+#define TIME_TO_CATCH             4.0 //seconds
 #define TIME_TO_CAUGHT            2.5
 #define TIME_TO_SCORE             1.7
 #define TIME_TO_SHOOT             3.5
@@ -132,7 +130,7 @@
 // #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
 #define TARGET_DETECT_TIMEOUT     0.5  // seconds to wait until prediction is used for TIMEOUT
-#define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
+#define TARGET_MEMORY_TIMEOUT     1.0  // seconds to wait until ID/detection is moved on from
 #define TARGET_HISTORY_SIZE       10
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
@@ -192,6 +190,8 @@
 #define PIN_RIGHT_FORWARD         10
 
 //***********************************************//
+
+#define PREDICTION_GAIN         0.1
 
 // Constants
 #define MICROS_TO_SEC             1000000.0
@@ -278,9 +278,6 @@ private:
     double R_lid = 0.1;
 
     MotorControl_V2 motorControl_V2;
-
-    // //Goal positioning controller
-    // BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
 
     //Goal positioning controller
     BangBang goalPositionHold; //Dead band, velocity to center itself
@@ -373,8 +370,8 @@ private:
     //Avoidance data
     int quadrant = 10;
 
-    //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
-    //1000 means object is not present
+    // avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
+    // 1000 means object is not present
     std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
     
     bool imu_init_, baro_init_;
@@ -423,9 +420,9 @@ private:
     double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_;
 
     //Auto PID control (output fed into manual controller)
-    PID xPID_;   //TODO:retune these 0.162 for pixel PID
-    PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
-    PID zPID_;   //not used for now due to baro reading malfunction
+    PID xPID_;       //TODO:retune these 0.162 for pixel PID
+    PID yPID_;       //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
+    PID zPID_;       //not used for now due to baro reading malfunction
     PID yawRatePID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;

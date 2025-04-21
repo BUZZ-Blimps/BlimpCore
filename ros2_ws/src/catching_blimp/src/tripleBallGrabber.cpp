@@ -20,7 +20,6 @@ TripleBallGrabber::TripleBallGrabber() {
     targetThrust = currentThrust;
     shooting_state_ = state_off;
     time_change_thrust = current_time;
-    
 }
 
 void TripleBallGrabber::ballgrabber_init(int servoPin, int motorPin){
@@ -123,16 +122,14 @@ void TripleBallGrabber::update() {
         shooter_change_rate = shooter_change_rate_mag_decrease;
     }
 
-    double maxThurstRamp = elapsedTime * shooter_change_rate; //tunable
-
+    double maxThrustRamp = elapsedTime * shooter_change_rate; //tunable
     double errorThrust = targetThrust - currentThrust;
-
     double deltaThrust;
 
-    if (errorThrust > maxThurstRamp) {
-        deltaThrust = maxThurstRamp;
-    } else if (errorThrust < -maxThurstRamp) {
-        deltaThrust = -maxThurstRamp;
+    if (errorThrust > maxThrustRamp) {
+        deltaThrust = maxThrustRamp;
+    } else if (errorThrust < -maxThrustRamp) {
+        deltaThrust = -maxThrustRamp;
     } else {
         // Error is extremely close
         deltaThrust = errorThrust;
