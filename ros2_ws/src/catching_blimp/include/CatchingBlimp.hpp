@@ -59,7 +59,7 @@
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
-#define ZERO_MODE                 false
+#define ZERO_MODE                 true
 #define VERT_MODE                 false
 #define YAW_RATE_MODE             false
 
@@ -77,7 +77,7 @@
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            100    // attempts at catching 
+#define TOTAL_ATTEMPTS            5    // attempts at catching 
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
@@ -91,16 +91,16 @@
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   200.0   // m distance for blimp to alignment submode switching in approach state 
-#define BALL_GATE_OPEN_TRIGGER   4.0   // m distance for blimp to open the gate 	
+#define BALL_GATE_OPEN_TRIGGER   2.0   // m distance for blimp to open the gate 	
 #define BALL_CATCH_TRIGGER       0.75   // m distance for blimp to start the open-loop control
 #define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
 
-//object avoidence motor coms
+// Object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
 #define YAW_RATE_AVOID            30   // deg/s
 #define UP_AVOID                  125  // % throttle 
 
-//autonomy tunning parameters
+// Autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
 #define GAME_BALL_YAW_SEARCH      -20  // deg/s
 #define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 

@@ -243,7 +243,7 @@ void CatchingBlimp::imu_timer_callback() {
     heading_msg_.data = {euler_angles[2], BerryIMU.MagYraw, BerryIMU.MagXraw, std::atan2(BerryIMU.MagYraw, BerryIMU.MagXraw)*180/M_PI};
     heading_publisher_->publish(heading_msg_);
 
-    //hyperbolic tan for yaw "filtering"
+    // hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
     yaw_rate_motor_ = yawRatePID_.calculate(yaw_rate_command_, yawRateFilter.last, dt);
     if (fabs(yaw_rate_command_-yawRateFilter.last) < deadband) {
@@ -251,8 +251,9 @@ void CatchingBlimp::imu_timer_callback() {
     }
 
     // Update roll controller every 4 timesteps
+    const double deadband_roll = 5.0;
+
     if (roll_update_count_ == 4) {
-        double deadband_roll = 5.0;
         roll_rate_command_ = rollPID_.calculate(0, roll, dt);
         if (fabs(roll) < deadband_roll) {
             roll_rate_command_ = 0;
@@ -262,7 +263,7 @@ void CatchingBlimp::imu_timer_callback() {
     }
     roll_update_count_++;
 
-    double deadband_rollRate = 1.0;
+    const double deadband_rollRate = 1.0;
     roll_rate_motor_ = rollRatePID_.calculate(roll_rate_command_, rollRateFilter.last, dt);
     if (fabs(roll_rate_command_ - rollRateFilter.last) < deadband_rollRate) {
         roll_rate_motor_ = 0;

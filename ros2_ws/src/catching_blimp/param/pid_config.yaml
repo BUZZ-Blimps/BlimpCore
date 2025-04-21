@@ -15,6 +15,6 @@
     roll_p: 3.0 #subject to change
     roll_i: 0.0
     roll_d: 0.0
-    rollRate_p: 6.0 #subject to change
-    rollRate_i: 0.0
-    rollRate_d: 0.0
+    roll_rate_p: 6.0 #subject to change
+    roll_rate_i: 0.0
+    roll_rate_d: 0.0
