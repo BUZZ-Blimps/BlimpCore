@@ -354,46 +354,43 @@ void CatchingBlimp::imu_timer_callback() {
 
 void CatchingBlimp::lidar_timer_callback() {
     lidar.TOF_read();
+
     // RCLCPP_INFO(this->get_logger(), "Sys time: %d", lidar.system_time);
-    double lidar_reading = double(lidar.dis/1000.0);
-    RCLCPP_INFO(this->get_logger(), "Sys time: %d, Dis: %.2f m, Signal strength: %d", lidar.system_time, lidar_reading, lidar.signal_strength);
+    // double lidar_reading = double(lidar.dis/1000.0);
+    // RCLCPP_INFO(this->get_logger(), "Sys time: %d, Dis: %.2f m, Signal strength: %d", lidar.system_time, lidar_reading, lidar.signal_strength);
 
     // Make sure sample is new
-    if (lidar.system_time - lidar_sys_time_ > 0) {
+    if (lidar.system_time != lidar_sys_time_) {
         // Update LiDar reading time
         lidar_sys_time_ = lidar.system_time;
 
         // Throw out low quality samples
-        // if (lidar.signal_strength > 2500) {
+        if (lidar.signal_strength > 2500) {
+            // Read LiDar straight to Z baby
+            double lidar_reading = double(lidar.dis / 1000.0);
 
-        // }
+            // RCLCPP_INFO(this->get_logger(), "Dis: %.2f m, Signal strength: %d", lidar_reading, lidar.signal_strength);
 
-        // Read LiDar straight to Z baby
-        double lidar_reading = double(lidar.dis/1000.0);
+            // Lowpass filter the lidar reading
+            z_hat_ = heightFilter_.filter(lidar_reading);
+            z_msg_.data = z_hat_;
+            height_publisher_->publish(z_msg_);
 
-        RCLCPP_INFO(this->get_logger(), "Dis: %.2f m, Signal strength: %d", lidar_reading, lidar.signal_strength);
-
-        // Lowpass filter the lidar reading
-        z_hat_ = heightFilter_.filter(lidar_reading);
-        z_msg_.data = z_hat_;
-        height_publisher_->publish(z_msg_);
-
-        lidar_count_++;
+            // lidar_count_++;
+        }
     }
 
-    rclcpp::Time now = this->get_clock()->now();
+    // rclcpp::Time now = this->get_clock()->now();
     
-    if ((now - lidar_time_).seconds() >= 1.0) {
-        RCLCPP_INFO(this->get_logger(), "LiDar %d Hz", lidar_count_);
-        lidar_count_ = 0;
-        lidar_time_ = now;
-    }
+    // if ((now - lidar_time_).seconds() >= 1.0) {
+    //     RCLCPP_INFO(this->get_logger(), "LiDar %d Hz", lidar_count_);
+    //     lidar_count_ = 0;
+    //     lidar_time_ = now;
+    // }
 
     // else {
     //     RCLCPP_WARN(this->get_logger(), "Oversampled lidar!");
-    // }
-
-    
+    // }    
 }
 
 void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {

@@ -39,7 +39,7 @@ int main(int argc, char **argv)
         // TOF_peek = serialGetchar(fd);      // Read a byte 读取一个字节
         // printf("%d tof_peek: %d\n", count, TOF_peek);
 
-        delay(20);
+        // delay(20);
 
         // count++;
 
