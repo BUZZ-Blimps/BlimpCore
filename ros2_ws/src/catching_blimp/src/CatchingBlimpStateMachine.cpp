@@ -27,7 +27,7 @@ void CatchingBlimp::state_machine_callback() {
             z_command_  = FLOOR_HEIGHT;
         }
 
-        RCLCPP_INFO(this->get_logger(), "Zd = %.2f, Z =  %.2f, up = %.2f", z_command_, heightFilter_.last, up_motor_);
+        
         
     } else {
         //Blimp is lost
@@ -63,8 +63,8 @@ void CatchingBlimp::state_machine_manual_callback() {
         forward_command_ = forward_msg_*2.0;
     } else {
         //normal mapping using max esc command 
-        up_command_ = up_msg_*500.0; //up is negative
-        forward_command_ = forward_msg_*500.0;
+        up_command_ = up_msg_*750.0; //up is negative
+        forward_command_ = forward_msg_*750.0;
     }
 
     //check if shooting should be engaged

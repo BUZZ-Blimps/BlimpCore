@@ -77,7 +77,7 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.9);
 
-    zPID_.setOutputLimits(-500.0, 500.0);
+    zPID_.setOutputLimits(-750.0, 750.0);
     zPID_.setIMin(0);
     zPID_.setIMax(50);
     
@@ -281,6 +281,8 @@ void CatchingBlimp::imu_timer_callback() {
         up_motor_ = zPID_.calculate(z_command_, heightFilter_.last, dt);
         up_motor_ = tanh(up_motor_)*abs(up_motor_);
 
+        RCLCPP_INFO(this->get_logger(), "Zd = %.2f, Z =  %.2f, up = %.2f", z_command_, heightFilter_.last, up_motor_);
+
         // if (abs(up_motor_) < 75) {
         //     double sgn_up = up_motor_ > 0 ? 1.0 : -1.0;
         //     up_motor_ = sgn_up*75;
@@ -361,6 +363,7 @@ void CatchingBlimp::lidar_timer_callback() {
 
     // Make sure sample is new
     if (lidar.system_time != lidar_sys_time_) {
+
         // Update LiDar reading time
         lidar_sys_time_ = lidar.system_time;
 

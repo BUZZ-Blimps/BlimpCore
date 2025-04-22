@@ -79,7 +79,7 @@
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
 //number of catches attempted
-#define TOTAL_ATTEMPTS            100    // attempts at catching 
+#define TOTAL_ATTEMPTS            1    // attempts at catching 
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
