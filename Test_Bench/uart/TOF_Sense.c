@@ -11,11 +11,13 @@
  ******************************************************************************/
 #include "TOF_Sense.h"
 
-TOF_Parameter TOF_0;              // Define a structure to store decoded data 定义一个存放解码后数据的结构体
+
 uint8_t count_i = 0, count_j = 0; // Loop count variable 循环计数变量
 uint8_t check_sum = 0;            // Checksum 校验和
 uint8_t rx_buf[16];               // Serial port receiving array 串口接收数组
 uint8_t TOF_peek = 0;             // Temporary storage of data 临时存放数据
+
+TOF_Parameter TOF_0; // Define a structure to store decoded data 定义一个存放解码后数据的结构体
 
 /******************************************************************************
 function:	Actively acquire TOF data and decode it 主动获取TOF数据，并进行解码
@@ -57,12 +59,12 @@ void TOF_Active_Decoding(int fd)
             TOF_0.range_precision = rx_buf[14];                                                                                                                                    // The repeatability accuracy reference value output by the TOF module is invalid for Type C, Type D and Mini. TOF模块输出的重复测距精度参考值，对于C型,D型和Mini型是无效的
 
             //Print data through the terminal 通过终端打印数据
-            printf("TOF id is:%d\r\n", TOF_0.id);
-            printf("TOF system time is:%d ms\r\n", TOF_0.system_time);
-            printf("TOF distance is:%d mm\r\n", TOF_0.dis);
-            printf("TOF status is:%d\r\n", TOF_0.dis_status);
-            printf("TOF signal strength is:%d\r\n", TOF_0.signal_strength);
-            printf("TOF range precision is:%d\r\n\n", TOF_0.range_precision);
+            printf("TOF id is: %d\r\n", TOF_0.id);
+            printf("TOF system time is: %d ms\r\n", TOF_0.system_time);
+            printf("TOF distance is: %d mm\r\n", TOF_0.dis);
+            printf("TOF status is: %d\r\n", TOF_0.dis_status);
+            printf("TOF signal strength is: %d\r\n", TOF_0.signal_strength);
+            printf("TOF range precision is: %d\r\n\n", TOF_0.range_precision);
             serialFlush(fd);//Clear the serial port buffer 清空串口缓存
         }
         else

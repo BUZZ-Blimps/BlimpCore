@@ -15,12 +15,13 @@ CatchingBlimp::CatchingBlimp() :
     goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY),
     yawRateFilter(0.2),
     rollRateFilter(0.5),
-    xFilter(0.95),
-    yFilter(0.95),
-    zFilter(0.95),
-    theta_xFilter(0.95),
-    theta_yFilter(0.95),
-    areaFilter(0.95),
+    xFilter(0.9),
+    yFilter(0.9),
+    zFilter(0.9),
+    theta_xFilter(0.9),
+    theta_yFilter(0.9),
+    areaFilter(0.9),
+    heightFilter_(0.9),
     count_(0),
     target_detected_(false),
     target_active_(false),
@@ -29,16 +30,21 @@ CatchingBlimp::CatchingBlimp() :
     baro_calibration_offset_(0.0),
     baro_sum_(0.0),
     baro_count_(0),
-    z_hat_(0), 
+    z_hat_(0),
     catches_(0), 
     control_mode_(INITIAL_MODE), 
     auto_state_(searching),
     forward_command_(0),
     up_command_(0),
+    z_command_(INITIAL_HEIGHT),
     yaw_rate_command_(0),
     roll_rate_command_(0),
     roll_update_count_(0),
-    theta_yPID_(1300, 0, 0) {
+    theta_yPID_(1300, 0, 0),
+    z_dir_up_(true),
+    lidar_time_(0),
+    lidar_sys_time_(0),
+    lidar_count_(0) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -71,6 +77,10 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.9);
 
+    zPID_.setOutputLimits(-500.0, 500.0);
+    zPID_.setIMin(0);
+    zPID_.setIMax(50);
+    
     // Initialize to no target
     target_.id = -1;
     target_.type = no_target;
@@ -99,17 +109,17 @@ CatchingBlimp::CatchingBlimp() :
 
     // Basestation bool subscribers
     auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", bool_qos, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
-    cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
+    // cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
     grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", bool_qos, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
     shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", bool_qos, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
     kill_subscription = this->create_subscription<std_msgs::msg::Bool>("killed", bool_qos, std::bind(&CatchingBlimp::kill_subscription_callback, this, _1));
     goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>("goal_color", bool_qos, std::bind(&CatchingBlimp::goal_color_subscription_callback, this, _1));
-    
+
     // Basestation motor commands
     motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("motor_commands", motor_qos, std::bind(&CatchingBlimp::motor_subscription_callback, this, _1)); 
 
     // Base barometer
-    base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
+    // base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
 
     // Offboard ML
     targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("targets", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
@@ -117,19 +127,22 @@ CatchingBlimp::CatchingBlimp() :
     // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
-    //100Hz IMU timer
+    // 100 Hz IMU timer
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_timer_callback, this));
 
-    //50Hz barometer timer
-    timer_baro = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
+    // 100 Hz lidar timer
+    // timer_baro = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
 
-    //33Hz state machine timer
+    // Read LiDar @ 50 Hz
+    timer_lidar = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::lidar_timer_callback, this));
+
+    // 33 Hz state machine timer
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
 
-    //2Hz heartbeat timer
+    // 2 Hz heartbeat timer
     timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
 
-    //Initialize timestamps
+    // Initialize timestamps
     rclcpp::Time now = this->get_clock()->now();
     start_time_ = now;
     imu_msg_.header.stamp = now;
@@ -144,6 +157,8 @@ CatchingBlimp::CatchingBlimp() :
     score_start_time_ = now;
     approach_start_time_ = now;
     goal_approach_start_time_ = now;
+
+    lidar_time_ = now;
 
     state_machine_dt_ = 0;
 
@@ -177,8 +192,7 @@ void CatchingBlimp::imu_timer_callback() {
     
     // Read sensor values and update madgwick
     BerryIMU.IMU_read();
-    lidar.TOF_read();
-    
+
     // Apply IMU calibration
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
@@ -190,12 +204,12 @@ void CatchingBlimp::imu_timer_callback() {
     std::vector<double> euler_angles = madgwick.get_euler();
     double roll = euler_angles[0];
 
-    if (imu_init_) {
-        //Only propagate after first IMU sample so dt makes sense
-        z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
-    } else {
-        imu_init_ = true;
-    }
+    // if (imu_init_) {
+    //     //Only propagate after first IMU sample so dt makes sense
+    //     z_est_.propagate(acc_cal(0), acc_cal(1), acc_cal(2), quat, dt);
+    // } else {
+    //     imu_init_ = true;
+    // }
 
     imu_msg_.header.stamp = now;
     imu_msg_.orientation.w = quat[0];
@@ -213,18 +227,14 @@ void CatchingBlimp::imu_timer_callback() {
 
     imu_publisher_->publish(imu_msg_);
 
-    //Lowpass propogated z estimate
+    // Lowpass propogated z estimate
     // z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
-
-    z_msg_.data = z_hat_;
-    height_publisher_->publish(z_msg_);
-
     // debug_msg_.data[0] = z_hat_; //baro and lidar kalman
     // debug_msg_.data[2] = double(lidar.dis)/1000; //only  
     // debug_publisher->publish(debug_msg_);
 
-    z_vel_msg_.data = z_est_.xHat(1);
-    z_velocity_publisher_->publish(z_vel_msg_);
+    // z_vel_msg_.data = z_est_.xHat(1);
+    // z_velocity_publisher_->publish(z_vel_msg_);
 
     //Broadcast TF
     blimp_tf_.header.stamp = now;
@@ -232,7 +242,6 @@ void CatchingBlimp::imu_timer_callback() {
     blimp_tf_.transform.translation.y = 0;
     blimp_tf_.transform.translation.z = z_hat_;
     blimp_tf_.transform.rotation = imu_msg_.orientation;
-
     tf_broadcaster_->sendTransform(blimp_tf_);
 
     // Update filtered yaw rate
@@ -246,13 +255,12 @@ void CatchingBlimp::imu_timer_callback() {
     // hyperbolic tan for yaw "filtering"
     double deadband = 1.0; // deadband for filteration
     yaw_rate_motor_ = yawRatePID_.calculate(yaw_rate_command_, yawRateFilter.last, dt);
-    if (fabs(yaw_rate_command_-yawRateFilter.last) < deadband) {
+    if (fabs(yaw_rate_command_ - yawRateFilter.last) < deadband) {
         yaw_rate_motor_ = 0;
     }
 
     // Update roll controller every 4 timesteps
     const double deadband_roll = 5.0;
-
     if (roll_update_count_ == 4) {
         roll_rate_command_ = rollPID_.calculate(0, roll, dt);
         if (fabs(roll) < deadband_roll) {
@@ -269,8 +277,18 @@ void CatchingBlimp::imu_timer_callback() {
         roll_rate_motor_ = 0;
     }
 
-    if (MOTOR_PRINT_DEBUG) {
-        RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
+    if (control_mode_ == autonomous) {
+        up_motor_ = zPID_.calculate(z_command_, heightFilter_.last, dt);
+        up_motor_ = tanh(up_motor_)*abs(up_motor_);
+
+        // if (abs(up_motor_) < 75) {
+        //     double sgn_up = up_motor_ > 0 ? 1.0 : -1.0;
+        //     up_motor_ = sgn_up*75;
+        // }
+
+        if (MOTOR_PRINT_DEBUG) {
+            RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
+        }
     }
 
     // Wait 5 seconds before doing anything interesting
@@ -298,11 +316,12 @@ void CatchingBlimp::imu_timer_callback() {
     motorControl_V2.update(forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
 }
 
-void CatchingBlimp::baro_timer_callback() {
+// void CatchingBlimp::baro_timer_callback() {
+
+    // BerryIMU.baro_read();
 
     // Get current barometer reading
-    // BerryIMU.baro_read();
-    lidar.TOF_read();
+    
 
     // if (!baro_init_) return;
 
@@ -329,12 +348,52 @@ void CatchingBlimp::baro_timer_callback() {
     //     baro_sum_ = 0.0;
     //     baro_count_ = 0;
     // }
-
-    double lidar_reading = double(lidar.dis - lidar_calibration_offset_)/1000;
     // z_est_.update(lidar_reading, R_lid);
     // z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+// }
 
-    z_hat_ = lidar_reading;
+void CatchingBlimp::lidar_timer_callback() {
+    lidar.TOF_read();
+    // RCLCPP_INFO(this->get_logger(), "Sys time: %d", lidar.system_time);
+    double lidar_reading = double(lidar.dis/1000.0);
+    RCLCPP_INFO(this->get_logger(), "Sys time: %d, Dis: %.2f m, Signal strength: %d", lidar.system_time, lidar_reading, lidar.signal_strength);
+
+    // Make sure sample is new
+    if (lidar.system_time - lidar_sys_time_ > 0) {
+        // Update LiDar reading time
+        lidar_sys_time_ = lidar.system_time;
+
+        // Throw out low quality samples
+        // if (lidar.signal_strength > 2500) {
+
+        // }
+
+        // Read LiDar straight to Z baby
+        double lidar_reading = double(lidar.dis/1000.0);
+
+        RCLCPP_INFO(this->get_logger(), "Dis: %.2f m, Signal strength: %d", lidar_reading, lidar.signal_strength);
+
+        // Lowpass filter the lidar reading
+        z_hat_ = heightFilter_.filter(lidar_reading);
+        z_msg_.data = z_hat_;
+        height_publisher_->publish(z_msg_);
+
+        lidar_count_++;
+    }
+
+    rclcpp::Time now = this->get_clock()->now();
+    
+    if ((now - lidar_time_).seconds() >= 1.0) {
+        RCLCPP_INFO(this->get_logger(), "LiDar %d Hz", lidar_count_);
+        lidar_count_ = 0;
+        lidar_time_ = now;
+    }
+
+    // else {
+    //     RCLCPP_WARN(this->get_logger(), "Oversampled lidar!");
+    // }
+
+    
 }
 
 void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
@@ -466,16 +525,20 @@ void CatchingBlimp::publish_log(std::string message) {
 }
 
 void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
 
     if (msg->data) {
         if (control_mode_ == manual) {
             publish_log("Activating Auto Mode");
+            RCLCPP_INFO(this->get_logger(), "Switched to autonomous");
         }
         control_mode_ = autonomous;
+
+        // Z search direction
+        z_dir_up_ = true;
     } else {
         if (control_mode_ == autonomous) {
             publish_log("Going Manual for a Bit...");
+            RCLCPP_INFO(this->get_logger(), "Switched to manual control");
         }
         control_mode_ = manual;
     }
@@ -484,50 +547,50 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
     auto_state_ = searching;
 }
 
-void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    (void) msg;
+// void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+//     (void) msg;
 
-    // Barometer Calibration
-    // Read latest pressure value
-    BerryIMU.baro_read();
-    lidar.TOF_read();
-    baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
+//     // Barometer Calibration
+//     // Read latest pressure value
+//     BerryIMU.baro_read();
+//     lidar.TOF_read();
+//     baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
 
-    try {
-        lidar_calibration_offset_ = lidar.dis; //mm
-    } catch (const std::exception& e) {
-        std::cout << "Lidar offset error: " << e.what() << std::endl;
-        lidar_calibration_offset_ = 0.0; // Assign fallback value
-    }
+//     try {
+//         lidar_calibration_offset_ = lidar.dis; //mm
+//     } catch (const std::exception& e) {
+//         std::cout << "Lidar offset error: " << e.what() << std::endl;
+//         lidar_calibration_offset_ = 0.0; // Assign fallback value
+//     }
 
-    // Reset (zero) kalman filter
-    z_est_.reset();
+//     // Reset (zero) kalman filter
+//     z_est_.reset();
 
-    publish_log(std::to_string(BerryIMU.comp_press));
-    publish_log(std::to_string(base_baro_));
-    publish_log(std::to_string(baro_calibration_offset_));
+//     publish_log(std::to_string(BerryIMU.comp_press));
+//     publish_log(std::to_string(base_baro_));
+//     publish_log(std::to_string(baro_calibration_offset_));
 
-    publish_log("Calibrating Barometer");
-}
+//     publish_log("Calibrating Barometer");
+// }
 
-void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
+// void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg) {
+//     // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
 
-    base_baro_ = msg->data;
+//     base_baro_ = msg->data;
 
-    if (!baro_init_) {
-        RCLCPP_INFO(this->get_logger(), "Base barometer initialized.");
-        baro_init_ = true;
-    }
+//     if (!baro_init_) {
+//         RCLCPP_INFO(this->get_logger(), "Base barometer initialized.");
+//         baro_init_ = true;
+//     }
 
-    // Filter base station data
-    // baroOffset.filter(baseBaro - BerryIMU.comp_press);
+//     // Filter base station data
+//     // baroOffset.filter(baseBaro - BerryIMU.comp_press);
 
-    //If teensy comes out of lost control mode, put it in manual control mode
-    if (control_mode_ == lost) {
-        control_mode_ = manual;
-    }
-}
+//     //If teensy comes out of lost control mode, put it in manual control mode
+//     if (control_mode_ == lost) {
+//         control_mode_ = manual;
+//     }
+// }
 
 void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
@@ -784,15 +847,15 @@ bool CatchingBlimp::load_pid_config() {
         // Set gains
         xPID_ = PID(x_p_, x_i_, x_d_);  // left and right
         yPID_ = PID(y_p_, y_i_, y_d_);  // up and down
-        zPID_ = PID(z_p_, z_i_, z_d_);  // unused
+        zPID_ = PID(z_p_, z_i_, z_d_);  // z (altitude)
 
         yawRatePID_ = PID(yaw_rate_p_, yaw_rate_i_, yaw_rate_d_); // yaw correction
         rollPID_ = PID(roll_p_, roll_i_, roll_d_);
         rollRatePID_ = PID(roll_rate_p_, roll_rate_i_, roll_rate_d_);
 
         RCLCPP_INFO(this->get_logger(), 
-            "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), roll: (p=%.2f, i=%.2f, d=%.2f), rollrate: (p=%.2f, i=%.2f, d=%.2f), yawrate: (p=%.2f, i=%.2f, d=%.2f)", 
-            x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_);
+            "PID Gains: x: (p=%.2f, i=%.2f, d=%.2f), y: (p=%.2f, i=%.2f, d=%.2f), z: (p=%.2f, i=%.2f, d=%.2f), roll: (p=%.2f, i=%.2f, d=%.2f), rollrate: (p=%.2f, i=%.2f, d=%.2f), yawrate: (p=%.2f, i=%.2f, d=%.2f)", 
+            x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_);
 
         return true;
     } else {
@@ -827,7 +890,7 @@ bool CatchingBlimp::load_acc_calibration() {
     }
 }
 
-TargetData CatchingBlimp::predictTargetPosition(float offset) {
+TargetData CatchingBlimp::predictTargetPosition(double offset) {
     TargetData predicted;
 
     // If we have fewer than two points, we cannot compute a velocity—return the last known value.

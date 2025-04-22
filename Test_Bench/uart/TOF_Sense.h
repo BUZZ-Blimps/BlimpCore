@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _TOF_SENSE_H_
 #define _TOF_SENSE_H_
 
@@ -20,37 +22,12 @@ typedef struct {
   uint8_t range_precision;//TOF模块输出的重复测距精度参考值，TOFSense-F系列有效，单位：cm
 } TOF_Parameter;//解码后的TOF数据结构体
 
+extern TOF_Parameter TOF_0;
+
 void TOF_Active_Decoding(int fd);
 
 
 // void TOF_Inquire_Decoding(uint8_t id);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #endif

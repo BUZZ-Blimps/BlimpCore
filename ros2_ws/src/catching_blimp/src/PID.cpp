@@ -10,7 +10,8 @@ PID::PID():
     _error(0),
     _pre_error(0),
     _integral(0),
-    _i_limit(0),
+    _i_min(-1),
+    _i_max(1),
     _d_limit(0),
     _limit_output(false)
 {}
@@ -25,7 +26,8 @@ PID::PID(double kp, double ki, double kd) :
     _error(0),
     _pre_error(0),
     _integral(0),
-    _i_limit(0),
+    _i_min(-1),
+    _i_max(1),
     _d_limit(0),
     _limit_output(false)
 {
@@ -39,8 +41,17 @@ void PID::setOutputLimits(double min, double max) {
     _limit_output = true;
 }
 
+void PID::setIMin(double iMin) {
+    _i_min = iMin;
+}
+
+void PID::setIMax(double iMax) {
+    _i_max = iMax;
+}
+
 void PID::setILimit(double iLimit) {
-    _i_limit = abs(iLimit);
+    _i_min = -1.0*abs(iLimit);
+    _i_max = abs(iLimit);
 }
 
 void PID::setDLimit(double dLimit) {
@@ -78,12 +89,14 @@ double PID::calculate(double setpoint, double pv, double dt) {
     double p_out = _kp * _error;
 
     // Integral term
-    _integral += _error * dt;
+    if (_ki > 0) {
+        _integral += _error * dt;
+    }
     double i_out = _ki * _integral;
 
     //Integral windup limit
-    if (_i_limit > 0) {
-        i_out = constrain(i_out, -1 * _i_limit, _i_limit);
+    if (abs(i_out) > 0) {
+        i_out = constrain(i_out, _i_min, _i_max);
     }
 
     // Derivative term (zero if dt == 0)

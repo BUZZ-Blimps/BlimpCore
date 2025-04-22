@@ -6,15 +6,15 @@ if [ "$1" != "" ]; then
 	timeout=2
 	ping $hostname -c 1 -W $timeout > /dev/null
 	if [ $? == 0 ]; then
-		echo ">>Removing old testing files from opi@$hostname"
-		ssh opi@$hostname 'rm -r /home/opi/testing_uart/'
+		echo ">>Removing old testing files from root@$hostname"
+		ssh root@$hostname 'rm -r /root/testing_uart/'
 		
-		echo ">>Copying files to opi@$hostname"
-		ssh opi@$hostname 'mkdir -p /home/opi/testing_uart'
-		scp -r ./* opi@$hostname:/home/opi/testing_uart/
+		echo ">>Copying files to root@$hostname"
+		ssh root@$hostname 'mkdir -p /root/testing_uart'
+		scp -r ./* root@$hostname:/root/testing_uart/
 		
 		echo "Compiling code."
-		ssh opi@$hostname 'make -C /home/opi/testing_uart'
+		ssh root@$hostname 'make -C /root/testing_uart'
 		
 		echo ">>Done."
 	else

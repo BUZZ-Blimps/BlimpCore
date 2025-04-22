@@ -23,11 +23,12 @@ int TOF_Sense::uart_setup(){
         return 1 ;
     }
 
-    if (wiringPiSetup () == -1)
-    {
-        fprintf (stdout, "Unable to start wiringPi: %s\n", strerror (errno)) ;
-        return 1 ;
-    }
+    // Commented bc this should be called before any of this happens
+    // if (wiringPiSetup () == -1)
+    // {
+    //     fprintf (stdout, "Unable to start wiringPi: %s\n", strerror (errno)) ;
+    //     return 1 ;
+    // }
     return 0;
 }
 
@@ -81,7 +82,6 @@ void TOF_Sense::TOF_read()
 }
 
 // uint8_t tx_buf[8] = {0x57,0x10,0xff,0xff,0x00,0xff,0xff,0x63};//Query the command with ID 0 查询ID为0的命令
-
 
 /******************************************************************************
 function:	Get TOF data by querying and decoding 通过查询的方式获取TOF数据，并进行解码

@@ -9,6 +9,7 @@ public:
     TripleBallGrabber();
     void ballgrabber_init(int servoPin, int motorPin);
     bool is_open();
+    bool is_fully_open();
     void openGrabber(int blimp_state);      // Opens gate
     void closeGrabber(int blimp_state);     // Closes gate, turns off motor
     void shoot(int blimp_state);            // Opens gate, uses motor to shoot
