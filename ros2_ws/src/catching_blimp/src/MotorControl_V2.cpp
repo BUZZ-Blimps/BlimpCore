@@ -30,27 +30,33 @@ void MotorControl_V2::update(double forward, double up, double yaw, double roll)
     double leftUp = up + roll;
     double rightUp = up - roll;
 
-    motorCom(leftForward, motorLeftForward);
-    motorCom(rightForward, motorRightForward);
-    motorCom(leftUp, motorLeftUp);
-    motorCom(rightUp, motorRightUp);
+    double leftFwdCom = motorCom(leftForward, motorLeftForward);
+    double rightFwdCom = motorCom(rightForward, motorRightForward);
+    double leftUpCom = motorCom(leftUp, motorLeftUp);
+    double rightUpCom = motorCom(rightUp, motorRightUp);
+
+    // fprintf(stdout, "Left Fwd: %.2f, Right Fwd: %.2f, Left Up: %.2f, Right Up: %.2f\n", leftFwdCom, rightFwdCom, leftUpCom, rightUpCom);
 }
 
-void MotorControl_V2::motorCom(double command, Brushless& motor) {
+double MotorControl_V2::motorCom(double command, Brushless& motor) {
     //input from -1000, to 1000 is expected from controllers
     double adjustedCom = 1500;
     if (abs(command) <= deadband_/2.0) {
         adjustedCom = 1500;
     } else if (command > deadband_/2.0) {
+        // command is positive and outside of deadband
         double xo1 = deadband_/2.0;
         double yo1 = turnOnCom+1500;
-        double m1 = (maxCom-yo1)/(1000-xo1);
-        adjustedCom = m1*command - m1*xo1+yo1;
+        double m1 = (maxCom-yo1)/(500-xo1);
+
+        adjustedCom = m1*command - m1*xo1 + yo1;
     } else if (command < deadband_/2.0) {
+        // command is negative and outside of deadband
         double xo2 = -deadband_/2.0;
-        double yo2 = -turnOnCom+1500;
-        double m2 = (yo2-minCom)/(xo2-(-1000));
-        adjustedCom = m2*command - m2*xo2+yo2;
+        double yo2 = -turnOnCom+1500; 
+        double m2 = (yo2-minCom)/(xo2+500);
+
+        adjustedCom = m2*command - m2*xo2 + yo2;
     } else {
         //should never happen, but write 1500 anyway for safety
         adjustedCom = 1500;
@@ -64,4 +70,6 @@ void MotorControl_V2::motorCom(double command, Brushless& motor) {
     }
 
     motor.write_thrust(adjustedCom);
+
+    return adjustedCom;
 }

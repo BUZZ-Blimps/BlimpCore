@@ -1,11 +1,11 @@
 #ifndef CATCHING_BLIMP_HPP
 #define CATCHING_BLIMP_HPP
 
-//C includes
+// C includes
 #include <stdio.h>
 #include <stdlib.h>
 
-//C++ includes
+// C++ includes
 #include <chrono>
 #include <functional>
 #include <iomanip>
@@ -18,11 +18,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-//TF2
+// TF2
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-//Message type includes
+// Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -34,14 +34,14 @@
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 
-// #include "MotorControl.hpp"
+#include <std_srvs/srv/trigger.hpp>
+
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
 #include "BangBang.hpp"
 #include "tripleBallGrabber.hpp"
-// #include "Gimbal.hpp"
 #include "MotorControl_V2.hpp"
 #include "ZEstimator.hpp"
 #include "TOF_Sense.hpp"
@@ -55,7 +55,7 @@
 
 // debug mode
 #define INITIAL_MODE              manual
-#define INITIAL_STATE             goalSearch
+#define INITIAL_STATE             searching
 #define GIMBAL_DEBUG              false
 
 // Motor debugging
@@ -69,34 +69,34 @@
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
 #define BALL_TRACKING_TESTING           false
 
-//optional controllers
-#define USE_EST_VELOCITY_IN_MANUAL  false    // use false to turn off the velosity control to see the blimp's behavior 
+// optional controllers
 #define USE_OBJECT_AVOIDENCE        false    // use false to turn off the obstacle avoidance 
 
-//catch search time after one
+// catch search time after one
 #define MAX_SEARCH_WAIT_AFTER_ONE     80.0    //max searching 
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
-//number of catches attempted
+// number of catches attempted
 #define TOTAL_ATTEMPTS            1    // attempts at catching 
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               8     //m
-#define FLOOR_HEIGHT              0.75  //m
+#define CEIL_HEIGHT               8.5     // m
+#define FLOOR_HEIGHT              0.75  // m
 
-#define INITIAL_HEIGHT            0.5    // Initial height in meters
-#define MAX_HEIGHT                12    //m  (unused)
-#define GOAL_HEIGHT               1.5   //m
-#define GOAL_HEIGHT_DEADBAND      0.25  //m
+#define INITIAL_HEIGHT            0.5   // Initial height in meters
+#define MAX_HEIGHT                12    // m  (unused)
+#define GOAL_HEIGHT               7.5   // m
+#define GOAL_HEIGHT_DEADBAND      0.25  // m
 #define UP_MOTOR_DEADBAND         25
-#define UP_MOTOR_MIN              150   //us
+#define UP_MOTOR_MIN              150   // us
 
-//distance triggers
+// distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5       // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   200.0     // m distance for blimp to alignment submode switching in approach state 
 #define BALL_GATE_OPEN_TRIGGER   2000.0    // pixel area for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       16000.0   // pixel area for blimp to start the open-loop control
+#define BALL_CATCH_TRIGGER       15000.0   // pixel area for blimp to start the open-loop control
+#define GOAL_SCORE_TRIGGER       30000.0
 #define AVOID_TRIGGER            0.8       // m distance for blimp to start the open-loop control
 
 // Object avoidence motor coms
@@ -113,27 +113,28 @@
 #define GAME_BALL_FORWARD_SEARCH  300  // 30% throttle 
 #define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
 
-#define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        15.0    //offset magic number (more to the left)
-#define GAME_BALL_Y_OFFSET        160   //approach magic number
+#define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
+#define GAME_BALL_X_OFFSET        7.5  // offset magic number (more to the left)
+#define GAME_BALL_Y_OFFSET        160  // approach magic number
 
-#define GOAL_CLOSURE_COM          275  //forward command 25% throttle
-#define GOAL_CLOSE_COM            180 
-#define GOAL_X_OFFSET             0    //more to the left
-#define GOAL_Y_OFFSET             190   //height alignment (approach down)
+#define GOAL_CLOSURE_COM          275  // forward command 25% throttle
+#define GOAL_CLOSE_COM            180
+#define GOAL_X_OFFSET             0    // more to the left
+#define GOAL_Y_OFFSET             190  // height alignment (approach down)
 
-#define CATCHING_FORWARD_COM      430  //catching at 50% throttle 
-#define CATCHING_UP_COM           50   //damp out pitch
+#define CATCHING_FORWARD_COM      500  // catching at 50% throttle 
+#define CATCHING_UP_COM           200   // damp out pitch
 
 #define TIME_TO_SEARCH            20.0
 #define TIME_TO_OPEN              2.0
 #define TIME_TO_BACKUP            6.0
 #define TIME_TO_ROTATE            6.0
-#define TIME_TO_CATCH             4.0 //seconds
+#define TIME_TO_CATCH             4.0 // seconds
 #define TIME_TO_CAUGHT            2.5
 #define TIME_TO_SCORE             1.7
 #define TIME_TO_SHOOT             3.5
 #define TIME_TO_SCORED            3.5
+
 #define MAX_APPROACH_TIME         15.0
 
 // #define MAX_APPROACH_TIME         600.0
@@ -178,9 +179,6 @@
 #define GYRO_X_CONSTANT           480.0
 #define GYRO_YAW_CONSTANT         0
 #define GYRO_Y_CONSTANT           323.45
-
-#define BALL_APPROACH_THRESHOLD   2500
-#define BALL_CATCH_THRESHOLD      62000
 
 //OrangePi5 Pinout
 // #define L_Pitch                   5     // was 2
@@ -311,17 +309,10 @@ private:
     // Lowpass filter on z altitude
     EMAFilter heightFilter_;
 
-    //baro offset computation from base station value
-    // EMAFilter baroOffset(0.5);
-
-    //roll offset computation from imu
-    // EMAFilter rollOffset(0.5);
-
     //ball grabber object
     TripleBallGrabber ballGrabber;
 
     rclcpp::TimerBase::SharedPtr timer_imu;
-    // rclcpp::TimerBase::SharedPtr timer_baro;
     rclcpp::TimerBase::SharedPtr timer_lidar;
     rclcpp::TimerBase::SharedPtr timer_state_machine;
     rclcpp::TimerBase::SharedPtr timer_heartbeat;
@@ -348,6 +339,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr targets_subscription;
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
+
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr land_service_;
 
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     geometry_msgs::msg::TransformStamped blimp_tf_;
@@ -398,6 +391,7 @@ private:
     int baro_count_; 
     double z_hat_;
     double z_hat_2;
+    double z_command_;
 
     int catches_;
 
@@ -417,8 +411,7 @@ private:
     double forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_;
     double forward_command_, up_command_, yaw_rate_command_, roll_rate_command_;
     double forward_avoidance_, up_avoidance_, yaw_rate_avoidance_;
-    double z_command_;
-
+    
     int roll_update_count_;
 
     rclcpp::Time start_time_;
@@ -477,6 +470,8 @@ private:
     void state_machine_scored_callback();
     void state_machine_default_callback();
 
+    void land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
     void calculate_avoidance_from_quadrant(int quadrant);
     std::string auto_state_to_string(autoState state);
     target_type auto_state_to_desired_target_type(autoState state);
@@ -495,6 +490,8 @@ private:
     float searchDirection();
     bool load_pid_config();
     bool load_acc_calibration();
+
+    void land();
 
     void reset_target();
     void update_target();

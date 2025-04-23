@@ -12,7 +12,7 @@ void Brushless::setup(int PIN){
     pwmWrite(PIN, 75);
 }
 
-void Brushless::set_pin(int PIN){
+void Brushless::set_pin(int PIN) {
     this->pin = PIN;
 }
 
@@ -21,12 +21,11 @@ double Brushless::write_thrust(double thrust){
 	    this->curr_thrust = thrust;
         double pwm_val = 5.0/100.0*thrust;
         pwmWrite(this->pin, pwm_val);
-
-        return this->curr_thrust;
     } else {
         fprintf(stderr, "Thrust out of range!\n");
-        return(this->curr_thrust);
     }
+
+    return this->curr_thrust;
 }
 
 double Brushless::get_thrust() {

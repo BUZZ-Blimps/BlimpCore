@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -22,10 +23,8 @@ set(
     src/OPI_IMU.cpp
     src/Brushless.cpp
     src/EMAFilter.cpp
-    # src/Gimbal.cpp
     src/ZEstimator.cpp
     src/Madgwick_Filter.cpp
-    # src/MotorControl.cpp
     src/optical_ekf.cpp
     src/PID.cpp
     src/Servo.cpp
@@ -46,7 +45,8 @@ add_executable(
 ament_target_dependencies(
     ${PROJECT_NAME}_node 
     rclcpp 
-    std_msgs 
+    std_msgs
+    std_srvs
     geometry_msgs 
     sensor_msgs
     tf2

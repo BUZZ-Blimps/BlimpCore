@@ -61,15 +61,10 @@ void CatchingBlimp::state_machine_manual_callback() {
 
     yaw_rate_command_ = -yaw_rate_msg_*120;
 
-    if (USE_EST_VELOCITY_IN_MANUAL) {
-        //set max velocities 2 m/s
-        up_command_ = up_msg_*2.0;
-        forward_command_ = forward_msg_*2.0;
-    } else {
-        //normal mapping using max esc command 
-        up_command_ = up_msg_*750.0; //up is negative
-        forward_command_ = forward_msg_*750.0;
-    }
+
+    //normal mapping using max esc command 
+    up_command_ = up_msg_*750.0; //up is negative
+    forward_command_ = forward_msg_*750.0;
 
     //check if shooting should be engaged
     //this block switches the control mode to the oposite that it is currently in
@@ -155,11 +150,11 @@ void CatchingBlimp::state_machine_autonomous_callback() {
             state_machine_scored_callback();
             break;
         default: {
-            //shouldn't get here
+            // Landing puts us in this state (standby)
             state_machine_default_callback();
             break;
         }
-    } //End auto_mode switch
+    } // End auto_mode switch
 }
 
 void CatchingBlimp::state_machine_searching_callback() {
@@ -486,14 +481,12 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     //     yaw_rate_command_ = yaw_rate_avoidance_;
     // } else {
 
-
     //goal search behavior
     //randomize the diretion selection
     yaw_rate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
-    // up_command_ = goalPositionHold.calculate(GOAL_HEIGHT, z_hat_);  //go up to the goal
     z_command_ = GOAL_HEIGHT;
     forward_command_ = GOAL_FORWARD_SEARCH;
-    
+
     // }
 
     if (target_active_ && target_.type == goal) {
@@ -503,20 +496,20 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     }
 }
 
-void CatchingBlimp::state_machine_approachGoal_callback(){
+void CatchingBlimp::state_machine_approachGoal_callback() {
     if (target_active_ && target_.type == goal) {
         yaw_rate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, state_machine_dt_);
         double y_command = yPID_.calculate(GOAL_Y_OFFSET, target_.y, state_machine_dt_);
 
         z_command_ = z_hat_ +  y_command*state_machine_dt_;
 
-        if (target_.z > 5) {
+        if (target_.z > 5.0) {
             forward_command_ = GOAL_CLOSURE_COM;
         } else {
             forward_command_ = GOAL_CLOSE_COM;
         }
 
-        if (target_.z < GOAL_DISTANCE_TRIGGER) {
+        if (target_.bbox_area >= GOAL_SCORE_TRIGGER) {
             score_start_time_ = state_machine_time_;
             auto_state_ = scoringStart;
         }
@@ -543,13 +536,29 @@ void CatchingBlimp::state_machine_shooting_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
 
-    ballGrabber.shoot(control_mode_);
+    
 
-    if ((state_machine_time_ - shoot_start_time_).seconds() >= TIME_TO_SHOOT) {
-        ballGrabber.closeGrabber(control_mode_);
-        score_start_time_ = state_machine_time_;
+    double elapsedShootTime = (state_machine_time_ - shoot_start_time_).seconds();
+
+    if (elapsedShootTime < TIME_TO_SHOOT) {
+        ballGrabber.shoot(control_mode_);
+    } else if (elapsedShootTime < TIME_TO_SHOOT + TIME_TO_BACKUP) {
+        // Close grabber and back up
+        if (ballGrabber.is_open()) {
+            ballGrabber.closeGrabber(control_mode_);
+        }
+
+        if (!backingUp) {
+            backingUp = true;
+        }
+        yaw_rate_command_ = 0;
+        forward_command_ = -GAME_BALL_FORWARD_SEARCH;
+    } else if (elapsedShootTime < TIME_TO_SHOOT + TIME_TO_BACKUP + TIME_TO_ROTATE) {
+        yaw_rate_command_ = 15.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
+        forward_command_ = 0.0;
+    } else {
+        backingUp = false;
         auto_state_ = scored;
-        return;
     }
 }
 
@@ -572,4 +581,3 @@ void CatchingBlimp::state_machine_default_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = 0;
 }
-

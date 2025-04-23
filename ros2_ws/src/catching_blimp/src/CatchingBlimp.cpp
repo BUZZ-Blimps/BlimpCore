@@ -2,6 +2,7 @@
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
+using std::placeholders::_2;
 
 //Global variables
 //sensor fusion objects
@@ -32,7 +33,7 @@ CatchingBlimp::CatchingBlimp() :
     baro_count_(0),
     z_hat_(0),
     catches_(0), 
-    control_mode_(INITIAL_MODE), 
+    control_mode_(INITIAL_MODE),
     auto_state_(INITIAL_STATE),
     forward_command_(0),
     up_command_(0),
@@ -88,6 +89,9 @@ CatchingBlimp::CatchingBlimp() :
     ballGrabber.ballgrabber_init(GATE_S, PIN_SCORING);
     motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR);
 
+    // Delay for ESCs to initialize
+    delay(2000);
+
     // Create publishers (7 right now)
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
     imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
@@ -127,6 +131,9 @@ CatchingBlimp::CatchingBlimp() :
     // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
+    // 2 Hz heartbeat timer
+    timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
+
     // 100 Hz IMU timer
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_timer_callback, this));
 
@@ -139,8 +146,7 @@ CatchingBlimp::CatchingBlimp() :
     // 33 Hz state machine timer
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
 
-    // 2 Hz heartbeat timer
-    timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
+    land_service_ = this->create_service<std_srvs::srv::Trigger>("land", std::bind(&CatchingBlimp::land_callback, this, _1, _2));
 
     // Initialize timestamps
     rclcpp::Time now = this->get_clock()->now();
@@ -157,7 +163,6 @@ CatchingBlimp::CatchingBlimp() :
     score_start_time_ = now;
     approach_start_time_ = now;
     goal_approach_start_time_ = now;
-
     lidar_time_ = now;
 
     state_machine_dt_ = 0;
@@ -533,6 +538,7 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
             publish_log("Activating Auto Mode");
             RCLCPP_INFO(this->get_logger(), "Switched to autonomous");
         }
+
         control_mode_ = autonomous;
 
         //Reset autonomous state whenever control mode is changed
@@ -545,6 +551,7 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
             publish_log("Going Manual for a Bit...");
             RCLCPP_INFO(this->get_logger(), "Switched to manual control");
         }
+
         control_mode_ = manual;
     }
 }
@@ -703,6 +710,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             double filtered_theta_y = theta_yFilter.filter(target_theta_y);
             double filtered_area = areaFilter.filter(bbox_area);
 
+            // RCLCPP_INFO(this->get_logger(), "Bbox area: %.2f", filtered_area);
+
             // Update filtered target coordinates
             target_.timestamp = now;
             target_.x = filtered_x;
@@ -794,8 +803,6 @@ void CatchingBlimp::update_target() {
         }
     }
 }
-
-
 
 bool CatchingBlimp::load_pid_config() {
     //PID gains
@@ -936,4 +943,19 @@ TargetData CatchingBlimp::predictTargetPosition(double offset) {
     predicted.bbox_area = last.bbox_area;
 
     return predicted;
+}
+
+void CatchingBlimp::land() {
+    control_mode_ = autonomous;
+    auto_state_ = no_state;
+    z_command_ = FLOOR_HEIGHT;
+}
+
+void CatchingBlimp::land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+    response->success = true;
+    response->message = "Landing";
+
+    land();
+
+    RCLCPP_INFO(this->get_logger(), "Received landing request.");
 }
