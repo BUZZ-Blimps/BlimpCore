@@ -30,5 +30,5 @@ if [ "$1" != "" ]; then
         echo "$hostname is offline :("
     fi
 else
-    echo "Usage: copyCodeToPi.sh [hostname]"
+    echo "Usage: copyCompileCodeToPi.sh [hostname]"
 fi
