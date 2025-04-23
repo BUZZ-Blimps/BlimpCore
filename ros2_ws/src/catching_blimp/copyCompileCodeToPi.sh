@@ -24,7 +24,7 @@ if [ "$1" != "" ]; then
         rsync -rt ../catching_blimp $user@$hostname:$user_dir/ros2_ws/src
         echo "Copied code to $hostname."
 
-        ssh $user@$hostname 'cd ros2_ws && colcon build'
+        ssh $user@$hostname 'cd ros2_ws && source /opt/ros/humble/setup.bash && colcon build'
 
     else
         echo "$hostname is offline :("
