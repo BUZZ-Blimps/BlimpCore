@@ -10,12 +10,12 @@ if [ "$1" != "" ]; then
     timeout=2
     ping $hostname -c 1 -W $timeout > /dev/null
     if [ $? == 0 ]; then
-        ssh $user@$hostname 'systemctl start blimp_vision && systemctl start catching_blimp'
-        echo "Started services on $hostname."
+        ssh $user@$hostname 'systemctl start blimp_vision'
+        echo "Started vision service on $hostname."
 
     else
         echo "$hostname is offline :("
     fi
 else
-    echo "Usage: startServices.sh [hostname]"
+    echo "Usage: startVisionService.sh [hostname]"
 fi

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define temporary file to store counter
-temp_file="/tmp/tmp_bulk_stop_services_counter";
+temp_file="/tmp/tmp_bulk_start_services_counter";
 
 # Define command to decrement counter
 command_dec_counter="counter=\$(< $temp_file) && echo \$((counter-1)) > $temp_file";
@@ -21,7 +21,7 @@ fi
 num_blimps=${#blimp_ids[@]}
 
 # Print blimp ids to use
-printf "Stopping services for blimps: ";
+printf "Starting vision service for blimps: ";
 for i in $(seq 0 $((num_blimps-1)));
 do
     blimp_id=${blimp_ids[$i]}
@@ -29,7 +29,7 @@ do
 done
 printf "\n"
 
-# Stop services for blimps
+# Start vision service for blimps
 for i in $(seq 0 $((num_blimps-1)));
 do
     # Increment temporary counter
@@ -37,7 +37,7 @@ do
 
     # Copy and compile code, then decrement counter
     blimp_id=${blimp_ids[$i]}
-    bash -c "./stopServices.sh 192.168.0.10$blimp_id && $command_dec_counter" &
+    bash -c "./startVisionService.sh 192.168.0.10$blimp_id && $command_dec_counter" &
 done
 
 # Wait for counter to reach 0 before exiting
