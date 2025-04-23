@@ -6,8 +6,8 @@
     y_p: 1.0
     y_i: 0.0
     y_d: 0.0
-    z_p: 120.0
-    z_i: 0.0
+    z_p: 550.0
+    z_i: 3.0
     z_d: 0.0
     yaw_rate_p: 7.0
     yaw_rate_i: 0.0

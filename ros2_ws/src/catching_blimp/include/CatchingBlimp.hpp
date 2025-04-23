@@ -55,9 +55,8 @@
 
 // debug mode
 #define INITIAL_MODE              manual
+#define INITIAL_STATE             goalSearch
 #define GIMBAL_DEBUG              false
-
-#define INITIAL_HEIGHT            1.0    // Initial height in meters
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
@@ -83,12 +82,15 @@
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               5   //m
-#define FLOOR_HEIGHT              -1  //m
+#define CEIL_HEIGHT               8     //m
+#define FLOOR_HEIGHT              0.75  //m
 
+#define INITIAL_HEIGHT            0.5    // Initial height in meters
 #define MAX_HEIGHT                12    //m  (unused)
 #define GOAL_HEIGHT               1.5   //m
 #define GOAL_HEIGHT_DEADBAND      0.25  //m
+#define UP_MOTOR_DEADBAND         25
+#define UP_MOTOR_MIN              150   //us
 
 //distance triggers
 #define GOAL_DISTANCE_TRIGGER    2.5       // m distance for blimp to trigger goal score 	
@@ -104,12 +106,12 @@
 
 // Autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
-#define GAME_BALL_YAW_SEARCH      -20  // deg/s
+#define GAME_BALL_YAW_SEARCH  2  // deg/s
 // #define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
 // #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
-#define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
-#define GAME_BALL_VERTICAL_SEARCH 0.25  // m/s velocity
+#define GAME_BALL_FORWARD_SEARCH  300  // 30% throttle 
+#define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
 
 #define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
 #define GAME_BALL_X_OFFSET        15.0    //offset magic number (more to the left)
@@ -123,9 +125,10 @@
 #define CATCHING_FORWARD_COM      430  //catching at 50% throttle 
 #define CATCHING_UP_COM           50   //damp out pitch
 
-#define TIME_TO_SEARCH            15.0
+#define TIME_TO_SEARCH            20.0
 #define TIME_TO_OPEN              2.0
-#define TIME_TO_BACKUP            5.0
+#define TIME_TO_BACKUP            6.0
+#define TIME_TO_ROTATE            6.0
 #define TIME_TO_CATCH             4.0 //seconds
 #define TIME_TO_CAUGHT            2.5
 #define TIME_TO_SCORE             1.7

@@ -33,7 +33,7 @@ CatchingBlimp::CatchingBlimp() :
     z_hat_(0),
     catches_(0), 
     control_mode_(INITIAL_MODE), 
-    auto_state_(searching),
+    auto_state_(INITIAL_STATE),
     forward_command_(0),
     up_command_(0),
     z_command_(INITIAL_HEIGHT),
@@ -79,7 +79,7 @@ CatchingBlimp::CatchingBlimp() :
 
     zPID_.setOutputLimits(-750.0, 750.0);
     zPID_.setIMin(0);
-    zPID_.setIMax(50);
+    zPID_.setIMax(125);
     
     // Initialize to no target
     target_.id = -1;
@@ -279,14 +279,16 @@ void CatchingBlimp::imu_timer_callback() {
 
     if (control_mode_ == autonomous) {
         up_motor_ = zPID_.calculate(z_command_, heightFilter_.last, dt);
-        up_motor_ = tanh(up_motor_)*abs(up_motor_);
+        // up_motor_ = tanh(up_motor_)*abs(up_motor_);
 
-        RCLCPP_INFO(this->get_logger(), "Zd = %.2f, Z =  %.2f, up = %.2f", z_command_, heightFilter_.last, up_motor_);
+        if (abs(up_motor_) < UP_MOTOR_DEADBAND) {
+            up_motor_ = 0;
+        } else if (abs(up_motor_) < UP_MOTOR_MIN) {
+            double sgn_up = up_motor_ > 0 ? 1.0 : -1.0;
+            up_motor_ = sgn_up*UP_MOTOR_MIN;
+        }
 
-        // if (abs(up_motor_) < 75) {
-        //     double sgn_up = up_motor_ > 0 ? 1.0 : -1.0;
-        //     up_motor_ = sgn_up*75;
-        // }
+        // RCLCPP_INFO(this->get_logger(), "Zd = %.2f, Z =  %.2f, up = %.2f", z_command_, heightFilter_.last, up_motor_);
 
         if (MOTOR_PRINT_DEBUG) {
             RCLCPP_INFO(this->get_logger(), "F: %.2f, U: %.2f, Y: %.2f, R: %.2f", forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
@@ -369,31 +371,32 @@ void CatchingBlimp::lidar_timer_callback() {
 
         // Throw out low quality samples
         if (lidar.signal_strength > 2500) {
-            // Read LiDar straight to Z baby
+            // Read LiDAR straight to Z baby
             double lidar_reading = double(lidar.dis / 1000.0);
 
-            // RCLCPP_INFO(this->get_logger(), "Dis: %.2f m, Signal strength: %d", lidar_reading, lidar.signal_strength);
+            tf2::Vector3 z_axis(0,0,1);
+            tf2::Quaternion current_orient;
+
+            // Get the current orientation
+            tf2::convert(imu_msg_.orientation, current_orient);
+
+            // Rotate the z-axis
+            tf2::Vector3  v_rot = quatRotate(current_orient,z_axis);
+
+            // theta (angle between two quaternions: current orentation and z axis)
+            double theta = std::acos(v_rot.dot(z_axis)/(sqrt(v_rot.dot(v_rot))*sqrt(z_axis.dot(z_axis))));
+
+            // True distance
+            double true_dis = lidar_reading * cos(theta);
 
             // Lowpass filter the lidar reading
-            z_hat_ = heightFilter_.filter(lidar_reading);
+            z_hat_ = heightFilter_.filter(true_dis);
             z_msg_.data = z_hat_;
             height_publisher_->publish(z_msg_);
 
-            // lidar_count_++;
+            // RCLCPP_INFO(this->get_logger(), "Theta: %.2f, True Distance: %.2f, Lidar: %.2f", theta*180/3.14159265, true_dis, lidar_reading);
         }
-    }
-
-    // rclcpp::Time now = this->get_clock()->now();
-    
-    // if ((now - lidar_time_).seconds() >= 1.0) {
-    //     RCLCPP_INFO(this->get_logger(), "LiDar %d Hz", lidar_count_);
-    //     lidar_count_ = 0;
-    //     lidar_time_ = now;
-    // }
-
-    // else {
-    //     RCLCPP_WARN(this->get_logger(), "Oversampled lidar!");
-    // }    
+    }  
 }
 
 void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
@@ -525,13 +528,15 @@ void CatchingBlimp::publish_log(std::string message) {
 }
 
 void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-
     if (msg->data) {
         if (control_mode_ == manual) {
             publish_log("Activating Auto Mode");
             RCLCPP_INFO(this->get_logger(), "Switched to autonomous");
         }
         control_mode_ = autonomous;
+
+        //Reset autonomous state whenever control mode is changed
+        auto_state_ = searching;
 
         // Z search direction
         z_dir_up_ = true;
@@ -542,9 +547,6 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
         }
         control_mode_ = manual;
     }
-
-    //Reset autonomous state whenever control mode is changed
-    auto_state_ = searching;
 }
 
 // void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
@@ -793,16 +795,7 @@ void CatchingBlimp::update_target() {
     }
 }
 
-float CatchingBlimp::searchDirection() {
-    int ran = rand()%10; //need to check bounds
-    float binary = 1.0;
-    if (ran <= 4) {
-        binary = 1.0;
-    } else if (ran > 4) {
-        binary = -1.0;
-    }
-    return binary;
-}
+
 
 bool CatchingBlimp::load_pid_config() {
     //PID gains
