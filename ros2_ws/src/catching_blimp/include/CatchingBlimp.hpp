@@ -115,7 +115,7 @@
 #define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
 
 #define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
-#define GOAL_CLOSE_COM            180
+#define GAME_BALL_CLOSE_COM       180
 
 #define X_OFFSET_ANGLE            7.5  // offset magic number (more to the left)
 
@@ -176,7 +176,7 @@
 #define STATE_MACHINE_FREQ        30.0
 #define OPTICAL_LOOP_FREQ         55.0
 
-#define VBAT_LOW_THRESHOLD     6.6   // volts
+#define VBAT_LOW_THRESHOLD     6.8   // volts
 #define VBAT_LOW_TIME          5.0   // seconds
 
 #define DIST_CONSTANT             0.002

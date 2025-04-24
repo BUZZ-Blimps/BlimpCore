@@ -550,7 +550,7 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
         control_mode_ = autonomous;
 
         //Reset autonomous state whenever control mode is changed
-        auto_state_ = searching;
+        auto_state_ = INITIAL_STATE;
 
         // Z search direction
         z_dir_up_ = true;
@@ -718,7 +718,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             double filtered_theta_y = theta_yFilter.filter(target_theta_y);
             double filtered_area = areaFilter.filter(bbox_area);
 
-            RCLCPP_INFO(this->get_logger(), "Bbox area: %.2f", filtered_area);
+            // RCLCPP_INFO(this->get_logger(), "Bbox area: %.2f", filtered_area);
 
             // Update filtered target coordinates
             target_.timestamp = now;
@@ -884,6 +884,7 @@ void CatchingBlimp::battery_status_callback(const std_msgs::msg::Float32MultiArr
         if (vbat_low_time > VBAT_LOW_TIME) {
             // Consistently low battery = land the blimp!
             if (auto_state_ != no_state) {
+                RCLCPP_WARN(this->get_logger(), "Low battery - engaging auto land procedure, Captain.");
                 land();
             }
         }

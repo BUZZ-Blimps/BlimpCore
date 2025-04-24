@@ -361,7 +361,9 @@ void CatchingBlimp::state_machine_catching_callback() {
 
     // Turn on the SUCK
     if (ballGrabber.is_fully_open() && !ZERO_MODE) {
-        ballGrabber.suck();
+        if (!ZERO_MODE) {
+            ballGrabber.suck();
+        }
     }
 
     if ((state_machine_time_ - catch_start_time_).seconds() >= TIME_TO_CATCH) {
@@ -534,7 +536,9 @@ void CatchingBlimp::state_machine_shooting_callback() {
     double elapsedShootTime = (state_machine_time_ - shoot_start_time_).seconds();
 
     if (elapsedShootTime < TIME_TO_SHOOT) {
-        ballGrabber.shoot(control_mode_);
+        if (!ZERO_MODE) {
+            ballGrabber.shoot(control_mode_);
+        }
     } else if (elapsedShootTime < TIME_TO_SHOOT + TIME_TO_BACKUP) {
         // Close grabber and back up
         if (ballGrabber.is_open()) {
