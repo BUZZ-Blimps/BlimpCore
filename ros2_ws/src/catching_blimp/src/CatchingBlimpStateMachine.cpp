@@ -63,8 +63,8 @@ void CatchingBlimp::state_machine_manual_callback() {
 
 
     //normal mapping using max esc command 
-    up_command_ = up_msg_*750.0; //up is negative
-    forward_command_ = forward_msg_*750.0;
+    up_command_ = up_msg_*500.0; //up is negative
+    forward_command_ = forward_msg_*500.0;
 
     //check if shooting should be engaged
     //this block switches the control mode to the oposite that it is currently in
@@ -179,7 +179,7 @@ void CatchingBlimp::state_machine_searching_callback() {
         if (ballGrabber.is_open()) {
             ballGrabber.closeGrabber(control_mode_);
         }
-        
+
         //use object avoidence
         // double avoidanceMinVal = 1000.0; // Initialize 
         // int avoidanceMinIndex = 10;
@@ -283,43 +283,33 @@ void CatchingBlimp::state_machine_approach_callback() {
     if ((state_machine_time_ - approach_start_time_).seconds() >= MAX_APPROACH_TIME && !BALL_TRACKING_TESTING) {
         auto_state_ = searching;
         search_start_time_ = state_machine_time_;
-
         return;
     }
 
     if (target_active_ && target_.type == ball) {
 
         // Resume forward approach using similar commands as before.
-        double x_setpoint = GAME_BALL_X_OFFSET;
+        double x_setpoint = X_OFFSET_ANGLE;
         double y_setpoint = 0.0;
 
         const double bbox_align_min = 900.0;
         const double bbox_align_max = 20000.0;
 
         if (target_.bbox_area >= bbox_align_min) {
+            forward_command_ = GAME_BALL_CLOSE_COM;
+
             double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
 
-            // double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, 900.0, 20000.0, 1.0, 0.1), 0.1, 1.0);
             xPID_.setPGain(scaling*x_p_);
             xPID_.setDGain(scaling*x_d_);
 
-            // double x_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_X_OFFSET), 0.0, GAME_BALL_X_OFFSET);
             y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
         } else {
+            forward_command_= GAME_BALL_CLOSURE_COM;
+
             xPID_.setPGain(x_p_);
             xPID_.setDGain(x_d_);
         }
-
-        // double y_error = y_setpoint - target_.y;
-        // if (y_error > 0) {
-        //     // Up go fast so gain normal
-        //     yPID_.setPGain(y_p_);
-        //     yPID_.setDGain(y_d_);
-        // } else {
-        //     // Down go slow so gain big
-        //     yPID_.setPGain(y_p_);
-        //     yPID_.setDGain(2.0*y_d_);
-        // }
     
         // Regulate yaw using theta_x
         yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
@@ -328,15 +318,9 @@ void CatchingBlimp::state_machine_approach_callback() {
         double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
         z_command_ = z_hat_ + y_command*state_machine_dt_;
 
-        if (BALL_TRACKING_TESTING) {
-            forward_command_= 0;
-        } else {
-            forward_command_= GAME_BALL_CLOSURE_COM;
-        }
-
         // When very close, transition into the catching state.
         if (target_.bbox_area >= BALL_GATE_OPEN_TRIGGER && !BALL_TRACKING_TESTING) {
-            if (ballGrabber.grabber_state_ != TripleBallGrabber::grabber_state::state_open) {
+            if (!ballGrabber.is_open()) {
                 RCLCPP_WARN(this->get_logger(), "BALL CLOSE - GRABBER, I BARELY KNOW HER.");
 
                 ballGrabber.openGrabber(control_mode_);
@@ -344,13 +328,9 @@ void CatchingBlimp::state_machine_approach_callback() {
 
             gate_open_time_ = state_machine_time_;
 
-            if (target_.bbox_area >= BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING)
-            {   
+            if (target_.bbox_area >= BALL_CATCH_TRIGGER && !BALL_TRACKING_TESTING) {   
                 auto_state_ = catching;
                 catch_start_time_ = state_machine_time_;
-
-                // Reset the sub–state for future approaches.
-                // approach_state_ = far_approach;
             }
         } else {
             // Wait until ball is out of close range for a certain timeout
@@ -376,12 +356,7 @@ void CatchingBlimp::state_machine_approach_callback() {
 
 void CatchingBlimp::state_machine_catching_callback() {
     //Go slower when we get up close
-    if (target_.z > 5.0) {
-        forward_command_ = CATCHING_FORWARD_COM;
-    } else {
-        forward_command_ = 200;
-    }
-
+    forward_command_ = CATCHING_FORWARD_COM;
     yaw_rate_command_ = 0;
 
     // Turn on the SUCK
@@ -401,16 +376,16 @@ void CatchingBlimp::state_machine_catching_callback() {
 
         catches_++;
 
-        //start catch timmer
+        // start catch timmer
         last_catch_time_ = state_machine_time_;
     }
 }
 
 void CatchingBlimp::state_machine_caught_callback() {
     if (catches_ > 0) {
-        //if a target is seen right after the catch
+        // if a target is seen right after the catch
         if (target_active_ && target_.type == ball && catches_ < TOTAL_ATTEMPTS) {
-            //approach next game ball if visible
+            // approach next game ball if visible
             auto_state_ = searching;
 
             // searching timer
@@ -418,7 +393,7 @@ void CatchingBlimp::state_machine_caught_callback() {
             searchYawDirection = searchDirection();  //randomize the search direction
         }
 
-        //decide if the blimp is going to game ball search or goal search
+        // decide if the blimp is going to game ball search or goal search
         if ((state_machine_time_ - caught_start_time_).seconds() >= TIME_TO_CAUGHT) {
             if (catches_ >= TOTAL_ATTEMPTS) {
                 auto_state_ = goalSearch;
@@ -481,8 +456,8 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     //     yaw_rate_command_ = yaw_rate_avoidance_;
     // } else {
 
-    //goal search behavior
-    //randomize the diretion selection
+    // goal search behavior
+    // randomize the diretion selection
     yaw_rate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
     z_command_ = GOAL_HEIGHT;
     forward_command_ = GOAL_FORWARD_SEARCH;
@@ -498,16 +473,36 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
 
 void CatchingBlimp::state_machine_approachGoal_callback() {
     if (target_active_ && target_.type == goal) {
-        yaw_rate_command_ = xPID_.calculate(GOAL_X_OFFSET, target_.x, state_machine_dt_);
-        double y_command = yPID_.calculate(GOAL_Y_OFFSET, target_.y, state_machine_dt_);
 
-        z_command_ = z_hat_ +  y_command*state_machine_dt_;
+        // Resume forward approach using similar commands as before.
+        double x_setpoint = X_OFFSET_ANGLE;
+        double y_setpoint = 0.0;
 
-        if (target_.z > 5.0) {
-            forward_command_ = GOAL_CLOSURE_COM;
-        } else {
+        const double bbox_align_min = 8000.0;
+        const double bbox_align_max = 100000.0;
+
+        if (target_.bbox_area >= bbox_align_min) {
             forward_command_ = GOAL_CLOSE_COM;
+
+            double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
+
+            xPID_.setPGain(scaling*x_p_);
+            xPID_.setDGain(scaling*x_d_);
+
+            y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
+        } else {
+            forward_command_ = GOAL_CLOSURE_COM;
+
+            xPID_.setPGain(x_p_);
+            xPID_.setDGain(x_d_);
         }
+
+        // Regulate yaw using theta_x
+        yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
+
+        // Regulate y using Z-up
+        double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
+        z_command_ = z_hat_ + y_command*state_machine_dt_;
 
         if (target_.bbox_area >= GOAL_SCORE_TRIGGER) {
             score_start_time_ = state_machine_time_;
@@ -536,8 +531,6 @@ void CatchingBlimp::state_machine_shooting_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
 
-    
-
     double elapsedShootTime = (state_machine_time_ - shoot_start_time_).seconds();
 
     if (elapsedShootTime < TIME_TO_SHOOT) {
@@ -551,6 +544,7 @@ void CatchingBlimp::state_machine_shooting_callback() {
         if (!backingUp) {
             backingUp = true;
         }
+
         yaw_rate_command_ = 0;
         forward_command_ = -GAME_BALL_FORWARD_SEARCH;
     } else if (elapsedShootTime < TIME_TO_SHOOT + TIME_TO_BACKUP + TIME_TO_ROTATE) {

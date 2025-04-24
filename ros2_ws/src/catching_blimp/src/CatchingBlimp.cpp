@@ -32,6 +32,7 @@ CatchingBlimp::CatchingBlimp() :
     baro_sum_(0.0),
     baro_count_(0),
     z_hat_(0),
+    z_dir_up_(true),
     catches_(0), 
     control_mode_(INITIAL_MODE),
     auto_state_(INITIAL_STATE),
@@ -42,10 +43,10 @@ CatchingBlimp::CatchingBlimp() :
     roll_rate_command_(0),
     roll_update_count_(0),
     theta_yPID_(1300, 0, 0),
-    z_dir_up_(true),
     lidar_time_(0),
     lidar_sys_time_(0),
-    lidar_count_(0) {
+    lidar_count_(0),
+    vbat_low_(false) {
 
     blimp_name_ = std::string(this->get_namespace()).substr(1);
     
@@ -57,6 +58,8 @@ CatchingBlimp::CatchingBlimp() :
         rclcpp::shutdown();
         return;
     }
+
+
 
     if (load_acc_calibration()) {
         RCLCPP_INFO(this->get_logger(), "Accelerometer calibration loaded.");
@@ -78,7 +81,10 @@ CatchingBlimp::CatchingBlimp() :
     z_est_.initialize();
     z_lowpass_.setAlpha(0.9);
 
-    zPID_.setOutputLimits(-750.0, 750.0);
+    // Set PID limits
+    xPID_.setOutputLimits(-300.0, 300.0);
+
+    zPID_.setOutputLimits(-300.0, 300.0);
     zPID_.setIMin(0);
     zPID_.setIMax(125);
     
@@ -130,6 +136,8 @@ CatchingBlimp::CatchingBlimp() :
 
     // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
+
+    battery_status_subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("battery_status", 10, std::bind(&CatchingBlimp::battery_status_callback, this, _1));
 
     // 2 Hz heartbeat timer
     timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
@@ -710,7 +718,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             double filtered_theta_y = theta_yFilter.filter(target_theta_y);
             double filtered_area = areaFilter.filter(bbox_area);
 
-            // RCLCPP_INFO(this->get_logger(), "Bbox area: %.2f", filtered_area);
+            RCLCPP_INFO(this->get_logger(), "Bbox area: %.2f", filtered_area);
 
             // Update filtered target coordinates
             target_.timestamp = now;
@@ -804,6 +812,86 @@ void CatchingBlimp::update_target() {
     }
 }
 
+TargetData CatchingBlimp::predictTargetPosition(double offset) {
+    TargetData predicted;
+
+    // If we have fewer than two points, we cannot compute a velocity—return the last known value.
+    if (target_history_.size() < 2) {
+        predicted.x = target_.x;
+        predicted.y = target_.y;
+        predicted.z = target_.z;
+        predicted.theta_x = target_.theta_x;
+        predicted.theta_y = target_.theta_y;
+        predicted.bbox_area = target_.bbox_area;
+
+        return predicted;
+    }
+
+    // Compute average velocity from the oldest to the most recent detection in the history.
+    const TargetData& first = target_history_.front();
+    const TargetData& last  = target_history_.back();
+
+    double dt = (last.timestamp - first.timestamp).seconds();
+    if (dt <= 0) {
+        predicted.x = last.x;
+        predicted.y = last.y;
+        predicted.z = last.z;
+        predicted.theta_x = target_.theta_x;
+        predicted.theta_y = target_.theta_y;
+
+        return predicted;
+    }
+
+    double vx = PREDICTION_GAIN*(last.x - first.x) / dt;
+    double vy = PREDICTION_GAIN*(last.y - first.y) / dt;
+    // double vz = PREDICTION_GAIN*(last.z - first.z) / dt;
+    double vtheta_x = PREDICTION_GAIN*(last.theta_x - first.theta_x) / dt;
+    double vtheta_y = PREDICTION_GAIN*(last.theta_y - first.theta_y) / dt;
+    // double varea = PREDICTION_GAIN*(last.bbox_area - first.bbox_area) / dt;
+
+    // Determine the time difference between now and the last detection.
+    double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
+
+    // Predict the new position with a simple constant–velocity model:
+    predicted.x = last.x + vx * dt_pred;
+    predicted.y = last.y + vy * dt_pred;
+
+    // predicted.z = last.z + vz * dt_pred;
+    predicted.z = last.z;
+
+    predicted.theta_x = last.theta_x + vtheta_x * dt_pred;
+    predicted.theta_y = last.theta_y + vtheta_y * dt_pred;
+
+    predicted.bbox_area = last.bbox_area;
+
+    return predicted;
+}
+
+void CatchingBlimp::battery_status_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg) {
+    double vbat = msg->data[0];
+
+    if (vbat < VBAT_LOW_THRESHOLD) {
+        rclcpp::Time now = this->get_clock()->now();
+
+        if (!vbat_low_) {
+            vbat_low_ = true;
+
+            // Start the low battery timer
+            vbat_low_time_ = now;
+        }
+
+        double vbat_low_time = (now - vbat_low_time_).seconds();
+        if (vbat_low_time > VBAT_LOW_TIME) {
+            // Consistently low battery = land the blimp!
+            if (auto_state_ != no_state) {
+                land();
+            }
+        }
+    } else if (vbat_low_) {
+        vbat_low_ = false;
+    }
+}
+
 bool CatchingBlimp::load_pid_config() {
     //PID gains
     this->declare_parameter("x_p", 0.0);
@@ -888,61 +976,6 @@ bool CatchingBlimp::load_acc_calibration() {
         acc_b_.setZero();
         return true;
     }
-}
-
-TargetData CatchingBlimp::predictTargetPosition(double offset) {
-    TargetData predicted;
-
-    // If we have fewer than two points, we cannot compute a velocity—return the last known value.
-    if (target_history_.size() < 2) {
-        predicted.x = target_.x;
-        predicted.y = target_.y;
-        predicted.z = target_.z;
-        predicted.theta_x = target_.theta_x;
-        predicted.theta_y = target_.theta_y;
-        predicted.bbox_area = target_.bbox_area;
-
-        return predicted;
-    }
-
-    // Compute average velocity from the oldest to the most recent detection in the history.
-    const TargetData& first = target_history_.front();
-    const TargetData& last  = target_history_.back();
-
-    double dt = (last.timestamp - first.timestamp).seconds();
-    if (dt <= 0) {
-        predicted.x = last.x;
-        predicted.y = last.y;
-        predicted.z = last.z;
-        predicted.theta_x = target_.theta_x;
-        predicted.theta_y = target_.theta_y;
-
-        return predicted;
-    }
-
-    double vx = PREDICTION_GAIN*(last.x - first.x) / dt;
-    double vy = PREDICTION_GAIN*(last.y - first.y) / dt;
-    double vz = PREDICTION_GAIN*(last.z - first.z) / dt;
-    double vtheta_x = PREDICTION_GAIN*(last.theta_x - first.theta_x) / dt;
-    double vtheta_y = PREDICTION_GAIN*(last.theta_y - first.theta_y) / dt;
-    double varea = PREDICTION_GAIN*(last.bbox_area - first.bbox_area) / dt;
-
-    // Determine the time difference between now and the last detection.
-    double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
-
-    // Predict the new position with a simple constant–velocity model:
-    predicted.x = last.x + vx * dt_pred;
-    predicted.y = last.y + vy * dt_pred;
-
-    // predicted.z = last.z + vz * dt_pred;
-    predicted.z = last.z;
-
-    predicted.theta_x = last.theta_x + vtheta_x * dt_pred;
-    predicted.theta_y = last.theta_y + vtheta_y * dt_pred;
-
-    predicted.bbox_area = last.bbox_area;
-
-    return predicted;
 }
 
 void CatchingBlimp::land() {

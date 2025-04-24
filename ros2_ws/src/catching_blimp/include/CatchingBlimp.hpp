@@ -31,6 +31,7 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/int64.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 
@@ -82,7 +83,7 @@
 
 //flight area parameters
 #define CEIL_HEIGHT               8.5     // m
-#define FLOOR_HEIGHT              0.75  // m
+#define FLOOR_HEIGHT              0.5  // m
 
 #define INITIAL_HEIGHT            0.5   // Initial height in meters
 #define MAX_HEIGHT                12    // m  (unused)
@@ -95,7 +96,7 @@
 #define GOAL_DISTANCE_TRIGGER    2.5       // m distance for blimp to trigger goal score 	
 #define FAR_APPROACH_THRESHOLD   200.0     // m distance for blimp to alignment submode switching in approach state 
 #define BALL_GATE_OPEN_TRIGGER   2000.0    // pixel area for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       15000.0   // pixel area for blimp to start the open-loop control
+#define BALL_CATCH_TRIGGER       12500.0   // pixel area for blimp to start the open-loop control
 #define GOAL_SCORE_TRIGGER       30000.0
 #define AVOID_TRIGGER            0.8       // m distance for blimp to start the open-loop control
 
@@ -110,20 +111,22 @@
 // #define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
 // #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
 
-#define GAME_BALL_FORWARD_SEARCH  300  // 30% throttle 
+#define GAME_BALL_FORWARD_SEARCH  250  // 30% throttle 
 #define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
 
 #define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        7.5  // offset magic number (more to the left)
+#define GOAL_CLOSE_COM            180
+
+#define X_OFFSET_ANGLE            7.5  // offset magic number (more to the left)
+
 #define GAME_BALL_Y_OFFSET        160  // approach magic number
 
 #define GOAL_CLOSURE_COM          275  // forward command 25% throttle
 #define GOAL_CLOSE_COM            180
-#define GOAL_X_OFFSET             0    // more to the left
 #define GOAL_Y_OFFSET             190  // height alignment (approach down)
 
 #define CATCHING_FORWARD_COM      500  // catching at 50% throttle 
-#define CATCHING_UP_COM           200   // damp out pitch
+// #define CATCHING_UP_COM           200   // damp out pitch
 
 #define TIME_TO_SEARCH            20.0
 #define TIME_TO_OPEN              2.0
@@ -137,7 +140,6 @@
 
 #define MAX_APPROACH_TIME         15.0
 
-// #define MAX_APPROACH_TIME         600.0
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
 #define TARGET_DETECT_TIMEOUT     0.5  // seconds to wait until prediction is used for TIMEOUT
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
@@ -152,13 +154,13 @@
 #define GOAL_UP_VELOCITY          250
 
 //goal alignment test
-#define ALIGNING_YAW_COM           10   //test
-#define ALIGNING_FORWARD_COM       180  //test
-#define ALIGNING_UP_COM            100  //test
-#define ALIGNING_TRANSLATION_COM   300  //test
+// #define ALIGNING_YAW_COM           10   //test
+// #define ALIGNING_FORWARD_COM       180  //test
+// #define ALIGNING_UP_COM            100  //test
+// #define ALIGNING_TRANSLATION_COM   300  //test
 
 #define SCORING_YAW_COM           0
-#define SCORING_FORWARD_COM       350   //80% throttle
+#define SCORING_FORWARD_COM       500   //80% throttle
 #define SCORING_UP_COM            180
 
 #define SHOOTING_FORWARD_COM      400   //counter back motion 
@@ -173,6 +175,9 @@
 #define BARO_LOOP_FREQ            50.0
 #define STATE_MACHINE_FREQ        30.0
 #define OPTICAL_LOOP_FREQ         55.0
+
+#define VBAT_LOW_THRESHOLD     6.6   // volts
+#define VBAT_LOW_TIME          5.0   // seconds
 
 #define DIST_CONSTANT             0.002
 
@@ -340,6 +345,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
 
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr battery_status_subscription_;
+
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr land_service_;
 
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
@@ -392,6 +399,7 @@ private:
     double z_hat_;
     double z_hat_2;
     double z_command_;
+    bool z_dir_up_ = true;
 
     int catches_;
 
@@ -429,7 +437,6 @@ private:
     rclcpp::Time score_start_time_;
 
     double state_machine_dt_;
-    bool z_dir_up_ = true;
 
     // PID gains
     double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_;
@@ -450,6 +457,9 @@ private:
 
     Eigen::Matrix3d acc_A_;
     Eigen::Vector3d acc_b_;
+
+    bool vbat_low_;
+    rclcpp::Time vbat_low_time_;
 
     void heartbeat_timer_callback();
     void imu_timer_callback();
@@ -487,6 +497,7 @@ private:
     void avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
     void targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg);
+    void battery_status_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
     float searchDirection();
     bool load_pid_config();
     bool load_acc_calibration();
