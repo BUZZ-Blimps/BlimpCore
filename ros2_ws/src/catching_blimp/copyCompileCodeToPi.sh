@@ -25,7 +25,7 @@ if [ "$1" != "" ]; then
         echo "Copied code to $hostname."
 
         bash -c "./stopAutonomyService.sh $hostname"
-        ssh $user@$hostname 'cd ros2_ws && source /opt/ros/humble/setup.bash && colcon build'
+        ssh $user@$hostname 'cd ros2_ws && source /opt/ros/humble/setup.bash && colcon build --packages-select catching_blimp'
 
     else
         echo "$hostname is offline :("
