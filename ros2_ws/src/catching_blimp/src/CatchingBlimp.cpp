@@ -84,7 +84,7 @@ CatchingBlimp::CatchingBlimp() :
     // Set PID limits
     xPID_.setOutputLimits(-300.0, 300.0);
 
-    zPID_.setOutputLimits(-300.0, 300.0);
+    zPID_.setOutputLimits(-500.0, 500.0);
     zPID_.setIMin(0);
     zPID_.setIMax(125);
     

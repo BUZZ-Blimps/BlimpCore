@@ -28,10 +28,12 @@ void CatchingBlimp::state_machine_callback() {
         state_machine_autonomous_callback();
 
         // Constrain z command to physical limits
-        if (z_command_ > CEIL_HEIGHT) {
-            z_command_ = CEIL_HEIGHT;
-        } else if (z_command_ < FLOOR_HEIGHT) {
-            z_command_  = FLOOR_HEIGHT;
+        if (auto_state_ < catching) {
+            if (z_command_ > CEIL_HEIGHT) {
+                z_command_ = CEIL_HEIGHT;
+            } else if (z_command_ < FLOOR_HEIGHT) {
+                z_command_  = FLOOR_HEIGHT;
+            }
         }
     } else {
         //Blimp is lost

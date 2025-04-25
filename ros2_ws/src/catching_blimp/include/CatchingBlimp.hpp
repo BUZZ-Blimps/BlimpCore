@@ -82,7 +82,7 @@
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               8.5     // m
+#define CEIL_HEIGHT               4.0     // m
 #define FLOOR_HEIGHT              0.5  // m
 
 #define INITIAL_HEIGHT            0.5   // Initial height in meters
