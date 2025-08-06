@@ -700,7 +700,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
                 reset_target();
             }
 
-            // Save the new detection as the current target(centering as before)
+            // Save the new detection as the current target (centering as before)
             double target_x = msg->data[0] - 320;
             double target_y = msg->data[1] - 240;
             double target_z = msg->data[2];
@@ -728,6 +728,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
             target_.theta_x = filtered_theta_x;
             target_.theta_y = filtered_theta_y;
             target_.bbox_area = filtered_area;
+
+            // RCLCPP_INFO(this->get_logger(), "Theta = %f", target_.theta_x);
 
             // Add to the history buffer and keep only the latest TARGET_HISTORY_SIZE entries
             target_history_.push_back(target_);

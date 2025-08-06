@@ -50,6 +50,16 @@
 
 #include <wiringPi.h>
 
+// estu Williestuff
+#define CEIL_HEIGHT               1.5     // m
+#define FLOOR_HEIGHT              0.25  // m
+#define GAME_BALL_FORWARD_SEARCH  0
+// #define GAME_BALL_VERTICAL_SEARCH 0.05  // m/s velocity
+#define GAME_BALL_CLOSURE_COM     150  // approaching at 20% throttle cap
+#define GAME_BALL_CLOSE_COM       150
+#define CATCHING_FORWARD_COM      150  // catching at 50% throttle 
+#define X_OFFSET_ANGLE            10.0  // offset magic number (more to the left)
+
 // blimp mode
 #define BLIMP_COLOR               red      //either red or blue
 #define GOAL_COLOR                orange    //either orange or yellow
@@ -68,7 +78,7 @@
 // Vision debugging
 #define VISION_PRINT_DEBUG              false
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
-#define BALL_TRACKING_TESTING           false
+#define BALL_TRACKING_TESTING           true
 
 // optional controllers
 #define USE_OBJECT_AVOIDENCE        false    // use false to turn off the obstacle avoidance 
@@ -82,8 +92,8 @@
 // #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               4.0     // m
-#define FLOOR_HEIGHT              0.5  // m
+// #define CEIL_HEIGHT               4.0     // m
+// #define FLOOR_HEIGHT              0.5  // m
 
 #define INITIAL_HEIGHT            0.5   // Initial height in meters
 #define MAX_HEIGHT                12    // m  (unused)
@@ -108,16 +118,11 @@
 // Autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
 #define GAME_BALL_YAW_SEARCH  2  // deg/s
-// #define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
-// #define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
-
-#define GAME_BALL_FORWARD_SEARCH  250  // 30% throttle 
-#define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
-
-#define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
-#define GAME_BALL_CLOSE_COM       180
-
-#define X_OFFSET_ANGLE            7.5  // offset magic number (more to the left)
+// #define GAME_BALL_FORWARD_SEARCH  250  // 30% throttle
+// #define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
+// #define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
+// #define GAME_BALL_CLOSE_COM       180
+// #define X_OFFSET_ANGLE            7.5  // offset magic number (more to the left)
 
 #define GAME_BALL_Y_OFFSET        160  // approach magic number
 
@@ -125,7 +130,7 @@
 #define GOAL_CLOSE_COM            180
 #define GOAL_Y_OFFSET             190  // height alignment (approach down)
 
-#define CATCHING_FORWARD_COM      500  // catching at 50% throttle 
+// #define CATCHING_FORWARD_COM      500  // catching at 50% throttle 
 // #define CATCHING_UP_COM           200   // damp out pitch
 
 #define TIME_TO_SEARCH            20.0

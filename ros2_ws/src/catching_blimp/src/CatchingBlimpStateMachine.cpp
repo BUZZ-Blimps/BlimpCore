@@ -63,7 +63,6 @@ void CatchingBlimp::state_machine_manual_callback() {
 
     yaw_rate_command_ = -yaw_rate_msg_*120;
 
-
     //normal mapping using max esc command 
     up_command_ = up_msg_*500.0; //up is negative
     forward_command_ = forward_msg_*500.0;
@@ -230,42 +229,46 @@ void CatchingBlimp::state_machine_searching_callback() {
         double elapsedSearchingTime = (state_machine_time_ - search_start_time_).seconds();
         std::string message = "elapsedSearchTime=" + std::to_string(elapsedSearchingTime) + "s.";
 
-        if (elapsedSearchingTime < TIME_TO_SEARCH) {
-            yaw_rate_command_ = 0.0;
-            forward_command_ = GAME_BALL_FORWARD_SEARCH;
+        yaw_rate_command_ = 10.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
+        forward_command_ = 0;
+        z_command_ = 1.0;
 
-        } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP) {
-            if (!backingUp) {
-                backingUp = true;
-            }
-            message += " Backup!";
+        // if (elapsedSearchingTime < TIME_TO_SEARCH) {
+        //     yaw_rate_command_ = 0.0;
+        //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
 
-            yaw_rate_command_ = 0;
-            forward_command_ = -GAME_BALL_FORWARD_SEARCH;
+        // } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP) {
+        //     if (!backingUp) {
+        //         backingUp = true;
+        //     }
+        //     message += " Backup!";
+
+        //     yaw_rate_command_ = 0;
+        //     forward_command_ = -GAME_BALL_FORWARD_SEARCH;
             
-        } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP + TIME_TO_ROTATE) {
-            yaw_rate_command_ = 15.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
-            forward_command_ = 0.0;
-        } else {
-            backingUp = false;
+        // } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP + TIME_TO_ROTATE) {
+        //     yaw_rate_command_ = 15.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
+        //     forward_command_ = 0.0;
+        // } else {
+        //     backingUp = false;
 
-            message += " Reset!";
+        //     message += " Reset!";
 
-            search_start_time_ = state_machine_time_;
-        }
+        //     search_start_time_ = state_machine_time_;
+        // }
 
         // Go up until ceiling is hit
-        if (z_command_ >= CEIL_HEIGHT) {
-            z_dir_up_ = false;
-        } else if (z_command_ <= FLOOR_HEIGHT) {
-            z_dir_up_  = true;
-        }
+        // if (z_command_ >= CEIL_HEIGHT) {
+        //     z_dir_up_ = false;
+        // } else if (z_command_ <= FLOOR_HEIGHT) {
+        //     z_dir_up_  = true;
+        // }
 
-        if (z_dir_up_) {
-            z_command_ += GAME_BALL_VERTICAL_SEARCH*state_machine_dt_;  //up
-        } else {
-            z_command_ -= GAME_BALL_VERTICAL_SEARCH*state_machine_dt_; //down
-        }
+        // if (z_dir_up_) {
+        //     z_command_ += GAME_BALL_VERTICAL_SEARCH*state_machine_dt_;  //up
+        // } else {
+        //     z_command_ -= GAME_BALL_VERTICAL_SEARCH*state_machine_dt_; //down
+        // }
 
         // }
     } else {
