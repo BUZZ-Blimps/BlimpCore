@@ -11,8 +11,7 @@ class MotorControl_V2 {
         void update(double forward, double up, double yaw, double roll);
 
     private:
-        double motorCom(double command);
-        void motorCom(double command, Brushless& motor);
+        double motorCom(double command, Brushless& motor);
         
         double deadband_;
         double turnOnCom;

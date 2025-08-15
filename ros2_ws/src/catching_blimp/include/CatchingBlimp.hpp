@@ -1,11 +1,11 @@
 #ifndef CATCHING_BLIMP_HPP
 #define CATCHING_BLIMP_HPP
 
-//C includes
+// C includes
 #include <stdio.h>
 #include <stdlib.h>
 
-//C++ includes
+// C++ includes
 #include <chrono>
 #include <functional>
 #include <iomanip>
@@ -18,11 +18,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-//TF2
+// TF2
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-//Message type includes
+// Message type includes
 #include <std_msgs/msg/string.hpp> //include the message type that needs to be published (teensy data)
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -31,17 +31,18 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/int64.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 
-// #include "MotorControl.hpp"
+#include <std_srvs/srv/trigger.hpp>
+
 #include "OPI_IMU.hpp"
 #include "Madgwick_Filter.hpp"
 #include "PID.hpp"
 #include "EMAFilter.hpp"
 #include "BangBang.hpp"
 #include "tripleBallGrabber.hpp"
-// #include "Gimbal.hpp"
 #include "MotorControl_V2.hpp"
 #include "ZEstimator.hpp"
 #include "TOF_Sense.hpp"
@@ -49,89 +50,105 @@
 
 #include <wiringPi.h>
 
+// estu Williestuff
+#define CEIL_HEIGHT               1.5     // m
+#define FLOOR_HEIGHT              0.25  // m
+#define GAME_BALL_FORWARD_SEARCH  0
+// #define GAME_BALL_VERTICAL_SEARCH 0.05  // m/s velocity
+#define GAME_BALL_CLOSURE_COM     150  // approaching at 20% throttle cap
+#define GAME_BALL_CLOSE_COM       150
+#define CATCHING_FORWARD_COM      150  // catching at 50% throttle 
+#define X_OFFSET_ANGLE            10.0  // offset magic number (more to the left)
+
 // blimp mode
 #define BLIMP_COLOR               red      //either red or blue
 #define GOAL_COLOR                orange    //either orange or yellow
 
 // debug mode
 #define INITIAL_MODE              manual
+#define INITIAL_STATE             searching
 #define GIMBAL_DEBUG              false
 
 // Motor debugging
 #define MOTOR_PRINT_DEBUG         false
 #define ZERO_MODE                 false
 #define VERT_MODE                 false
-#define YAW_MODE                  false
+#define YAW_RATE_MODE             false
 
 // Vision debugging
-#define VISION_PRINT_DEBUG        true
-
-#define USE_DISTANCE_IN_BALL_APPROACH   false
+#define VISION_PRINT_DEBUG              false
 #define BASKET_CAMERA_VERTICAL_OFFSET   -0.3     // m vertical distance between center of catching basket and camera
-#define BALL_TRACKING_TESTING           false
+#define BALL_TRACKING_TESTING           true
 
-//optional controllers
-#define USE_EST_VELOCITY_IN_MANUAL  false    //use false to turn off the velosity control to see the blimp's behavior 
-#define USE_OBJECT_AVOIDENCE        false     //use false to turn off the obstacle avoidance 
+// optional controllers
+#define USE_OBJECT_AVOIDENCE        false    // use false to turn off the obstacle avoidance 
 
-//catch search time after one
+// catch search time after one
 #define MAX_SEARCH_WAIT_AFTER_ONE     80.0    //max searching 
 #define GAME_BALL_WAIT_TIME_PENALTY   0       //should be set to 20, every catch assumed to be 20 seconds long  
 
-//number of catches attempted
+// number of catches attempted
 #define TOTAL_ATTEMPTS            1    // attempts at catching 
-#define MAX_ATTEMPTS              5    // should be set to 5
+// #define MAX_ATTEMPTS              5    // should be set to 5
 
 //flight area parameters
-#define CEIL_HEIGHT               3   //m
-#define FLOOR_HEIGHT              -1  //m
+// #define CEIL_HEIGHT               4.0     // m
+// #define FLOOR_HEIGHT              0.5  // m
 
-#define MAX_HEIGHT                12   //m  (unused)
-#define GOAL_HEIGHT               1  //m
-#define GOAL_HEIGHT_DEADBAND      0.3  //m
+#define INITIAL_HEIGHT            0.5   // Initial height in meters
+#define MAX_HEIGHT                12    // m  (unused)
+#define GOAL_HEIGHT               7.5   // m
+#define GOAL_HEIGHT_DEADBAND      0.25  // m
+#define UP_MOTOR_DEADBAND         25
+#define UP_MOTOR_MIN              150   // us
 
-//distance triggers
-#define GOAL_DISTANCE_TRIGGER    2.5   // m distance for blimp to trigger goal score 	
-#define FAR_APPROACH_THRESHOLD   200.0   // m distance for blimp to alignment submode switching in approach state 
-#define BALL_GATE_OPEN_TRIGGER   5.5   // m distance for blimp to open the gate 	
-#define BALL_CATCH_TRIGGER       1.5   // m distance for blimp to start the open-loop control
-#define AVOID_TRIGGER            0.8   // m distance for blimp to start the open-loop control
+// distance triggers
+#define GOAL_DISTANCE_TRIGGER    2.5       // m distance for blimp to trigger goal score 	
+#define FAR_APPROACH_THRESHOLD   200.0     // m distance for blimp to alignment submode switching in approach state 
+#define BALL_GATE_OPEN_TRIGGER   2000.0    // pixel area for blimp to open the gate 	
+#define BALL_CATCH_TRIGGER       12500.0   // pixel area for blimp to start the open-loop control
+#define GOAL_SCORE_TRIGGER       30000.0
+#define AVOID_TRIGGER            0.8       // m distance for blimp to start the open-loop control
 
-//object avoidence motor coms
+// Object avoidence motor coms
 #define FORWARD_AVOID             125  // 25% throttle
-#define YAW_AVOID                 30   // deg/s
+#define YAW_RATE_AVOID            30   // deg/s
 #define UP_AVOID                  125  // % throttle 
 
-//autonomy tunning parameters
+// Autonomy tunning parameters
 // the inputs are bounded from -2 to 2, yaw is maxed out at 120 deg/s
-#define GAME_BALL_YAW_SEARCH      -20  // deg/s
-#define GAME_BALL_FORWARD_SEARCH  200  // 30% throttle 
-#define GAME_BALL_VERTICAL_SEARCH 200  // 45% throttle
+#define GAME_BALL_YAW_SEARCH  2  // deg/s
+// #define GAME_BALL_FORWARD_SEARCH  250  // 30% throttle
+// #define GAME_BALL_VERTICAL_SEARCH 0.1  // m/s velocity
+// #define GAME_BALL_CLOSURE_COM     250  // approaching at 20% throttle cap
+// #define GAME_BALL_CLOSE_COM       180
+// #define X_OFFSET_ANGLE            7.5  // offset magic number (more to the left)
 
-#define GAME_BALL_CLOSURE_COM     250  //approaching at 20% throttle cap
-#define GAME_BALL_X_OFFSET        80    //offset magic number (more to the left)
-#define GAME_BALL_Y_OFFSET        160   //approach magic number
+#define GAME_BALL_Y_OFFSET        160  // approach magic number
 
-#define GOAL_CLOSURE_COM          275  //forward command 25% throttle
-#define GOAL_CLOSE_COM            180 
-#define GOAL_X_OFFSET             0    //more to the left
-#define GOAL_Y_OFFSET             190   //height alignment (approach down)
+#define GOAL_CLOSURE_COM          275  // forward command 25% throttle
+#define GOAL_CLOSE_COM            180
+#define GOAL_Y_OFFSET             190  // height alignment (approach down)
 
-#define CATCHING_FORWARD_COM      430  //catching at 50% throttle 
-#define CATCHING_UP_COM           50   //damp out pitch
+// #define CATCHING_FORWARD_COM      500  // catching at 50% throttle 
+// #define CATCHING_UP_COM           200   // damp out pitch
 
-#define TIME_TO_SEARCH            15.0
-#define TIME_TO_BACKUP            5.0
-#define TIME_TO_CATCH             4.2 //seconds
+#define TIME_TO_SEARCH            20.0
+#define TIME_TO_OPEN              2.0
+#define TIME_TO_BACKUP            6.0
+#define TIME_TO_ROTATE            6.0
+#define TIME_TO_CATCH             4.0 // seconds
 #define TIME_TO_CAUGHT            2.5
 #define TIME_TO_SCORE             1.7
 #define TIME_TO_SHOOT             3.5
 #define TIME_TO_SCORED            3.5
+
 #define MAX_APPROACH_TIME         15.0
-// #define MAX_APPROACH_TIME         600.0
+
 #define ALIGNMENT_DURATION        0.0  // seconds to wait between far approach and near approach
-#define TARGET_PREDICTION_USE_DELAY     0.5 // seconds to wait until prediction is used
+#define TARGET_DETECT_TIMEOUT     0.5  // seconds to wait until prediction is used for TIMEOUT
 #define TARGET_MEMORY_TIMEOUT     2.0  // seconds to wait until ID/detection is moved on from
+#define TARGET_HISTORY_SIZE       10
 #define ALIGN_PREDICT_HORIZON     0.0  // seconds to forward predict game ball position for alignment
 
 #define CAUGHT_FORWARD_COM        250  //go back so that the game ball gets to the back 
@@ -142,16 +159,16 @@
 #define GOAL_UP_VELOCITY          250
 
 //goal alignment test
-#define ALIGNING_YAW_COM           10   //test
-#define ALIGNING_FORWARD_COM       180  //test
-#define ALIGNING_UP_COM            100  //test
-#define ALIGNING_TRANSLATION_COM   300  //test
+// #define ALIGNING_YAW_COM           10   //test
+// #define ALIGNING_FORWARD_COM       180  //test
+// #define ALIGNING_UP_COM            100  //test
+// #define ALIGNING_TRANSLATION_COM   300  //test
 
 #define SCORING_YAW_COM           0
-#define SCORING_FORWARD_COM       350 //80% throttle
+#define SCORING_FORWARD_COM       500   //80% throttle
 #define SCORING_UP_COM            180
 
-#define SHOOTING_FORWARD_COM      400  //counter back motion 
+#define SHOOTING_FORWARD_COM      400   //counter back motion 
 #define SHOOTING_UP_COM           200
 //counter moment (right now we do want to shoot up because ball sinks)
 
@@ -164,14 +181,14 @@
 #define STATE_MACHINE_FREQ        30.0
 #define OPTICAL_LOOP_FREQ         55.0
 
+#define VBAT_LOW_THRESHOLD     6.8   // volts
+#define VBAT_LOW_TIME          5.0   // seconds
+
 #define DIST_CONSTANT             0.002
 
 #define GYRO_X_CONSTANT           480.0
 #define GYRO_YAW_CONSTANT         0
 #define GYRO_Y_CONSTANT           323.45
-
-#define BALL_APPROACH_THRESHOLD   2500
-#define BALL_CATCH_THRESHOLD      62000
 
 //OrangePi5 Pinout
 // #define L_Pitch                   5     // was 2
@@ -190,6 +207,8 @@
 #define PIN_RIGHT_FORWARD         10
 
 //***********************************************//
+
+#define PREDICTION_GAIN         0.1
 
 // Constants
 #define MICROS_TO_SEC             1000000.0
@@ -250,14 +269,15 @@ enum target_type {
 };
 
 struct TargetData {
-  double x;
-  double y;
-  double z;
-  double theta_x;
-  double theta_y;
-  rclcpp::Time timestamp;
-  int id;
-  target_type type;
+    rclcpp::Time timestamp;
+    int id;
+    target_type type;
+    double x;
+    double y;
+    double z;
+    double theta_x;
+    double theta_y;
+    double bbox_area;
 };
 
 class CatchingBlimp: public rclcpp::Node {
@@ -269,28 +289,17 @@ private:
     //sensor fusion objects
     OPI_IMU BerryIMU;
     Madgwick_Filter madgwick;
+
     //Z estimator sensor variance
     double R_bar = 1.0;
     double R_lid = 0.1;
 
-    // MotorControl motorControl;
-    // Gimbal leftGimbal;
-    // Gimbal rightGimbal;
+    bool lidar_init_;
+    rclcpp::Time lidar_time_;
+    unsigned long lidar_sys_time_;
+    int lidar_count_;
+
     MotorControl_V2 motorControl_V2;
-
-    // //Goal positioning controller
-    // BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
-
-    // //filter on yaw gyro
-    // EMAFilter yawRateFilter(0.2);
-    // EMAFilter rollRateFilter(0.5);
-
-    // //Low pass filter for computer vision parameters
-    // EMAFilter xFilter(0.5);
-    // EMAFilter yFilter(0.5);
-    // EMAFilter zFilter(0.5);
-    // EMAFilter theta_xFilter(0.5);
-    // EMAFilter theta_yFilter(0.5);
 
     //Goal positioning controller
     BangBang goalPositionHold; //Dead band, velocity to center itself
@@ -305,21 +314,16 @@ private:
     EMAFilter zFilter;
     EMAFilter theta_xFilter;
     EMAFilter theta_yFilter;
+    EMAFilter areaFilter;
 
-    // EMAFilter areaFilter(0.5);
-
-    //baro offset computation from base station value
-    // EMAFilter baroOffset(0.5);
-
-    //roll offset computation from imu
-    // EMAFilter rollOffset(0.5);
+    // Lowpass filter on z altitude
+    EMAFilter heightFilter_;
 
     //ball grabber object
     TripleBallGrabber ballGrabber;
 
-
     rclcpp::TimerBase::SharedPtr timer_imu;
-    rclcpp::TimerBase::SharedPtr timer_baro;
+    rclcpp::TimerBase::SharedPtr timer_lidar;
     rclcpp::TimerBase::SharedPtr timer_state_machine;
     rclcpp::TimerBase::SharedPtr timer_heartbeat;
 
@@ -346,9 +350,12 @@ private:
     rclcpp::Subscription<std_msgs::msg::Int64MultiArray>::SharedPtr pixels_subscription;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr avoidance_subscription;
 
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr battery_status_subscription_;
+
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr land_service_;
+
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     geometry_msgs::msg::TransformStamped blimp_tf_;
-
 
     size_t count_;
     std::string blimp_name_;
@@ -365,10 +372,11 @@ private:
 
     // Target detection
     bool target_detected_ = false;
+    bool target_active_ = false;
     TargetData target_;
-    int target_id_;
-    target_type target_type_;
     std::deque<TargetData> target_history_;
+
+    double last_non_hundred_distance = 100;
 
     //timers for state machine
     bool backingUp = false;
@@ -381,27 +389,27 @@ private:
 
     double searchYawDirection = -1;
     double goalYawDirection = -1;
-    
 
     //Avoidance data
     int quadrant = 10;
 
-    //avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
-    //1000 means object is not present
+    // avoidance data (9 quadrants), targets data and pixel data (balloon, orange goal, yellow goal)
+    // 1000 means object is not present
     std::vector<double> avoidance = {1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0};
 
-    
     bool imu_init_, baro_init_;
     double base_baro_, baro_calibration_offset_, cal_baro_, baro_sum_;
     double lidar_calibration_offset_;
     int baro_count_; 
     double z_hat_;
     double z_hat_2;
+    double z_command_;
+    bool z_dir_up_ = true;
 
     int catches_;
 
     blimpState control_mode_;
-    
+
     autoState auto_state_;
     autoState last_state_ = no_state;
 
@@ -409,15 +417,16 @@ private:
     rclcpp::Time alignment_start_time_;
 
     //msg for commands
-    float forward_msg = 0;
-    float yaw_msg = 0;
-    float up_msg = 0;
+    double forward_msg_ = 0;
+    double yaw_rate_msg_ = 0;
+    double up_msg_ = 0;
 
-    double forward_motor_, up_motor_, yaw_motor_, roll_rate_motor_;
-    double forward_command_, up_command_, yawrate_command_, rollrate_command_;
-    double forward_avoidance_, up_avoidance_, yaw_avoidance_;
-    int roll_update_count_;
+    double forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_;
+    double forward_command_, up_command_, yaw_rate_command_, roll_rate_command_;
+    double forward_avoidance_, up_avoidance_, yaw_rate_avoidance_;
     
+    int roll_update_count_;
+
     rclcpp::Time start_time_;
     rclcpp::Time state_machine_time_;
     rclcpp::Time target_memory_time_;
@@ -425,6 +434,7 @@ private:
 
     rclcpp::Time search_start_time_;
     rclcpp::Time approach_start_time_;
+    rclcpp::Time gate_open_time_;
     rclcpp::Time catch_start_time_;
     rclcpp::Time caught_start_time_;
     rclcpp::Time goal_approach_start_time_;
@@ -433,11 +443,14 @@ private:
 
     double state_machine_dt_;
 
+    // PID gains
+    double x_p_, x_i_, x_d_, y_p_, y_i_, y_d_, z_p_, z_i_, z_d_, yaw_rate_p_, yaw_rate_i_, yaw_rate_d_, roll_p_, roll_i_, roll_d_, roll_rate_p_, roll_rate_i_, roll_rate_d_;
+
     //Auto PID control (output fed into manual controller)
-    PID xPID_;   //TODO:retune these 0.162 for pixel PID
-    PID yPID_;   //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
-    PID zPID_;   //not used for now due to baro reading malfunction
-    PID yawPID_; //can also tune kd with a little overshoot induced
+    PID xPID_;       //TODO:retune these 0.162 for pixel PID
+    PID yPID_;       //TODO:retune these (can also be in pixels depends on which one performs better) 0.0075 for pixel PID
+    PID zPID_;       //not used for now due to baro reading malfunction
+    PID yawRatePID_; //can also tune kd with a little overshoot induced
     PID rollPID_;
     PID rollRatePID_;
     PID theta_yPID_;
@@ -450,11 +463,14 @@ private:
     Eigen::Matrix3d acc_A_;
     Eigen::Vector3d acc_b_;
 
+    bool vbat_low_;
+    rclcpp::Time vbat_low_time_;
+
     void heartbeat_timer_callback();
     void imu_timer_callback();
-    void baro_timer_callback();
+    // void baro_timer_callback();
+    void lidar_timer_callback();
     void state_machine_callback();
-    void vision_timer_callback();
 
     void state_machine_manual_callback();
     void state_machine_autonomous_callback();
@@ -468,6 +484,8 @@ private:
     void state_machine_shooting_callback();
     void state_machine_scored_callback();
     void state_machine_default_callback();
+
+    void land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
     void calculate_avoidance_from_quadrant(int quadrant);
     std::string auto_state_to_string(autoState state);
@@ -484,11 +502,16 @@ private:
     void avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
     void targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg);
     void pixels_subscription_callback(const std_msgs::msg::Int64MultiArray::SharedPtr msg);
+    void battery_status_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
     float searchDirection();
     bool load_pid_config();
     bool load_acc_calibration();
 
-    TargetData predictTargetPosition(float offset=0.0);
+    void land();
+
+    void reset_target();
+    void update_target();
+    TargetData predictTargetPosition(double offset=0.0);
 };
 
 #endif

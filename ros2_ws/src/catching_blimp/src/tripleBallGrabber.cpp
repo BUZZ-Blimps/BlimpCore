@@ -20,17 +20,22 @@ TripleBallGrabber::TripleBallGrabber() {
     targetThrust = currentThrust;
     shooting_state_ = state_off;
     time_change_thrust = current_time;
-    
 }
 
-void TripleBallGrabber::ballgrabber_init(int servoPin, int motorPin){
+void TripleBallGrabber::ballgrabber_init(int servoPin, int motorPin) {
     this->servo_.setup(servoPin);
     this->motor_.setup(motorPin);
     this->servo_.write_angle(currentAngle);
     this->motor_.write_thrust(currentThrust);
 }
 
+// Returns true if the grabber is in the open state
 bool TripleBallGrabber::is_open() {
+    return grabber_state_ == state_open;
+}
+
+// Returns true if the grabber is all the way opened
+bool TripleBallGrabber::is_fully_open() {
     return grabber_state_ == state_open && currentAngle == angle_open;
 }
 
@@ -53,11 +58,11 @@ void TripleBallGrabber::closeGrabber(int blimp_state) {
     //updateMoveRate(blimp_state);
     moveRate = moveRate_fast; // Close fast, regardless of state
 
-    if(grabber_state_ != state_closed) time_change_angle = current_time;
-    grabber_state_ = state_closed;    
+    if (grabber_state_ != state_closed) time_change_angle = current_time;
+    grabber_state_ = state_closed;
     targetAngle = angle_closed;
 
-    if(shooting_state_ != state_off) time_change_thrust = current_time;
+    if (shooting_state_ != state_off) time_change_thrust = current_time;
     shooting_state_ = state_off;
     targetThrust = shooter_off;
 }
@@ -123,16 +128,14 @@ void TripleBallGrabber::update() {
         shooter_change_rate = shooter_change_rate_mag_decrease;
     }
 
-    double maxThurstRamp = elapsedTime * shooter_change_rate; //tunable
-
+    double maxThrustRamp = elapsedTime * shooter_change_rate; //tunable
     double errorThrust = targetThrust - currentThrust;
-
     double deltaThrust;
 
-    if (errorThrust > maxThurstRamp) {
-        deltaThrust = maxThurstRamp;
-    } else if (errorThrust < -maxThurstRamp) {
-        deltaThrust = -maxThurstRamp;
+    if (errorThrust > maxThrustRamp) {
+        deltaThrust = maxThrustRamp;
+    } else if (errorThrust < -maxThrustRamp) {
+        deltaThrust = -maxThrustRamp;
     } else {
         // Error is extremely close
         deltaThrust = errorThrust;
