@@ -1,3 +1,8 @@
+/**
+ * @file BangBang.hpp
+ * @brief Bang-bang controller with deadband; used for goal height positioning.
+ */
+
 #ifndef BANG_BANG_HPP
 #define BANG_BANG_HPP
 

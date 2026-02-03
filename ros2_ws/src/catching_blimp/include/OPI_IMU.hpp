@@ -1,6 +1,7 @@
-/*
- BerryIMU_v3.h 
-*/
+/**
+ * @file OPI_IMU.hpp
+ * @brief Orange Pi IMU driver (BerryIMU): accelerometer, gyroscope, magnetometer, barometer.
+ */
 
 #ifndef OPI_IMU_HPP
 #define OPI_IMU_HPP

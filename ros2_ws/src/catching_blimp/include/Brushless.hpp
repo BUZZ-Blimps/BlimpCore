@@ -1,9 +1,14 @@
+/**
+ * @file Brushless.hpp
+ * @brief Single brushless (ESC) motor: setup(pin), write_thrust(us) for PWM (typically 1000–2000 us).
+ */
+
 #ifndef BRUSHLESS_HPP
 #define BRUSHLESS_HPP
 
 #include "wiringPi.h"
 
-class Brushless{
+class Brushless {
     public:
     void setup(int PIN);
     double write_thrust(double thrust);

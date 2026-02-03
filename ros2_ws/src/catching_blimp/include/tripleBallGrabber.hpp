@@ -1,19 +1,29 @@
+/**
+ * @file tripleBallGrabber.hpp
+ * @brief Ball grabber: gate servo + shooter/sucker brushless motor.
+ *
+ * Combines one Servo (gate open/closed) and one Brushless (shoot/suck).
+ * States: grabber_state_ (closed/open), shooting_state_ (off/shooting/sucking).
+ * openGrabber/closeGrabber/shoot/suck set targets; update() ramps angle and
+ * thrust at configurable rates.
+ */
+
 #ifndef TRIPLE_BALL_GRABBER_HPP
 #define TRIPLE_BALL_GRABBER_HPP
 
 #include "Servo.hpp"
 #include "Brushless.hpp"
 
-class TripleBallGrabber {  
+class TripleBallGrabber {
 public:
     TripleBallGrabber();
     void ballgrabber_init(int servoPin, int motorPin);
     bool is_open();
     bool is_fully_open();
-    void openGrabber(int blimp_state);      // Opens gate
-    void closeGrabber(int blimp_state);     // Closes gate, turns off motor
-    void shoot(int blimp_state);            // Opens gate, uses motor to shoot
-    void suck();                            // Opens gate, uses motor to suck
+    void openGrabber(int blimp_state);   /**< Opens gate. */
+    void closeGrabber(int blimp_state);  /**< Closes gate, turns off motor. */
+    void shoot(int blimp_state);         /**< Opens gate, uses motor to shoot. */
+    void suck();                         /**< Opens gate, uses motor to suck. */
     void update();
     void updateMoveRate(int blimp_state);
 

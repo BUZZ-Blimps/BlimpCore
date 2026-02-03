@@ -1,3 +1,11 @@
+/**
+ * @file MotorControl_V2.hpp
+ * @brief Four-motor mixer: forward, up, yaw, roll -> left/right up and forward.
+ *
+ * Maps high-level commands to per-motor PWM via deadband and scaling (motorCom).
+ * Uses four Brushless instances (left/right up, left/right forward).
+ */
+
 #ifndef MOTOR_CONTROL_V2_HPP
 #define MOTOR_CONTROL_V2_HPP
 
@@ -5,7 +13,7 @@
 #include "Brushless.hpp"
 
 class MotorControl_V2 {
-    public:
+public:
         void motor_init(int motorPinLeftUp, int motorPinLeftForward, int motorPinRightUp, int motorPinRightForward, double newDeadband, double newTurnOnCom, 
                             double newMinCom, double newMaxCom);
         void update(double forward, double up, double yaw, double roll);

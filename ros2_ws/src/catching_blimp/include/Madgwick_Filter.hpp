@@ -1,6 +1,7 @@
-/*
- Madgwick_Filter.h 
-*/
+/**
+ * @file Madgwick_Filter.hpp
+ * @brief Madgwick AHRS: fuses gyro, accel (and optionally mag) to output quaternion and Euler angles.
+ */
 
 #ifndef MADGWICK_FILTER_HPP
 #define MADGWICK_FILTER_HPP

@@ -1,3 +1,14 @@
+/**
+ * @file CatchingBlimp.hpp
+ * @brief Main ROS2 node for the autonomous catching blimp.
+ *
+ * Declares the CatchingBlimp class: sensors (IMU, TOF lidar), sensor fusion
+ * (Madgwick, ZEstimator), controllers (PID, BangBang, EMAFilters), motor
+ * control, ball grabber, and the manual/autonomous state machine. Also
+ * defines configuration constants, enums, and the TargetData struct used
+ * for vision-based ball/goal tracking.
+ */
+
 #ifndef CATCHING_BLIMP_HPP
 #define CATCHING_BLIMP_HPP
 
@@ -50,7 +61,7 @@
 
 #include <wiringPi.h>
 
-// estu Williestuff
+// --- Flight area and game parameters ---
 #define CEIL_HEIGHT               1.5     // m
 #define FLOOR_HEIGHT              0.25  // m
 #define GAME_BALL_FORWARD_SEARCH  0
@@ -268,29 +279,30 @@ enum target_type {
     no_target
 };
 
+/** Vision target: ball or goal with filtered position, angles, and bbox area. */
 struct TargetData {
     rclcpp::Time timestamp;
     int id;
     target_type type;
-    double x;
-    double y;
-    double z;
-    double theta_x;
-    double theta_y;
-    double bbox_area;
+    double x;           /**< Centered x (pixels, e.g. relative to 320). */
+    double y;           /**< Centered y (pixels, e.g. relative to 240). */
+    double z;           /**< Depth/distance. */
+    double theta_x;     /**< Angle in degrees (e.g. for yaw alignment). */
+    double theta_y;     /**< Angle in degrees (e.g. for pitch). */
+    double bbox_area;   /**< Bounding box area; used for approach/catch triggers. */
 };
 
+/** Main catching blimp node: sensors, fusion, controllers, state machine, actuation. */
 class CatchingBlimp: public rclcpp::Node {
 public:
     CatchingBlimp();
-        
-private: 
-    //Global variables
-    //sensor fusion objects
+
+private:
+    // --- Sensors and sensor fusion ---
     OPI_IMU BerryIMU;
     Madgwick_Filter madgwick;
 
-    //Z estimator sensor variance
+    /** Z estimator measurement variances (baro vs lidar). */
     double R_bar = 1.0;
     double R_lid = 0.1;
 
@@ -301,10 +313,10 @@ private:
 
     MotorControl_V2 motorControl_V2;
 
-    //Goal positioning controller
-    BangBang goalPositionHold; //Dead band, velocity to center itself
+    /** Goal height positioning (deadband + centering velocity). */
+    BangBang goalPositionHold;
 
-    //filter on yaw gyro
+    /** Rate filters (yaw and roll gyro). */
     EMAFilter yawRateFilter;
     EMAFilter rollRateFilter;
 
@@ -316,10 +328,10 @@ private:
     EMAFilter theta_yFilter;
     EMAFilter areaFilter;
 
-    // Lowpass filter on z altitude
+    /** Lowpass filter on altitude (z) from lidar. */
     EMAFilter heightFilter_;
 
-    //ball grabber object
+    /** Ball grabber: gate servo + shooter/sucker brushless. */
     TripleBallGrabber ballGrabber;
 
     rclcpp::TimerBase::SharedPtr timer_imu;

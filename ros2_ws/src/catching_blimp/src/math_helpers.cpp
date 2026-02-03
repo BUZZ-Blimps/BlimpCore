@@ -1,3 +1,8 @@
+/**
+ * @file math_helpers.cpp
+ * @brief constrain() and map() utility implementations.
+ */
+
 #include "math_helpers.hpp"
 
 #include <iostream>

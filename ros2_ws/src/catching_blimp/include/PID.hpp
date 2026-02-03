@@ -1,12 +1,14 @@
+/**
+ * @file PID.hpp
+ * @brief Standard PID controller with output limits and integral clamping.
+ */
+
 #ifndef _PID_H_
 #define _PID_H_
 
-class PID
-{
-    public:
-        // Kp -  proportional gain
-        // Ki -  Integral gain
-        // Kd -  derivative gain
+class PID {
+public:
+        /** Kp = proportional, Ki = integral, Kd = derivative gain. */
         // dt -  loop interval time
         // max - maximum value of manipulated variable
         // min - minimum value of manipulated variable

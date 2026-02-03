@@ -1,15 +1,25 @@
+/**
+ * @file CatchingBlimp.cpp
+ * @brief Implementation of the Catching Blimp ROS2 node.
+ *
+ * Constructor: wiringPi, IMU, lidar, ZEstimator, ball grabber, motor control,
+ * PID/calibration loading, publishers/subscriptions/timers. Callbacks for
+ * heartbeat, IMU (Madgwick, TF, motor commands), lidar (height), avoidance,
+ * targets (vision), battery, and subscription handlers. Target handling:
+ * reset_target, update_target, predictTargetPosition. Config loading and land.
+ */
+
 #include "CatchingBlimp.hpp"
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-//Global variables
-//sensor fusion objects
+/** TOF lidar sensor (shared instance for altitude). */
 TOF_Sense lidar;
 
-//Goal positioning controller
-BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
+/** Goal height controller (deadband + centering velocity). */
+BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY);
 
 CatchingBlimp::CatchingBlimp() :
     Node("catching_blimp_node"),
@@ -189,6 +199,7 @@ CatchingBlimp::CatchingBlimp() :
     debug_msg_.data.push_back(0);
 }
 
+/** Publish heartbeat and state to basestation at 2 Hz. */
 void CatchingBlimp::heartbeat_timer_callback() {
     // Publish heartbeat to Basestation
     heartbeat_publisher->publish(heartbeat_msg_);
@@ -199,10 +210,11 @@ void CatchingBlimp::heartbeat_timer_callback() {
     state_publisher_->publish(state_msg_);
 }
 
+/** 100 Hz: read IMU, run Madgwick, publish IMU/TF, run yaw/roll/z PID, apply motors. */
 void CatchingBlimp::imu_timer_callback() {
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now - imu_msg_.header.stamp).seconds();
-    
+
     // Read sensor values and update madgwick
     BerryIMU.IMU_read();
 
@@ -369,6 +381,7 @@ void CatchingBlimp::imu_timer_callback() {
     // z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 // }
 
+/** 50 Hz: read TOF lidar, orientation-correct distance, lowpass, publish height. */
 void CatchingBlimp::lidar_timer_callback() {
     lidar.TOF_read();
 
@@ -412,6 +425,7 @@ void CatchingBlimp::lidar_timer_callback() {
     }  
 }
 
+/** Set forward/up/yaw avoidance commands from quadrant (1–9) for obstacle avoidance. */
 void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
     forward_avoidance_ = 0.0;
     up_avoidance_ = 0.0;
@@ -672,6 +686,7 @@ void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64
     }
 }
 
+/** Process vision targets: filter by desired type (ball/goal), update target and history. */
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     rclcpp::Time now = this->get_clock()->now();
 
@@ -748,6 +763,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     }
 }
 
+/** Clear target history and reset vision filters and PIDs. */
 void CatchingBlimp::reset_target() {
     // Reset target
     target_history_.clear();
@@ -764,6 +780,7 @@ void CatchingBlimp::reset_target() {
     yPID_.reset();
 }
 
+/** Apply detection timeout, target_active_ logic, and prediction when detection is lost. */
 void CatchingBlimp::update_target() {
     rclcpp::Time now = this->get_clock()->now();
 
@@ -814,6 +831,7 @@ void CatchingBlimp::update_target() {
     }
 }
 
+/** Constant-velocity prediction from target history; offset adds time to prediction. */
 TargetData CatchingBlimp::predictTargetPosition(double offset) {
     TargetData predicted;
 
@@ -895,8 +913,9 @@ void CatchingBlimp::battery_status_callback(const std_msgs::msg::Float32MultiArr
     }
 }
 
+/** Load PID gains from ROS parameters; return false if any required param is missing. */
 bool CatchingBlimp::load_pid_config() {
-    //PID gains
+    // PID gains
     this->declare_parameter("x_p", 0.0);
     this->declare_parameter("x_i", 0.0);
     this->declare_parameter("x_d", 0.0);
@@ -954,6 +973,7 @@ bool CatchingBlimp::load_pid_config() {
     }
 }
 
+/** Load accelerometer calibration (betas: 3x3 A + 3x1 b) from ROS params; default identity. */
 bool CatchingBlimp::load_acc_calibration() {
     std::vector<double> empty_vect, beta_vect;
     this->declare_parameter("betas", rclcpp::PARAMETER_DOUBLE_ARRAY);
@@ -981,13 +1001,16 @@ bool CatchingBlimp::load_acc_calibration() {
     }
 }
 
+/** Set autonomous mode, no_state, and z_command_ to FLOOR_HEIGHT to land. */
 void CatchingBlimp::land() {
     control_mode_ = autonomous;
     auto_state_ = no_state;
     z_command_ = FLOOR_HEIGHT;
 }
 
+/** Land service: calls land() and responds success. */
 void CatchingBlimp::land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+    (void)request;
     response->success = true;
     response->message = "Landing";
 

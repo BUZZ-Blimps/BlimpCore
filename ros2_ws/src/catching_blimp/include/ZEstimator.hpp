@@ -1,3 +1,8 @@
+/**
+ * @file ZEstimator.hpp
+ * @brief Kalman filter for vertical position/velocity: IMU propagation + baro/lidar updates.
+ */
+
 #ifndef Z_ESTIMATOR_HPP
 #define Z_ESTIMATOR_HPP
 

@@ -1,5 +1,17 @@
+/**
+ * @file CatchingBlimpStateMachine.cpp
+ * @brief Manual and autonomous state machine for the catching blimp.
+ *
+ * state_machine_callback: update_target, then manual or autonomous branch;
+ * applies z limits, ball grabber update, state change logging.
+ * Manual: map basestation commands; handle shoot/grab toggles.
+ * Autonomous: searching -> approach -> catching -> caught -> goalSearch ->
+ * approachGoal -> scoringStart -> shooting -> scored -> searching.
+ */
+
 #include "CatchingBlimp.hpp"
 
+/** Random search direction: +1 or -1 (used for yaw during search). */
 float CatchingBlimp::searchDirection() {
     int ran = rand() % 10; //need to check bounds
     double binary = ran < 5 ? 1.0 : -1.0;
@@ -7,9 +19,10 @@ float CatchingBlimp::searchDirection() {
     return binary;
 }
 
+/** Main state machine tick: update target, run manual or autonomous logic, apply z limits, update grabber. */
 void CatchingBlimp::state_machine_callback() {
     update_target();
-    
+
     rclcpp::Time now = this->get_clock()->now();
     state_machine_dt_ = (now - state_machine_time_).seconds();
     state_machine_time_ = now;
@@ -55,9 +68,9 @@ void CatchingBlimp::state_machine_callback() {
     last_state_ = auto_state_;
 }
 
+/** Manual mode: map basestation motor commands; handle shoot/grab toggles and ball grabber. */
 void CatchingBlimp::state_machine_manual_callback() {
-    // publish_log("Im in state_machine_callback, manual");
-    //get manual data
+    // get manual data
     //all motor commands are between -1 and 1
     //set max yaw command to 120 deg/s
 
@@ -114,12 +127,9 @@ void CatchingBlimp::state_machine_manual_callback() {
     }
 }
 
+/** Autonomous mode: dispatch to current auto_state_ handler (searching, approach, catching, etc.). */
 void CatchingBlimp::state_machine_autonomous_callback() {
-
-    /*---------------------------------------------------------------------------------------------------------------
-    ---------------------------Target is determined from the state we are in-----------------------------------------
-    ---------------------------------------------------------------------------------------------------------------*/
-    
+    // Target type (ball vs goal) is determined from the current state.
     // Modes for autonomous behavior
     switch (auto_state_) {
         // Autonomous state machine
@@ -158,8 +168,9 @@ void CatchingBlimp::state_machine_autonomous_callback() {
     } // End auto_mode switch
 }
 
+/** Searching: spin for ball; after catches/timeout transition to goalSearch; on ball detection -> approach. */
 void CatchingBlimp::state_machine_searching_callback() {
-    //check if goal scoring should be attempted
+    // Check if goal scoring should be attempted
     if (catches_ >= 1 && ((state_machine_time_ - last_catch_time_).seconds() >= (MAX_SEARCH_WAIT_AFTER_ONE - (catches_-1)*GAME_BALL_WAIT_TIME_PENALTY))) {
         catches_ = TOTAL_ATTEMPTS;
         auto_state_ = goalSearch;
@@ -281,9 +292,8 @@ void CatchingBlimp::state_machine_searching_callback() {
     }
 }
 
+/** Approach ball: PID on theta_x (yaw) and y (z); open grabber when close; on area trigger -> catching. */
 void CatchingBlimp::state_machine_approach_callback() {
-    // RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away (target detected: %s)", approach_state_, target_.z, (target_active_ ? "true" : "false"));
-            
     // Check if maximum time to approach has been exceeded.
     if ((state_machine_time_ - approach_start_time_).seconds() >= MAX_APPROACH_TIME && !BALL_TRACKING_TESTING) {
         auto_state_ = searching;
@@ -359,8 +369,9 @@ void CatchingBlimp::state_machine_approach_callback() {
     }
 }
 
+/** Catching: fixed forward, run suck; after TIME_TO_CATCH -> caught, close grabber. */
 void CatchingBlimp::state_machine_catching_callback() {
-    //Go slower when we get up close
+    // Go slower when we get up close
     forward_command_ = CATCHING_FORWARD_COM;
     yaw_rate_command_ = 0;
 
@@ -388,6 +399,7 @@ void CatchingBlimp::state_machine_catching_callback() {
     }
 }
 
+/** Caught: after TIME_TO_CAUGHT go to goalSearch or back to searching; handle next ball if visible. */
 void CatchingBlimp::state_machine_caught_callback() {
     if (catches_ > 0) {
         // if a target is seen right after the catch
@@ -424,8 +436,9 @@ void CatchingBlimp::state_machine_caught_callback() {
     }
 }
 
+/** Goal search: spin and forward at GOAL_HEIGHT; on goal detection -> approachGoal. */
 void CatchingBlimp::state_machine_goalSearch_callback() {
-    // keep ball grabber closed
+    // Keep ball grabber closed
     if (ballGrabber.is_open()) {
         ballGrabber.closeGrabber(control_mode_);
     }
@@ -478,6 +491,7 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     }
 }
 
+/** Approach goal: same style as ball approach; on area trigger -> scoringStart. */
 void CatchingBlimp::state_machine_approachGoal_callback() {
     if (target_active_ && target_.type == goal) {
 
@@ -522,8 +536,9 @@ void CatchingBlimp::state_machine_approachGoal_callback() {
     }
 }
 
+/** Scoring start: hold yaw/forward for TIME_TO_SCORE, then -> shooting. */
 void CatchingBlimp::state_machine_scoringStart_callback() {
-    //after correction, we can do goal alignment with a yaw and a translation 
+    // After correction, we can do goal alignment with a yaw and a translation
     yaw_rate_command_ = SCORING_YAW_COM;
     forward_command_ = SCORING_FORWARD_COM;
 
@@ -534,6 +549,7 @@ void CatchingBlimp::state_machine_scoringStart_callback() {
     }
 }
 
+/** Shooting: open and shoot, then backup and rotate; then -> scored. */
 void CatchingBlimp::state_machine_shooting_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
@@ -565,6 +581,7 @@ void CatchingBlimp::state_machine_shooting_callback() {
     }
 }
 
+/** Scored: hold forward; after TIME_TO_SCORED reset catches and -> searching. */
 void CatchingBlimp::state_machine_scored_callback() {
     ballGrabber.closeGrabber(control_mode_);
 
@@ -580,6 +597,7 @@ void CatchingBlimp::state_machine_scored_callback() {
     }
 }
 
+/** Default (e.g. landing): zero yaw and forward commands. */
 void CatchingBlimp::state_machine_default_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = 0;

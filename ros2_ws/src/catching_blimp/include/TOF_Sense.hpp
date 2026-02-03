@@ -1,3 +1,8 @@
+/**
+ * @file TOF_Sense.hpp
+ * @brief Time-of-flight distance sensor over UART: distance (mm), signal strength, system time.
+ */
+
 #ifndef _TOF_SENSE_HPP_
 #define _TOF_SENSE_HPP_
 

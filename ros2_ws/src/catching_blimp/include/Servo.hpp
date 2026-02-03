@@ -1,3 +1,8 @@
+/**
+ * @file Servo.hpp
+ * @brief Servo control: setup(pin), write_angle(deg) or write_microseconds(us).
+ */
+
 #ifndef SERVO_HPP
 #define SERVO_HPP
 

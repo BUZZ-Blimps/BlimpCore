@@ -1,3 +1,8 @@
+/**
+ * @file MotorControl_V2.cpp
+ * @brief Four-motor mixer: forward/up/yaw/roll -> per-motor PWM with deadband and scaling.
+ */
+
 #include <cstdio>
 #include <iostream>
 #include <math.h>

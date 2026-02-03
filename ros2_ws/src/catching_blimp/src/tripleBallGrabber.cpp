@@ -1,3 +1,8 @@
+/**
+ * @file tripleBallGrabber.cpp
+ * @brief Implementation of ball grabber (gate servo + shooter/sucker motor).
+ */
+
 #include <math.h>
 
 #include "tripleBallGrabber.hpp"

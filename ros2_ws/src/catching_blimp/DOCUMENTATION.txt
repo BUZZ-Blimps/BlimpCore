@@ -1,0 +1,251 @@
+================================================================================
+                    CATCHING_BLIMP ROS2 PACKAGE DOCUMENTATION
+================================================================================
+
+OVERVIEW
+--------
+The catching_blimp package is a ROS2 (Robot Operating System 2) node that runs
+on an Orange Pi (or similar single-board computer) to control an autonomous
+"catching blimp" robot. The blimp uses computer vision to detect game balls and
+goals, then autonomously searches for balls, approaches them, catches them with
+a mechanical grabber, and scores by shooting the ball into a goal.
+
+The system supports both manual control (via a basestation) and autonomous
+operation. Key hardware includes: IMU (BerryIMU), time-of-flight (TOF) lidar
+for altitude, brushless motors for propulsion and lift, servos for the ball
+grabber gate, and a brushless motor for the shooter/sucker mechanism.
+
+
+PACKAGE STRUCTURE
+-----------------
+
+catching_blimp/
+  calibration/          - Accelerometer calibration YAML files per blimp
+  include/              - C++ header files
+  launch/                - ROS2 launch files for different blimps/venues
+  param/                 - PID and other parameter YAML files
+  scripts/               - Python utilities (e.g. battery monitor)
+  src/                   - C++ source files
+  bulkCopyCodeToPi.sh    - Deployment: copy code to multiple Pis
+  bulkStartAllServices.sh / bulkStopAllServices.sh
+  bulkStartAutonomyService.sh / bulkStopAutonomyService.sh
+  bulkStartVisionService.sh / bulkStopVisionService.sh
+  copyCodeToPi.sh / copyCompileCodeToPi.sh - Single-Pi deployment
+  startAllServices.sh / stopAllServices.sh
+  startAutonomyService.sh / stopAutonomyService.sh
+  startVisionService.sh / stopVisionService.sh
+  CMakeLists.txt
+  package.xml
+  LICENSE
+
+
+MAIN EXECUTABLE AND CORE LOGIC
+------------------------------
+
+  src/catching_blimp_node.cpp
+    Entry point. Initializes ROS2, creates the CatchingBlimp node, and spins.
+
+  include/CatchingBlimp.hpp
+    Main node class. Declares:
+    - Configuration constants (flight area, thresholds, timings, pinouts)
+    - Enums: autoState (searching, approach, catching, caught, goalSearch,
+      approachGoal, scoringStart, shooting, scored), blimpState (manual,
+      autonomous, lost), approachState, grabberState, target_type
+    - TargetData struct for vision detections
+    - Sensors/fusion: OPI_IMU, Madgwick_Filter, TOF lidar, ZEstimator
+    - Controllers: PID (x, y, z, yaw rate, roll, roll rate), BangBang for goal
+      height, EMAFilters for vision and rates
+    - MotorControl_V2, TripleBallGrabber
+    - ROS publishers (heartbeat, imu, debug, height, state, log, heading)
+    - ROS subscriptions (mode, motor_commands, targets, avoidance, battery, etc.)
+    - Timers: heartbeat, IMU, lidar, state machine
+    - Land service and TF broadcaster
+
+  src/CatchingBlimp.cpp
+    Constructor: wiringPi, IMU, lidar, ZEstimator, ball grabber, motor control,
+    PID/calibration loading, publishers/subscriptions/timers.
+    Callbacks: heartbeat, IMU (read IMU, Madgwick, publish IMU/TF, run yaw/roll
+    PID and z height PID, apply motor commands), lidar (TOF read, orientation-
+    corrected height, lowpass, publish height), avoidance quadrant logic,
+    auto_state_to_string, auto_state_to_desired_target_type, publish_log.
+    Subscription callbacks: mode (auto/manual), grabber, kill, shoot, motor
+    commands, goal color, avoidance, targets (vision), battery status.
+    Target handling: reset_target, update_target, predictTargetPosition (simple
+    constant-velocity prediction from target history).
+    Config: load_pid_config, load_acc_calibration. land / land_callback.
+
+  src/CatchingBlimpStateMachine.cpp
+    state_machine_callback: calls update_target, then either manual or
+    autonomous state machine; applies z limits; updates ball grabber; logs
+    state changes.
+    state_machine_manual_callback: maps basestation commands to yaw/up/forward;
+    handles shoot/grab toggles and ballGrabber open/close/shoot.
+    state_machine_autonomous_callback: switch on auto_state_ to:
+      - searching: time-based transition to goalSearch after catches; spin
+        search for ball; on ball detection -> approach
+      - approach: PID on theta_x (yaw), target.y (z), forward/closure commands;
+        open grabber when ball close; on area trigger -> catching
+      - catching: fixed forward, run suck; after TIME_TO_CATCH -> caught
+      - caught: after TIME_TO_CAUGHT, go to goalSearch or back to searching
+      - goalSearch: spin and forward at GOAL_HEIGHT; on goal detection -> approachGoal
+      - approachGoal: same style as ball approach; on area trigger -> scoringStart
+      - scoringStart: forward for TIME_TO_SCORE -> shooting
+      - shooting: open and shoot, then backup and rotate -> scored
+      - scored: forward, then after TIME_TO_SCORED -> searching, reset catches
+    state_machine_default_callback: zero commands (e.g. when landing).
+
+
+STATE MACHINE SUMMARY (AUTONOMOUS)
+---------------------------------
+  searching -> (ball detected) -> approach -> (ball close) -> catching ->
+  (time) -> caught -> (time) -> goalSearch or searching
+  goalSearch -> (goal detected) -> approachGoal -> (goal close) -> scoringStart ->
+  (time) -> shooting -> (backup/rotate) -> scored -> (time) -> searching
+
+
+HARDWARE / DRIVERS AND HELPERS
+------------------------------
+
+  include/OPI_IMU.hpp, src/OPI_IMU.cpp
+    Orange Pi IMU driver (BerryIMU): accelerometer, gyroscope, magnetometer,
+    barometer. Setup and read functions.
+
+  include/Madgwick_Filter.hpp, src/Madgwick_Filter.cpp
+    Madgwick AHRS: fuses gyro, accel, (optionally mag) to output quaternion
+    and Euler angles.
+
+  include/TOF_Sense.hpp, src/TOF_Sense.cpp
+    Time-of-flight distance sensor over UART (/dev/ttyS0, 921600 baud). Reads
+    distance (mm), signal strength, system time; used for altitude (z).
+
+  include/ZEstimator.hpp, src/ZEstimator.cpp
+    Kalman filter for vertical position/velocity using IMU propagation and
+    baro/lidar updates. (Baro path is commented out in this package; lidar
+    is used for z directly.)
+
+  include/EMAFilter.hpp, src/EMAFilter.cpp
+    Exponential moving average filter: single-pole lowpass with configurable
+    alpha. Used for vision coordinates, rates, height.
+
+  include/PID.hpp, src/PID.cpp
+    Standard PID controller with output limits, integral clamping (IMin/IMax),
+    and optional derivative limit.
+
+  include/BangBang.hpp, src/BangBang.cpp
+    Bang-bang controller with deadband; used for goal height positioning.
+
+  include/math_helpers.hpp, src/math_helpers.cpp
+    Utility: constrain(value, min, max) and map(x, in_min, in_max, out_min, out_max).
+
+
+ACTUATION
+---------
+
+  include/MotorControl_V2.hpp, src/MotorControl_V2.cpp
+    Four brushless motors: left/right up, left/right forward. update(forward,
+    up, yaw, roll) mixes to per-motor commands with deadband and scaling
+    (motorCom), then writes PWM via Brushless class.
+
+  include/Brushless.hpp, src/Brushless.cpp
+    Single brushless (ESC) motor: setup(pin), write_thrust(us) for PWM
+    (typically 1000--2000 us).
+
+  include/Servo.hpp, src/Servo.cpp
+    Servo control: setup(pin), write_angle(deg) or write_microseconds(us).
+    Used for the grabber gate.
+
+  include/tripleBallGrabber.hpp, src/tripleBallGrabber.cpp
+    Combines one Servo (gate) and one Brushless (shooter/sucker). States:
+    grabber_state_ (closed/open), shooting_state_ (off/shooting/sucking).
+    openGrabber / closeGrabber / shoot / suck set targets; update() ramps
+    angle and thrust at configurable rates. ballgrabber_init(servoPin, motorPin).
+
+
+VISION AND TARGETS
+------------------
+  Targets arrive on topic "targets" (Float64MultiArray). Format (from
+  CatchingBlimp::targets_subscription_callback): data[0]=x (pixel, centered
+  with 320), data[1]=y (centered 240), data[2]=z, data[3]=id, data[4]=type
+  (ball/goal), data[5]=theta_x, data[6]=theta_y (rad), data[7]=bbox_x,
+  data[8]=bbox_y. Bbox area is used for approach/catch/score triggers.
+  Target type is filtered by current auto state (ball vs goal). Target
+  history is kept for constant-velocity prediction when detection is lost
+  briefly (TARGET_MEMORY_TIMEOUT).
+
+
+OPTICAL FLOW / EKF (BUILD ONLY)
+-------------------------------
+  include/optical_ekf.hpp, src/optical_ekf.cpp
+  include/Optical_Flow.hpp, src/Optical_Flow.cpp
+  include/Kalman_Filter_Tran_Vel_Est.hpp, src/Kalman_Filter_Tran_Vel_Est.cpp
+  Included in the build but not referenced in the main CatchingBlimp logic
+  in the current code; reserved for optical-flow-based velocity estimation.
+
+
+LAUNCH AND CONFIGURATION
+------------------------
+  launch/
+    catchingblimp.launch.py      - Base launch
+    1_BurnCream.launch.py ... 6_SuperBeef.launch.py - Per-blimp/venue configs
+  param/pid_config.yaml          - PID gains (x, y, z, yaw_rate, roll, roll_rate)
+  calibration/*.yaml              - Accelerometer calibration (betas) per blimp
+  Calibration and PID are loaded via ROS parameters (e.g. from launch).
+
+
+SCRIPTS AND SHELL
+-----------------
+  scripts/battery_monitor_node.py
+    ROS2 Python node: reads battery voltage from serial (e.g. /dev/ttyACM0),
+    publishes Float32MultiArray on "battery_status" [voltage, percentage].
+    Low voltage for > VBAT_LOW_TIME triggers auto land in CatchingBlimp.
+
+  copyCodeToPi.sh / copyCompileCodeToPi.sh
+    Copy (and optionally build) the package to a Pi (hostname/config may need
+    adjustment).
+
+  bulkCopyCodeToPi.sh, bulkStartAllServices.sh, bulkStopAllServices.sh,
+  bulkStartAutonomyService.sh, bulkStopAutonomyService.sh,
+  bulkStartVisionService.sh, bulkStopVisionService.sh
+    Batch operations for multiple Pis / autonomy vs vision services.
+
+  startAllServices.sh, stopAllServices.sh, startAutonomyService.sh,
+  stopAutonomyService.sh, startVisionService.sh, stopVisionService.sh
+    Single-node service start/stop helpers.
+
+
+ROS2 TOPICS (TYPICAL)
+---------------------
+  Subscriptions (incoming):
+    mode (Bool) - autonomous if true, manual if false
+    motor_commands (Float64MultiArray) - [yaw_rate, up, ?, forward] from basestation
+    catching (Bool), shooting (Bool), killed (Bool), goal_color (Bool)
+    targets (Float64MultiArray) - vision detections
+    avoidance (Float64MultiArray) - 9 elements, obstacle distances per quadrant
+    battery_status (Float32MultiArray) - [voltage, percentage]
+
+  Publications (outgoing):
+    heartbeat (Bool), state (Int64MultiArray) [auto_state, catches]
+    imu (Imu), height (Float64), z_velocity (Float64), debug (Float64MultiArray)
+    log (String), heading (Float64MultiArray)
+
+  Services:
+    land (Trigger) - switches to autonomous, no_state, and sets z_command_
+    to FLOOR_HEIGHT to land.
+
+
+DEPENDENCIES
+------------
+  package.xml: rclcpp, rclpy, std_msgs, std_srvs, geometry_msgs, sensor_msgs,
+  Eigen3, wiringPi. CMake also uses tf2, tf2_ros, tf2_geometry_msgs.
+  Hardware: wiringPi for GPIO/PWM and UART on Orange Pi.
+
+
+BUILD AND RUN
+-------------
+  From workspace: colcon build --packages-select catching_blimp
+  Run: ros2 run catching_blimp catching_blimp_node
+  Or use the provided launch files with the desired blimp/calibration.
+
+================================================================================
+                              END OF DOCUMENTATION
+================================================================================
