@@ -4,6 +4,9 @@
 #include "EMAFilter.hpp"
 #include "Brushless.hpp"
 
+// Mixer for the four brushless motors.
+// Translates high-level forward / up / yaw / roll commands into individual
+// ESC signals, enforcing deadband and min/max command constraints.
 class MotorControl_V2 {
     public:
         void motor_init(int motorPinLeftUp, int motorPinLeftForward, int motorPinRightUp, int motorPinRightForward, double newDeadband, double newTurnOnCom, 

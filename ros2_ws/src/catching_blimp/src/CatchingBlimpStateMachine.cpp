@@ -1,5 +1,9 @@
 #include "CatchingBlimp.hpp"
 
+// State machine callbacks for the CatchingBlimp node.
+// This file implements the high-level autonomous game logic for searching
+// for game balls, catching them, and then locating and scoring on the goal.
+
 float CatchingBlimp::searchDirection() {
     int ran = rand() % 10; //need to check bounds
     double binary = ran < 5 ? 1.0 : -1.0;
@@ -7,6 +11,10 @@ float CatchingBlimp::searchDirection() {
     return binary;
 }
 
+// Main state machine entry point.
+// - Updates the active vision target and state-machine timestep
+// - Dispatches to either manual or autonomous sub-state machines
+// - Applies saturation on altitude commands and updates actuators.
 void CatchingBlimp::state_machine_callback() {
     update_target();
     
@@ -55,6 +63,9 @@ void CatchingBlimp::state_machine_callback() {
     last_state_ = auto_state_;
 }
 
+// Manual control mode.
+// Applies pilot stick inputs directly (with scaling) to motor commands
+// and handles shoot/grab button edges to operate the ball grabber.
 void CatchingBlimp::state_machine_manual_callback() {
     // publish_log("Im in state_machine_callback, manual");
     //get manual data
@@ -114,6 +125,9 @@ void CatchingBlimp::state_machine_manual_callback() {
     }
 }
 
+// Top-level autonomous control state machine.
+// Chooses a more specific game state (searching, approach, catching, etc.)
+// and calls the corresponding handler for that sub-state.
 void CatchingBlimp::state_machine_autonomous_callback() {
 
     /*---------------------------------------------------------------------------------------------------------------
@@ -158,6 +172,9 @@ void CatchingBlimp::state_machine_autonomous_callback() {
     } // End auto_mode switch
 }
 
+// SEARCHING: execute a search pattern to find a game ball target.
+// Handles promotion to goal-search when enough balls are caught or
+// a timeout has elapsed, and transitions into APPROACH when a ball is detected.
 void CatchingBlimp::state_machine_searching_callback() {
     //check if goal scoring should be attempted
     if (catches_ >= 1 && ((state_machine_time_ - last_catch_time_).seconds() >= (MAX_SEARCH_WAIT_AFTER_ONE - (catches_-1)*GAME_BALL_WAIT_TIME_PENALTY))) {
@@ -281,6 +298,9 @@ void CatchingBlimp::state_machine_searching_callback() {
     }
 }
 
+// APPROACH: track a detected game ball using vision + PID control.
+// Commands yaw to center the ball, adjusts altitude, and decides when
+// to open the grabber and transition into the CATCHING state.
 void CatchingBlimp::state_machine_approach_callback() {
     // RCLCPP_INFO(this->get_logger(), "Current approach mode: %d at %f meters away (target detected: %s)", approach_state_, target_.z, (target_active_ ? "true" : "false"));
             
@@ -359,6 +379,9 @@ void CatchingBlimp::state_machine_approach_callback() {
     }
 }
 
+// CATCHING: move slowly forward with the grabber open and suction enabled.
+// After a fixed open-loop catch time, close the grabber, increment the
+// catch counter, and transition into the CAUGHT state.
 void CatchingBlimp::state_machine_catching_callback() {
     //Go slower when we get up close
     forward_command_ = CATCHING_FORWARD_COM;
@@ -388,6 +411,9 @@ void CatchingBlimp::state_machine_catching_callback() {
     }
 }
 
+// CAUGHT: a game ball is believed to be in the grabber.
+// Either continue searching for more balls or transition to goal search
+// depending on how many have been caught and how much time has elapsed.
 void CatchingBlimp::state_machine_caught_callback() {
     if (catches_ > 0) {
         // if a target is seen right after the catch
@@ -424,6 +450,9 @@ void CatchingBlimp::state_machine_caught_callback() {
     }
 }
 
+// GOAL_SEARCH: search for the scoring goal with the grabber closed.
+// Commands a gentle forward motion and yaw-spin at a fixed height,
+// transitioning to APPROACH_GOAL when a valid goal detection appears.
 void CatchingBlimp::state_machine_goalSearch_callback() {
     // keep ball grabber closed
     if (ballGrabber.is_open()) {
@@ -478,6 +507,9 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
     }
 }
 
+// APPROACH_GOAL: track and approach the scoring goal using vision.
+// Similar to ball approach but with different gains and thresholds,
+// transitioning into SCORING_START once the goal is close enough.
 void CatchingBlimp::state_machine_approachGoal_callback() {
     if (target_active_ && target_.type == goal) {
 
@@ -522,6 +554,9 @@ void CatchingBlimp::state_machine_approachGoal_callback() {
     }
 }
 
+// SCORING_START: short open-loop maneuver to align for shooting.
+// Drives forward and yaws at fixed rates for a specified duration,
+// then hands off to the SHOOTING state.
 void CatchingBlimp::state_machine_scoringStart_callback() {
     //after correction, we can do goal alignment with a yaw and a translation 
     yaw_rate_command_ = SCORING_YAW_COM;
@@ -534,6 +569,9 @@ void CatchingBlimp::state_machine_scoringStart_callback() {
     }
 }
 
+// SHOOTING: fire the balls toward the goal, then back up and rotate.
+// After the shoot, backup, and rotate segments complete, transition
+// into the SCORED state.
 void CatchingBlimp::state_machine_shooting_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = SHOOTING_FORWARD_COM;
@@ -565,6 +603,9 @@ void CatchingBlimp::state_machine_shooting_callback() {
     }
 }
 
+// SCORED: post-scoring behavior.
+// Drives backward briefly, then resets catch counters and returns
+// to the SEARCHING state to repeat the game cycle.
 void CatchingBlimp::state_machine_scored_callback() {
     ballGrabber.closeGrabber(control_mode_);
 
@@ -580,6 +621,8 @@ void CatchingBlimp::state_machine_scored_callback() {
     }
 }
 
+// DEFAULT: standby / safe state used during landing or when no
+// autonomous behavior should be executed.
 void CatchingBlimp::state_machine_default_callback() {
     yaw_rate_command_ = 0;
     forward_command_ = 0;
