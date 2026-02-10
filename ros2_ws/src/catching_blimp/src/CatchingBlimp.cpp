@@ -1,16 +1,20 @@
+/**
+ * @file CatchingBlimp.cpp
+ * @brief ROS2 node for the catching blimp: sensors, control, state machine, and motor mixing.
+ *        Runs on Orange Pi; interfaces with basestation (manual/auto, commands) and offboard vision (targets).
+ */
+
 #include "CatchingBlimp.hpp"
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-//Global variables
-//sensor fusion objects
-TOF_Sense lidar;
+// --- Global objects (shared across node lifecycle) ---
+TOF_Sense lidar;  // Time-of-flight lidar for height (m)
+BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY);  // Goal height hold: deadband, centering velocity
 
-//Goal positioning controller
-BangBang goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY); //Dead band, velocity to center itself
-
+// --- Constructor: init ROS node, load params, hardware, publishers/subscribers, timers ---
 CatchingBlimp::CatchingBlimp() :
     Node("catching_blimp_node"),
     goalPositionHold(GOAL_HEIGHT_DEADBAND, GOAL_UP_VELOCITY),
@@ -48,9 +52,9 @@ CatchingBlimp::CatchingBlimp() :
     lidar_count_(0),
     vbat_low_(false) {
 
-    blimp_name_ = std::string(this->get_namespace()).substr(1);
-    
-    //Load PID config from params
+    blimp_name_ = std::string(this->get_namespace()).substr(1);  // e.g. /blimp1 -> blimp1
+
+    // --- Load PID and accel calibration from ROS params (required to run) ---
     if (load_pid_config()) {
         RCLCPP_INFO(this->get_logger(), "PID configuration loaded.");
     } else {
@@ -69,36 +73,32 @@ CatchingBlimp::CatchingBlimp() :
         return;
     }
 
-    // Initialize TF
+    // --- TF: blimp pose (map -> blimp_name_) for viz and other nodes ---
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     blimp_tf_.header.frame_id = "map";
     blimp_tf_.child_frame_id = blimp_name_;
 
-    // Initialize
-    wiringPiSetup();
+    // --- Hardware: GPIO, IMU, lidar UART, altitude estimate/lowpass ---
     BerryIMU.OPI_IMU_Setup();
     lidar.uart_setup();
     z_est_.initialize();
     z_lowpass_.setAlpha(0.9);
 
-    // Set PID limits
+    // --- PID output limits and I-term clamping (z: altitude) ---
     xPID_.setOutputLimits(-300.0, 300.0);
-
     zPID_.setOutputLimits(-500.0, 500.0);
     zPID_.setIMin(0);
     zPID_.setIMax(125);
-    
-    // Initialize to no target
+
     target_.id = -1;
     target_.type = no_target;
 
+    // --- Actuators: ball grabber (gate + scoring pin), 4 motors (deadband 25, turn-on 30, min/max thrust) ---
     ballGrabber.ballgrabber_init(GATE_S, PIN_SCORING);
     motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR);
+    delay(2000);  // Let ESCs arm at 1500
 
-    // Delay for ESCs to initialize
-    delay(2000);
-
-    // Create publishers (7 right now)
+    // --- ROS publishers: heartbeat, IMU, debug, height, z_velocity, state, log, heading ---
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
     imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("imu", 10);
     debug_publisher = this->create_publisher<std_msgs::msg::Float64MultiArray>("debug", 10);
@@ -108,17 +108,16 @@ CatchingBlimp::CatchingBlimp() :
     log_publisher = this->create_publisher<std_msgs::msg::String>("log", 10);
     heading_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("heading", 10);
 
-    // Set QOS settings to match basestation
+    // --- QoS: bools = reliable + transient_local (basestation); motors = reliable + volatile ---
     auto bool_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
     bool_qos.reliable();
     bool_qos.transient_local();
-
     auto motor_qos = rclcpp::QoS(rclcpp::KeepLast(1), rmw_qos_profile_default);
     motor_qos.reliable();
     motor_qos.durability_volatile();
 
-    // Basestation bool subscribers
-    auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", bool_qos, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1)); //was auto
+    //  Subscribers: basestation (mode, catch, shoot, kill, goal_color, motor_commands), vision (targets, avoidance), battery 
+    auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", bool_qos, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1));  // true = autonomous
     // cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
     grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", bool_qos, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
     shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", bool_qos, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
@@ -139,24 +138,15 @@ CatchingBlimp::CatchingBlimp() :
 
     battery_status_subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("battery_status", 10, std::bind(&CatchingBlimp::battery_status_callback, this, _1));
 
-    // 2 Hz heartbeat timer
+    //  Timers: heartbeat 2 Hz, IMU 100 Hz, lidar 50 Hz, state machine ~30 Hz; land service 
     timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
-
-    // 100 Hz IMU timer
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_timer_callback, this));
-
-    // 100 Hz lidar timer
     // timer_baro = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
-
-    // Read LiDar @ 50 Hz
     timer_lidar = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::lidar_timer_callback, this));
-
-    // 33 Hz state machine timer
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
-
     land_service_ = this->create_service<std_srvs::srv::Trigger>("land", std::bind(&CatchingBlimp::land_callback, this, _1, _2));
 
-    // Initialize timestamps
+    //  Timestamps for state machine, target memory, catch/shoot/score phases 
     rclcpp::Time now = this->get_clock()->now();
     start_time_ = now;
     imu_msg_.header.stamp = now;
@@ -177,7 +167,7 @@ CatchingBlimp::CatchingBlimp() :
 
     heartbeat_msg_.data = true;
 
-    //Initialize state message
+    // Pre-allocate state msg [auto_state_, catches_], debug msg (4 slots)
     state_msg_.data.reserve(2);
     state_msg_.data.push_back(0);
     state_msg_.data.push_back(0);
@@ -189,32 +179,25 @@ CatchingBlimp::CatchingBlimp() :
     debug_msg_.data.push_back(0);
 }
 
+// 2 Hz: publish liveness and state-machine state/catches to basestation
 void CatchingBlimp::heartbeat_timer_callback() {
-    // Publish heartbeat to Basestation
     heartbeat_publisher->publish(heartbeat_msg_);
-
-    // Publish autonomous state machine info to Basestation
     state_msg_.data[0] = auto_state_;
     state_msg_.data[1] = catches_;
     state_publisher_->publish(state_msg_);
 }
 
+// 100 Hz: read IMU, run Madgwick, publish IMU msg and TF; run yaw/roll rate PIDs and (in auto) z PID; send motor commands
 void CatchingBlimp::imu_timer_callback() {
     rclcpp::Time now = this->get_clock()->now();
     double dt = (now - imu_msg_.header.stamp).seconds();
-    
-    // Read sensor values and update madgwick
-    BerryIMU.IMU_read();
 
-    // Apply IMU calibration
+    BerryIMU.IMU_read();
     Eigen::Vector3d acc_raw(BerryIMU.AccXraw, BerryIMU.AccYraw, BerryIMU.AccZraw);
     Eigen::Vector3d acc_cal = acc_A_*acc_raw - acc_b_;
-
     madgwick.Madgwick_Update(BerryIMU.gyr_rateXraw, BerryIMU.gyr_rateYraw, BerryIMU.gyr_rateZraw, acc_cal(0), acc_cal(1), acc_cal(2));
-
-    // Get quaternion from madgwick
     std::vector<double> quat = madgwick.get_quaternion();
-    std::vector<double> euler_angles = madgwick.get_euler();
+    std::vector<double> euler_angles = madgwick.get_euler();  // roll, pitch, yaw
     double roll = euler_angles[0];
 
     // if (imu_init_) {
@@ -249,7 +232,7 @@ void CatchingBlimp::imu_timer_callback() {
     // z_vel_msg_.data = z_est_.xHat(1);
     // z_velocity_publisher_->publish(z_vel_msg_);
 
-    //Broadcast TF
+    // Broadcast TF: map -> blimp_name_ (z from height filter; orientation from Madgwick)
     blimp_tf_.header.stamp = now;
     blimp_tf_.transform.translation.x = 0;
     blimp_tf_.transform.translation.y = 0;
@@ -257,22 +240,22 @@ void CatchingBlimp::imu_timer_callback() {
     blimp_tf_.transform.rotation = imu_msg_.orientation;
     tf_broadcaster_->sendTransform(blimp_tf_);
 
-    // Update filtered yaw rate
     yawRateFilter.filter(BerryIMU.gyr_rateZraw);
     rollRateFilter.filter(BerryIMU.gyr_rateXraw);
 
+    // heading: [yaw (euler), MagY, MagX, mag heading deg]
     std_msgs::msg::Float64MultiArray heading_msg_;
     heading_msg_.data = {euler_angles[2], BerryIMU.MagYraw, BerryIMU.MagXraw, std::atan2(BerryIMU.MagYraw, BerryIMU.MagXraw)*180/M_PI};
     heading_publisher_->publish(heading_msg_);
 
-    // hyperbolic tan for yaw "filtering"
-    double deadband = 1.0; // deadband for filteration
+    // Yaw rate PID with deadband to avoid jitter when command ~ measured
+    double deadband = 1.0;
     yaw_rate_motor_ = yawRatePID_.calculate(yaw_rate_command_, yawRateFilter.last, dt);
     if (fabs(yaw_rate_command_ - yawRateFilter.last) < deadband) {
         yaw_rate_motor_ = 0;
     }
 
-    // Update roll controller every 4 timesteps
+    // Roll angle PID (run every 4th tick) and roll rate PID; both with deadbands
     const double deadband_roll = 5.0;
     if (roll_update_count_ == 4) {
         roll_rate_command_ = rollPID_.calculate(0, roll, dt);
@@ -290,10 +273,9 @@ void CatchingBlimp::imu_timer_callback() {
         roll_rate_motor_ = 0;
     }
 
+    // In autonomous: altitude PID -> up_motor_, with deadband and minimum thrust
     if (control_mode_ == autonomous) {
         up_motor_ = zPID_.calculate(z_command_, heightFilter_.last, dt);
-        // up_motor_ = tanh(up_motor_)*abs(up_motor_);
-
         if (abs(up_motor_) < UP_MOTOR_DEADBAND) {
             up_motor_ = 0;
         } else if (abs(up_motor_) < UP_MOTOR_MIN) {
@@ -308,14 +290,13 @@ void CatchingBlimp::imu_timer_callback() {
         }
     }
 
-    // Wait 5 seconds before doing anything interesting
+    // First 5 s: zero motors so filters/ESCs settle
     if ((now - start_time_).seconds() < 5.0) {
-        // Zero motors while filters converge and esc arms
         motorControl_V2.update(0, 0, 0, 0);
         return;
     }
 
-    // Different modes of motor activation
+    // Mode switches: zero, vert-only, yaw-only, or full (forward, up, yaw, roll)
     if (ZERO_MODE) {
         motorControl_V2.update(0, 0, 0, 0);
         return;
@@ -369,37 +350,22 @@ void CatchingBlimp::imu_timer_callback() {
     // z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
 // }
 
+// 50 Hz: read TOF lidar; correct for tilt (quat -> beam angle); lowpass -> z_hat_, publish height
 void CatchingBlimp::lidar_timer_callback() {
     lidar.TOF_read();
 
-    // RCLCPP_INFO(this->get_logger(), "Sys time: %d", lidar.system_time);
-    // double lidar_reading = double(lidar.dis/1000.0);
-    // RCLCPP_INFO(this->get_logger(), "Sys time: %d, Dis: %.2f m, Signal strength: %d", lidar.system_time, lidar_reading, lidar.signal_strength);
-
-    // Make sure sample is new
     if (lidar.system_time != lidar_sys_time_) {
-
-        // Update LiDar reading time
         lidar_sys_time_ = lidar.system_time;
 
-        // Throw out low quality samples
         if (lidar.signal_strength > 2500) {
-            // Read LiDAR straight to Z baby
-            double lidar_reading = double(lidar.dis / 1000.0);
+            double lidar_reading = double(lidar.dis / 1000.0);  // mm -> m
 
+            // Tilt correction: beam along body z; project to world z for vertical distance
             tf2::Vector3 z_axis(0,0,1);
             tf2::Quaternion current_orient;
-
-            // Get the current orientation
             tf2::convert(imu_msg_.orientation, current_orient);
-
-            // Rotate the z-axis
-            tf2::Vector3  v_rot = quatRotate(current_orient,z_axis);
-
-            // theta (angle between two quaternions: current orentation and z axis)
+            tf2::Vector3 v_rot = quatRotate(current_orient, z_axis);
             double theta = std::acos(v_rot.dot(z_axis)/(sqrt(v_rot.dot(v_rot))*sqrt(z_axis.dot(z_axis))));
-
-            // True distance
             double true_dis = lidar_reading * cos(theta);
 
             // Lowpass filter the lidar reading
@@ -412,12 +378,11 @@ void CatchingBlimp::lidar_timer_callback() {
     }  
 }
 
+// Set forward/up/yaw_rate avoidance commands from vision quadrant (1–9) containing obstacle
 void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
     forward_avoidance_ = 0.0;
     up_avoidance_ = 0.0;
     yaw_rate_avoidance_ = 0.0;
-
-    //set avoidence command based on quadrant that contains object to avoid
     switch (quadrant) {
     case 1:
         forward_avoidance_ = -FORWARD_AVOID;
@@ -469,9 +434,10 @@ void CatchingBlimp::calculate_avoidance_from_quadrant(int quadrant) {
     }
 }
 
+// Map auto_state_ enum to string for logging/display
 std::string CatchingBlimp::auto_state_to_string(autoState state) {
     std::string state_str;
-    switch(state) {
+    switch (state) {
         case searching: {
             state_str = std::string("searching");
             break;
@@ -514,6 +480,7 @@ std::string CatchingBlimp::auto_state_to_string(autoState state) {
     return state_str;
 }
 
+// Which target type (ball vs goal) the state machine expects in this state
 target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state) {
     target_type desired_target_type;
     if (state == searching ||
@@ -533,13 +500,14 @@ target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state) {
     return desired_target_type;
 }
 
+// Publish a string to the log topic (basestation / UI)
 void CatchingBlimp::publish_log(std::string message) {
     auto log_msg = std_msgs::msg::String();
     log_msg.data = message;
     log_publisher->publish(log_msg);
-    // RCSOFTCHECK(rcl_publish(&log_publisher, &log_msg, NULL));
 }
 
+// Basestation: true = switch to autonomous (reset auto_state_), false = manual
 void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
     if (msg->data) {
         if (control_mode_ == manual) {
@@ -609,9 +577,8 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
 //     }
 // }
 
+// Basestation: trigger grab (catching) — sets grabCom 0/1 for state machine
 void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
     if (grabCom == 0 && msg->data) {
         grabCom = 1;
         publish_log("Going for a catch...");
@@ -621,18 +588,16 @@ void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::Shared
     }
 }
 
+// Basestation: kill switch — zero motors immediately
 void CatchingBlimp::kill_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
     if (msg->data == true) {
         publish_log("I'm ded xD");
         motorControl_V2.update(0,0,0,0);
     }
 }
 
+// Basestation: trigger shoot — sets shootCom 0/1 for state machine
 void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
     if (shootCom == 0 && msg->data) {
         shootCom = 1;
         publish_log("I'm shooting my shot...");
@@ -642,17 +607,15 @@ void CatchingBlimp::shoot_subscription_callback(const std_msgs::msg::Bool::Share
     }
 }
 
+// Basestation manual commands: [yaw_rate, up, ?, forward] -> forward_msg_, up_msg_, yaw_rate_msg_
 void CatchingBlimp::motor_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-    // Manual control commands from basestationz_
     forward_msg_ = msg->data[3];
     up_msg_ = msg->data[1];
     yaw_rate_msg_ = msg->data[0];
 }
 
+// Basestation: goal color 0 = orange, 1 = yellow
 void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
     int goal_color = msg->data;
     if (goalColor != orange && goal_color == 0) {
         goalColor = orange;
@@ -663,19 +626,16 @@ void CatchingBlimp::goal_color_subscription_callback(const std_msgs::msg::Bool::
     }
 }
 
+// Offboard: 3 obstacles, each xyz -> avoidance[0..8]
 void CatchingBlimp::avoidance_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
-    // RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
-
-    //3 objects with xyz (9 elements in total)
     for (size_t i = 0; i < 9; ++i) {
         avoidance[i] = msg->data[i];
     }
 }
 
+// Offboard vision: targets array; data[0]>=0 => valid. Update target_, filters, history; match desired type (ball/goal)
 void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
     rclcpp::Time now = this->get_clock()->now();
-
-    // Check if the detection is valid (negative values mean nothing detected)
     bool valid_detection = (msg->data[0] >= 0);
     if (valid_detection) {
         int new_id = static_cast<int>(msg->data[3]);
@@ -700,7 +660,7 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
                 reset_target();
             }
 
-            // Save the new detection as the current target (centering as before)
+            // Image center 320,240; filter and store in target_ + history
             double target_x = msg->data[0] - 320;
             double target_y = msg->data[1] - 240;
             double target_z = msg->data[2];
@@ -748,8 +708,8 @@ void CatchingBlimp::targets_subscription_callback(const std_msgs::msg::Float64Mu
     }
 }
 
+// Clear target history and reset all target-related filters and PIDs
 void CatchingBlimp::reset_target() {
-    // Reset target
     target_history_.clear();
 
     xFilter.reset();
@@ -764,10 +724,9 @@ void CatchingBlimp::reset_target() {
     yPID_.reset();
 }
 
+// Handle detection timeout, memory timeout; when detection drops use predictTargetPosition() until memory expires
 void CatchingBlimp::update_target() {
     rclcpp::Time now = this->get_clock()->now();
-
-    // Target detection timeout
     if (target_detected_ && (now - target_.timestamp).seconds() >= TARGET_DETECT_TIMEOUT) {
         target_detected_ = false;
 
@@ -814,10 +773,9 @@ void CatchingBlimp::update_target() {
     }
 }
 
+// Constant-velocity prediction from target_history_; offset adds time to prediction
 TargetData CatchingBlimp::predictTargetPosition(double offset) {
     TargetData predicted;
-
-    // If we have fewer than two points, we cannot compute a velocity—return the last known value.
     if (target_history_.size() < 2) {
         predicted.x = target_.x;
         predicted.y = target_.y;
@@ -829,7 +787,6 @@ TargetData CatchingBlimp::predictTargetPosition(double offset) {
         return predicted;
     }
 
-    // Compute average velocity from the oldest to the most recent detection in the history.
     const TargetData& first = target_history_.front();
     const TargetData& last  = target_history_.back();
 
@@ -851,10 +808,7 @@ TargetData CatchingBlimp::predictTargetPosition(double offset) {
     double vtheta_y = PREDICTION_GAIN*(last.theta_y - first.theta_y) / dt;
     // double varea = PREDICTION_GAIN*(last.bbox_area - first.bbox_area) / dt;
 
-    // Determine the time difference between now and the last detection.
     double dt_pred = (this->get_clock()->now() - last.timestamp).seconds() + offset;
-
-    // Predict the new position with a simple constant–velocity model:
     predicted.x = last.x + vx * dt_pred;
     predicted.y = last.y + vy * dt_pred;
 
@@ -869,22 +823,17 @@ TargetData CatchingBlimp::predictTargetPosition(double offset) {
     return predicted;
 }
 
+// Low battery: if below threshold for VBAT_LOW_TIME seconds, call land()
 void CatchingBlimp::battery_status_callback(const std_msgs::msg::Float32MultiArray::SharedPtr msg) {
     double vbat = msg->data[0];
-
     if (vbat < VBAT_LOW_THRESHOLD) {
         rclcpp::Time now = this->get_clock()->now();
-
         if (!vbat_low_) {
             vbat_low_ = true;
-
-            // Start the low battery timer
             vbat_low_time_ = now;
         }
-
         double vbat_low_time = (now - vbat_low_time_).seconds();
         if (vbat_low_time > VBAT_LOW_TIME) {
-            // Consistently low battery = land the blimp!
             if (auto_state_ != no_state) {
                 RCLCPP_WARN(this->get_logger(), "Low battery - engaging auto land procedure, Captain.");
                 land();
@@ -895,8 +844,8 @@ void CatchingBlimp::battery_status_callback(const std_msgs::msg::Float32MultiArr
     }
 }
 
+// Load all PID gains from ROS params; create x/y/z, yaw_rate, roll, roll_rate PIDs. Required at startup.
 bool CatchingBlimp::load_pid_config() {
-    //PID gains
     this->declare_parameter("x_p", 0.0);
     this->declare_parameter("x_i", 0.0);
     this->declare_parameter("x_d", 0.0);
@@ -935,10 +884,9 @@ bool CatchingBlimp::load_pid_config() {
         this->get_parameter("roll_rate_i", roll_rate_i_) &&
         this->get_parameter("roll_rate_d", roll_rate_d_) 
     ) {
-        // Set gains
-        xPID_ = PID(x_p_, x_i_, x_d_);  // left and right
-        yPID_ = PID(y_p_, y_i_, y_d_);  // up and down
-        zPID_ = PID(z_p_, z_i_, z_d_);  // z (altitude)
+        xPID_ = PID(x_p_, x_i_, x_d_);
+        yPID_ = PID(y_p_, y_i_, y_d_);
+        zPID_ = PID(z_p_, z_i_, z_d_);
 
         yawRatePID_ = PID(yaw_rate_p_, yaw_rate_i_, yaw_rate_d_); // yaw correction
         rollPID_ = PID(roll_p_, roll_i_, roll_d_);
@@ -954,14 +902,14 @@ bool CatchingBlimp::load_pid_config() {
     }
 }
 
+// Load 9 betas: 3x3 symmetric acc_A_ (scale/cross), 3x1 acc_b_ (bias). acc_cal = acc_A_*raw - acc_b_
 bool CatchingBlimp::load_acc_calibration() {
     std::vector<double> empty_vect, beta_vect;
     this->declare_parameter("betas", rclcpp::PARAMETER_DOUBLE_ARRAY);
-
     if (this->get_parameter("betas", beta_vect)) {
         if (beta_vect.size() == 9) {
-            acc_A_ << beta_vect[0], beta_vect[1], beta_vect[2], 
-                      beta_vect[1], beta_vect[3], beta_vect[4], 
+            acc_A_ << beta_vect[0], beta_vect[1], beta_vect[2],
+                      beta_vect[1], beta_vect[3], beta_vect[4],
                       beta_vect[2], beta_vect[4], beta_vect[5];
             acc_b_ << beta_vect[6], beta_vect[7], beta_vect[8];
 
@@ -981,12 +929,14 @@ bool CatchingBlimp::load_acc_calibration() {
     }
 }
 
+// Set mode to auto, state to no_state, and altitude command to floor (motor mixing does the rest)
 void CatchingBlimp::land() {
     control_mode_ = autonomous;
     auto_state_ = no_state;
     z_command_ = FLOOR_HEIGHT;
 }
 
+// ROS service: trigger landing (calls land())
 void CatchingBlimp::land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
     response->success = true;
     response->message = "Landing";
