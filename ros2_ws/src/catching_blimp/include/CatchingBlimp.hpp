@@ -12,6 +12,11 @@
 #ifndef CATCHING_BLIMP_HPP
 #define CATCHING_BLIMP_HPP
 
+// Main ROS2 node for the catching blimp.
+// This header defines the high-level control parameters, game state
+// enums, target representation, and the CatchingBlimp node class that
+// ties together sensing, state estimation, and the finite state machine.
+
 // C includes
 #include <stdio.h>
 #include <stdlib.h>
@@ -228,6 +233,9 @@
 #define MIN_MOTOR                 1000
 #define MAX_MOTOR                 2000
 
+// High-level autonomous state of the game logic.
+// Describes where the blimp is in the
+// "find ball → catch ball → find goal → score" cycle.
 enum autoState {
     searching,
     approach,
@@ -241,38 +249,49 @@ enum autoState {
     no_state
 };
 
+// Top-level control mode for the blimp.
+// manual - pilot commands are passed through
+// autonomous - finite state machine owns the actuators
+// lost - safety state used when contact is lost
 enum blimpState {
     manual,
     autonomous,
     lost,
 };
 
+// Sub-state for finer grained approach behavior (currently
+// only partially used, but kept for tuning and extension).
 enum approachState {
     far_approach,
     alignment,
     near_approach
 };
 
+// Mechanical grabber state (open/closed) used by TripleBallGrabber.
 enum grabberState {
     opened,
     closed,
 };
 
+// Identifier for blimp team/color.
 enum blimpType {
     blue,
     red
 };
 
+// Identifier for goal color.
 enum goalType {
     orange,
     yellow
 };
 
+// Identifier for game ball color.
 enum gameballType {
     green,
     pink
 };
 
+// Type of object that the vision system is currently tracking.
 enum target_type {
     ball,
     goal,
@@ -478,12 +497,14 @@ private:
     bool vbat_low_;
     rclcpp::Time vbat_low_time_;
 
+    // Timer callbacks: sensor updates and main state machine loop.
     void heartbeat_timer_callback();
     void imu_timer_callback();
     // void baro_timer_callback();
     void lidar_timer_callback();
     void state_machine_callback();
 
+    // Finite state machine handlers for each autonomous mode.
     void state_machine_manual_callback();
     void state_machine_autonomous_callback();
     void state_machine_searching_callback();

@@ -16,7 +16,6 @@ full one direction, the other direction, or off.
 // DeadBand -
 // CenteringCom - Strength of corrective command (e.g thruster)
 
-
 class BangBang {
     public:
     BangBang(float deadBand, float centeringCom);
