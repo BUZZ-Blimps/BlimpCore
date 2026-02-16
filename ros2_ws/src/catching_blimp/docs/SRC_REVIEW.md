@@ -38,7 +38,7 @@
 
 ---
 
-## Comments and Changes You Did
+## Comments and Changes
 
 **CatchingBlimp.cpp** — Added a short file header describing the node; section comments in the constructor (params, TF, hardware, actuators, publishers, QoS/subscribers, timers, timestamps); one-line comments above each timer callback and subscription callback describing rate and purpose; and inline notes for blimp name, tilt correction, heading layout, deadbands, startup zeroing, and motor mode branches. No logic was changed.
 

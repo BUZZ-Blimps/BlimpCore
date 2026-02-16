@@ -26,6 +26,7 @@ catching_blimp/
   param/                 - PID and other parameter YAML files
   scripts/               - Python utilities (e.g. battery monitor)
   src/                   - C++ source files
+  CODE_GRAVEYARD.txt     - Log of removed/commented code (date, file, context, what it did)
   bulkCopyCodeToPi.sh    - Deployment: copy code to multiple Pis
   bulkStartAllServices.sh / bulkStopAllServices.sh
   bulkStartAutonomyService.sh / bulkStopAutonomyService.sh

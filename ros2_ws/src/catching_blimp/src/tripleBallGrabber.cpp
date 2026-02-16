@@ -60,7 +60,6 @@ void TripleBallGrabber::closeGrabber(int blimp_state) {
     (void) blimp_state; // Gets rid of unused variable warning. Otherwise does nothing. Feel free to delete :)
     double current_time = micros()/1000000.0;
 
-    //updateMoveRate(blimp_state);
     moveRate = moveRate_fast; // Close fast, regardless of state
 
     if (grabber_state_ != state_closed) time_change_angle = current_time;

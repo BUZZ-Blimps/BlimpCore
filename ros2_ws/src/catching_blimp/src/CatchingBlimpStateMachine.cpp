@@ -92,9 +92,6 @@ void CatchingBlimp::state_machine_manual_callback() {
             //reset catch counter
             catches_ = 0;
 
-            //go back to searching
-            // auto_state_ = searching;
-            // searching timer
             search_start_time_ = state_machine_time_;
             searchYawDirection = searchDirection();  //randomize the search direction
 
@@ -192,96 +189,9 @@ void CatchingBlimp::state_machine_searching_callback() {
             ballGrabber.closeGrabber(control_mode_);
         }
 
-        //use object avoidence
-        // double avoidanceMinVal = 1000.0; // Initialize 
-        // int avoidanceMinIndex = 10;
-
-        // Iterate through the vector to find the minimum value and its index
-        // find the minimum distance and its corresponding quadrant number (1-9)
-        // TODO: IMPLEMENT AND TEST AVOIDANCE
-        // for (int i = 0; i < 9; ++i) {
-        //     if (avoidance[i] < avoidanceMinVal) {
-        //         avoidanceMinVal = avoidance[i]; //distance
-        //         avoidanceMinIndex = i+1; //quadrant number
-        //     }
-        // }
-
-        //set the avoidance quadrant only when avoidance range is triggered
-        // if (avoidanceMinVal < AVOID_TRIGGER){
-        //     //update quadrant
-        //     quadrant = avoidanceMinIndex;
-        // } else {
-        //     //safe
-        //     //update quadrant
-        //     quadrant = 10;
-        // }
-
-        // calculate_avoidance_from_quadrant(quadrant);
-
-        // //avoding obstacle
-        // if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
-
-        //     //overide search commands
-        //     forward_command_ = forward_avoidance_;
-        //     up_command_ = up_avoidance_;
-        //     yaw_rate_command_ = yaw_rate_avoidance_;
-
-        // } else {
-            //search behavior (no detected_target)
-            //spin in a small circle looking for a game ball
-            //randomize the search direciton
-
-            // yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
-            // forward_command_ = GAME_BALL_FORWARD_SEARCH;
-            
-        // Timeline:
-        // SearchingStart -> +18 seconds -> +20 seconds -> restart searching
-
-        double elapsedSearchingTime = (state_machine_time_ - search_start_time_).seconds();
-        std::string message = "elapsedSearchTime=" + std::to_string(elapsedSearchingTime) + "s.";
-
         yaw_rate_command_ = 10.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
         forward_command_ = 0;
         z_command_ = 1.0;
-
-        // if (elapsedSearchingTime < TIME_TO_SEARCH) {
-        //     yaw_rate_command_ = 0.0;
-        //     forward_command_ = GAME_BALL_FORWARD_SEARCH;
-
-        // } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP) {
-        //     if (!backingUp) {
-        //         backingUp = true;
-        //     }
-        //     message += " Backup!";
-
-        //     yaw_rate_command_ = 0;
-        //     forward_command_ = -GAME_BALL_FORWARD_SEARCH;
-            
-        // } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP + TIME_TO_ROTATE) {
-        //     yaw_rate_command_ = 15.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
-        //     forward_command_ = 0.0;
-        // } else {
-        //     backingUp = false;
-
-        //     message += " Reset!";
-
-        //     search_start_time_ = state_machine_time_;
-        // }
-
-        // Go up until ceiling is hit
-        // if (z_command_ >= CEIL_HEIGHT) {
-        //     z_dir_up_ = false;
-        // } else if (z_command_ <= FLOOR_HEIGHT) {
-        //     z_dir_up_  = true;
-        // }
-
-        // if (z_dir_up_) {
-        //     z_command_ += GAME_BALL_VERTICAL_SEARCH*state_machine_dt_;  //up
-        // } else {
-        //     z_command_ -= GAME_BALL_VERTICAL_SEARCH*state_machine_dt_; //down
-        // }
-
-        // }
     } else {
         //move to approaching game ball
         RCLCPP_INFO(this->get_logger(), "Switched from Search to Approach");
@@ -363,9 +273,6 @@ void CatchingBlimp::state_machine_approach_callback() {
         auto_state_ = searching;
         search_start_time_ = state_machine_time_;
         searchYawDirection = searchDirection();
-
-        // Reset the sub–state.
-        // approach_state_ = near_approach;
     }
 }
 
@@ -443,46 +350,9 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
         ballGrabber.closeGrabber(control_mode_);
     }
 
-    // //use object avoidence
-    // double avoidanceMinVal = 1000.0; // Initialize
-    // int avoidanceMinIndex = 10;
-
-    // // Iterate through the vector to find the minimum value and its index
-    // // find the minimum distance and its corresponding quadrant number (1-9)
-    // for (int i = 0; i < 9; ++i) {
-    //     if (avoidance[i] < avoidanceMinVal) {
-    //         avoidanceMinVal = avoidance[i]; //distance
-    //         avoidanceMinIndex = i+1; //quadrant number
-    //     }
-    // }
-
-    //set the avoidance quadrant only in range
-    // if (avoidanceMinVal < AVOID_TRIGGER) {
-    //     //update quadrant
-    //     quadrant = avoidanceMinIndex;
-    // } else {
-    //     //update quadrant
-    //     //safe
-    //     quadrant = 10;
-    // }
-
-    // calculate_avoidance_from_quadrant(quadrant);
-
-    // if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
-    //     //avoiding obstacle
-    //     //override search commands
-    //     forward_command_ = forward_avoidance_;
-    //     // up_command_ = up_avoidance_;
-    //     yaw_rate_command_ = yaw_rate_avoidance_;
-    // } else {
-
-    // goal search behavior
-    // randomize the diretion selection
     yaw_rate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
     z_command_ = GOAL_HEIGHT;
     forward_command_ = GOAL_FORWARD_SEARCH;
-
-    // }
 
     if (target_active_ && target_.type == goal) {
         RCLCPP_WARN(this->get_logger(), "DETECTED GOAL - APPROACHING!");

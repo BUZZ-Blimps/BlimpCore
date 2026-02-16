@@ -7,13 +7,7 @@
  */
 
 #include "CatchingBlimp.hpp"
-/*
-ROS 2 node entry point 
 
-    - Starts ROS 2
-    - Creates and runs the CatchingBlimp node
-    - Shuts down ROS 2 when the node stops
-*/
 int main(int argc, char * argv[])
 {
     rclcpp::init(argc, argv); //turn on ros2

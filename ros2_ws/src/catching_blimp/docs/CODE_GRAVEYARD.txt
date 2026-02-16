@@ -1,0 +1,453 @@
+================================================================================
+CODE GRAVEYARD — catching_blimp
+================================================================================
+This file documents commented-out or removed code so that it can be referenced
+later. Each entry includes: date of removal, file name, line/context (for length
+changes), what the code did, the LITERAL CODE that was deleted, and classification.
+
+Legend:
+  USEFUL = Might want to restore (feature disabled, alternative impl, etc.)
+  NO LONGER USEFUL = Redundant, test-only, or superseded; safe to forget.
+
+================================================================================
+NO LONGER USEFUL
+================================================================================
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: catching_blimp_node.cpp
+Context: Lines 10–16 (block comment immediately after #include "CatchingBlimp.hpp")
+What it did: Redundant block comment describing main(): "ROS 2 node entry point -
+Starts ROS 2, Creates and runs the CatchingBlimp node, Shuts down ROS 2 when
+the node stops". The file header already documents this.
+Action: Removed. No code; duplicate documentation.
+
+Deleted code:
+/*
+ROS 2 node entry point
+
+    - Starts ROS 2
+    - Creates and runs the CatchingBlimp node
+    - Shuts down ROS 2 when the node stops
+*/
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: MotorControl_V2.cpp
+Context: Line 44 (single line, inside update())
+What it did: fprintf to stdout printing left/right forward and up motor
+commands (debug print). Commented out to reduce log noise.
+Action: Removed. Use ROS logging or debug topic if needed.
+
+Deleted code:
+    fprintf(stdout, "Left Fwd: %.2f, Right Fwd: %.2f, Left Up: %.2f, Right Up: %.2f\n", leftFwdCom, rightFwdCom, leftUpCom, rightUpCom);
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: MotorControl_V2.cpp
+Context: Lines 48–53 (block comment above motorCom())
+What it did: Block comment describing what MotorControl does (mixing forward,
+up, yaw, roll into four motor commands, etc.). Duplicates the file header
+@brief and the function's role is clear from the name.
+Action: Removed. Redundant with file header.
+
+Deleted code:
+/*
+MotorControl takes commands such as forward, up, yaw roll and
+mixes them into four per-motor commands (left/right, forward/up)
+it converts each command to ESC thrust with deadband min/max and
+sends those thrusts to four brushless ESC objects.
+*/
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: Line 96 (single line in state_machine_manual_callback)
+What it did: Commented "// auto_state_ = searching;" — manually forcing
+auto_state_ to searching when starting shoot. Current behavior only resets
+search_start_time_ and searchYawDirection; state is not switched (manual
+mode doesn't use auto_state_ for behavior).
+Action: Removed. Redundant; manual mode doesn't drive auto_state_ for logic.
+
+Deleted code:
+            auto_state_ = searching;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: Line 368 (in state_machine_approach_callback, "Reset the sub-state")
+What it did: Commented "// approach_state_ = near_approach;" when ball lost
+and returning to searching. approach_state_ exists in header but this
+sub-state reset was never part of active logic.
+Action: Removed. Dead code; approach sub-state not used in current flow.
+
+Deleted code:
+        approach_state_ = near_approach;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: tripleBallGrabber.cpp
+Context: Line 63 (in closeGrabber())
+What it did: Commented "//updateMoveRate(blimp_state);" — closeGrabber now
+always uses moveRate_fast (next line). Calling updateMoveRate would allow
+slow close in auto; current design is "close fast regardless of state".
+Action: Removed. Intentional: close is always fast; comment was redundant.
+
+Deleted code:
+    updateMoveRate(blimp_state);
+--------------------------------------------------------------------------------
+
+================================================================================
+POTENTIALLY USEFUL (feature disabled / not implemented / alternative behavior)
+================================================================================
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_searching_callback, ~lines 195–229 (search, no target)
+What it did: Object avoidance during ball search: find min distance in
+avoidance[] (9 quadrants), set quadrant, call calculate_avoidance_from_quadrant(),
+and if USE_OBJECT_AVOIDENCE and quadrant != 10, override forward/up/yaw with
+forward_avoidance_, up_avoidance_, yaw_rate_avoidance_. Else: run search
+(yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection,
+forward_command_ = GAME_BALL_FORWARD_SEARCH). Marked "TODO: IMPLEMENT AND TEST AVOIDANCE".
+Action: Removed from source; logic preserved here. To restore: uncomment block
+and ensure avoidance[] is populated and AVOID_TRIGGER / USE_OBJECT_AVOIDENCE
+are set (see CatchingBlimp.hpp). calculate_avoidance_from_quadrant() still
+exists in CatchingBlimp.cpp.
+
+Deleted code:
+        //use object avoidence
+        double avoidanceMinVal = 1000.0; // Initialize
+        int avoidanceMinIndex = 10;
+
+        // Iterate through the vector to find the minimum value and its index
+        // find the minimum distance and its corresponding quadrant number (1-9)
+        // TODO: IMPLEMENT AND TEST AVOIDANCE
+        for (int i = 0; i < 9; ++i) {
+            if (avoidance[i] < avoidanceMinVal) {
+                avoidanceMinVal = avoidance[i]; //distance
+                avoidanceMinIndex = i+1; //quadrant number
+            }
+        }
+
+        //set the avoidance quadrant only when avoidance range is triggered
+        if (avoidanceMinVal < AVOID_TRIGGER){
+            quadrant = avoidanceMinIndex;
+        } else {
+            quadrant = 10;
+        }
+
+        calculate_avoidance_from_quadrant(quadrant);
+
+        if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
+            forward_command_ = forward_avoidance_;
+            up_command_ = up_avoidance_;
+            yaw_rate_command_ = yaw_rate_avoidance_;
+        } else {
+            //search behavior (no detected_target)
+            yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            forward_command_ = GAME_BALL_FORWARD_SEARCH;
+        }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_searching_callback, ~lines 234–235 (inside same branch)
+What it did: Alternative search commands: yaw_rate_command_ =
+GAME_BALL_YAW_SEARCH*searchYawDirection; forward_command_ =
+GAME_BALL_FORWARD_SEARCH. Replaced by current: yaw_rate 10.0*GAME_BALL_YAW_SEARCH*searchYawDirection,
+forward 0, z_command_ 1.0.
+Action: Removed. To try original search behavior (forward + yaw), restore
+these two lines in place of the current three.
+
+Deleted code:
+            yaw_rate_command_ = GAME_BALL_YAW_SEARCH*searchYawDirection;
+            forward_command_ = GAME_BALL_FORWARD_SEARCH;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_searching_callback, ~lines 237–269 (elapsedSearchingTime)
+What it did: Timeline-based search: TIME_TO_SEARCH (forward), then
+TIME_TO_BACKUP (back up), then TIME_TO_ROTATE (spin), then reset
+search_start_time_. Used backingUp flag. Constants in CatchingBlimp.hpp:
+TIME_TO_SEARCH 20.0, TIME_TO_BACKUP 6.0, TIME_TO_ROTATE 6.0.
+Action: Removed. Current behavior uses constant yaw/forward/z. To restore
+time-phased search (forward → backup → rotate → reset), uncomment this block
+and ensure TIME_TO_SEARCH, TIME_TO_BACKUP, TIME_TO_ROTATE are defined.
+
+Deleted code:
+        // Timeline:
+        // SearchingStart -> +18 seconds -> +20 seconds -> restart searching
+
+        if (elapsedSearchingTime < TIME_TO_SEARCH) {
+            yaw_rate_command_ = 0.0;
+            forward_command_ = GAME_BALL_FORWARD_SEARCH;
+
+        } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP) {
+            if (!backingUp) {
+                backingUp = true;
+            }
+            message += " Backup!";
+            yaw_rate_command_ = 0;
+            forward_command_ = -GAME_BALL_FORWARD_SEARCH;
+
+        } else if (elapsedSearchingTime < TIME_TO_SEARCH + TIME_TO_BACKUP + TIME_TO_ROTATE) {
+            yaw_rate_command_ = 15.0*GAME_BALL_YAW_SEARCH*searchYawDirection;
+            forward_command_ = 0.0;
+        } else {
+            backingUp = false;
+            message += " Reset!";
+            search_start_time_ = state_machine_time_;
+        }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_searching_callback, ~lines 271–284 (z bounce)
+What it did: Vertical search: z_command_ bounces between CEIL_HEIGHT and
+FLOOR_HEIGHT using z_dir_up_ and GAME_BALL_VERTICAL_SEARCH*state_machine_dt_
+(up or down). GAME_BALL_VERTICAL_SEARCH is commented in header (0.05 or 0.1).
+Action: Removed. Current behavior uses fixed z_command_ = 1.0. To restore
+vertical bobbing, uncomment this block and define GAME_BALL_VERTICAL_SEARCH
+in CatchingBlimp.hpp.
+
+Deleted code:
+        // Go up until ceiling is hit
+        if (z_command_ >= CEIL_HEIGHT) {
+            z_dir_up_ = false;
+        } else if (z_command_ <= FLOOR_HEIGHT) {
+            z_dir_up_  = true;
+        }
+
+        if (z_dir_up_) {
+            z_command_ += GAME_BALL_VERTICAL_SEARCH*state_machine_dt_;  //up
+        } else {
+            z_command_ -= GAME_BALL_VERTICAL_SEARCH*state_machine_dt_; //down
+        }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_goalSearch_callback, ~lines 446–477 (goal search)
+What it did: Same object-avoidance pattern as in searching: min of avoidance[],
+quadrant, calculate_avoidance_from_quadrant(), and if quadrant != 10 &&
+USE_OBJECT_AVOIDENCE override forward/yaw (up_avoidance_ was already commented).
+Else: goal search (yaw, z, forward). Duplicate of searching avoidance block.
+Action: Removed. To re-enable avoidance during goal search, restore this block
+and wire avoidance data same as for ball search.
+
+Deleted code:
+    // //use object avoidence
+    double avoidanceMinVal = 1000.0; // Initialize
+    int avoidanceMinIndex = 10;
+
+    for (int i = 0; i < 9; ++i) {
+        if (avoidance[i] < avoidanceMinVal) {
+            avoidanceMinVal = avoidance[i];
+            avoidanceMinIndex = i+1;
+        }
+    }
+
+    if (avoidanceMinVal < AVOID_TRIGGER) {
+        quadrant = avoidanceMinIndex;
+    } else {
+        quadrant = 10;
+    }
+
+    calculate_avoidance_from_quadrant(quadrant);
+
+    if (quadrant != 10 && USE_OBJECT_AVOIDENCE) {
+        forward_command_ = forward_avoidance_;
+        // up_command_ = up_avoidance_;
+        yaw_rate_command_ = yaw_rate_avoidance_;
+    } else {
+    // goal search behavior
+    yaw_rate_command_ = GOAL_YAW_SEARCH*goalYawDirection;
+    z_command_ = GOAL_HEIGHT;
+    forward_command_ = GOAL_FORWARD_SEARCH;
+    }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: Constructor, ~lines 127–128
+What it did: cal_baro_subscription — subscribe to "calibrate_barometer" (Bool)
+calling cal_baro_subscription_callback. Used for barometer calibration from
+basestation.
+Action: Removed. To restore baro calibration: uncomment this subscription,
+cal_baro_subscription_callback, and baro_subscription (base barometer reading).
+
+Deleted code:
+    cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: Constructor, ~lines 137–138
+What it did: base_baro_subscription — subscribe to "/Barometer/reading"
+(Float64) calling baro_subscription_callback to set base_baro_ (reference
+pressure from basestation).
+Action: Removed. Restore with cal_baro if you re-enable barometer
+calibration and altitude fusion.
+
+Deleted code:
+    base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: Constructor, ~line 143
+What it did: pixels_subscription — subscribe to "pixels" (Int64MultiArray)
+calling pixels_subscription_callback. Likely for pixel-based target or
+control (e.g. ML); targets_subscription ("targets") is the active one.
+Action: Removed (was commented in constructor). Restore if an external
+node publishes pixel data for control; ensure pixels_subscription_callback
+is implemented (currently only declaration in header).
+
+Deleted code:
+    pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: Constructor, ~line 151
+What it did: timer_baro — 10 ms wall timer calling baro_timer_callback for
+barometer read and altitude fusion (ZEstimator partial update with baro,
+lowpass, etc.).
+Action: Removed. Restore with base_baro and cal_baro subscriptions
+if using baro for altitude.
+
+Deleted code:
+    timer_baro = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: ~lines 325–358 (baro_timer_callback)
+What it did: baro_timer_callback: BerryIMU.baro_read(), compute cal_baro_
+from pressure formula, accumulate baro_sum_/baro_count_, every 5 samples
+compute baro_mean_, adjust R_bar/R_lid on large baro–lidar diff, call
+z_est_.partialUpdate(baro_mean_, R_bar), lowpass to z_hat_. Full baro+lidar fusion.
+Action: Removed from source. To restore: uncomment baro_timer_callback body,
+re-enable timer_baro and base_baro/cal_baro subscriptions; ensure baro_init_
+and R_bar/R_lid are used correctly in lidar_timer_callback.
+
+Deleted code:
+void CatchingBlimp::baro_timer_callback() {
+
+    BerryIMU.baro_read();
+
+    if (!baro_init_) return;
+
+    cal_baro_ = 44330 * (1 - pow(((BerryIMU.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
+    baro_sum_ += cal_baro_;
+    baro_count_++;
+
+    if (baro_count_ == 5) {
+        double baro_mean_ = baro_sum_/(double)baro_count_;
+
+        if (abs(baro_mean_ - R_lid) > 1.5){
+            R_bar = 1.0;
+            R_lid = 10.0;
+        }
+
+        z_est_.partialUpdate(baro_mean_, R_bar);
+        z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+        baro_sum_ = 0.0;
+        baro_count_ = 0;
+    }
+    z_est_.update(lidar_reading, R_lid);
+    z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
+}
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: ~lines 543–586 (after kill_subscription_callback)
+What it did: cal_baro_subscription_callback: on calibrate_barometer, read
+BerryIMU baro and lidar, set baro_calibration_offset_ = BerryIMU.comp_press - base_baro_,
+optional lidar_calibration_offset_, z_est_.reset(), publish_log with
+pressure and calibration values. baro_subscription_callback: set base_baro_
+from msg->data, set baro_init_ true, and if control_mode_ == lost switch to manual.
+Action: Removed from source. To restore: uncomment both callbacks and the
+corresponding subscriptions (calibrate_barometer, /Barometer/reading).
+
+Deleted code:
+void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+    (void) msg;
+
+    BerryIMU.baro_read();
+    lidar.TOF_read();
+    baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
+
+    try {
+        lidar_calibration_offset_ = lidar.dis; //mm
+    } catch (const std::exception& e) {
+        std::cout << "Lidar offset error: " << e.what() << std::endl;
+        lidar_calibration_offset_ = 0.0;
+    }
+
+    z_est_.reset();
+    publish_log(std::to_string(BerryIMU.comp_press));
+    publish_log(std::to_string(base_baro_));
+    publish_log(std::to_string(baro_calibration_offset_));
+    publish_log("Calibrating Barometer");
+}
+
+void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg) {
+
+    base_baro_ = msg->data;
+
+    if (!baro_init_) {
+        RCLCPP_INFO(this->get_logger(), "Base barometer initialized.");
+        baro_init_ = true;
+    }
+
+    if (control_mode_ == lost) {
+        control_mode_ = manual;
+    }
+}
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.hpp
+Context: ~line 503 (declaration)
+What it did: void baro_timer_callback(); declared but implementation
+commented/removed in CatchingBlimp.cpp.
+Action: Left commented in header. Uncomment if baro_timer_callback is restored.
+
+Deleted code (declaration; may still be present as comment in .hpp):
+    void baro_timer_callback();
+--------------------------------------------------------------------------------
+
+================================================================================
+SUMMARY (2025-02-16)
+================================================================================
+- Removed: redundant comments (node main, MotorControl block, tripleBallGrabber
+  updateMoveRate), dead/optional state assignments (auto_state_ = searching,
+  approach_state_ = near_approach), debug fprintf in MotorControl.
+- Removed and documented for possible reuse: object avoidance in searching and
+  goalSearch, timeline-based search (forward/backup/rotate), vertical z-search,
+  alternative search commands; barometer calibration and fusion (subscriptions,
+  timer, callbacks). Restore instructions and literal deleted code are in the
+  entries above. For line number drift, search for the "Context" or key variable
+  names in the file.
+================================================================================

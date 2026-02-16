@@ -125,22 +125,15 @@ CatchingBlimp::CatchingBlimp() :
 
     //  Subscribers: basestation (mode, catch, shoot, kill, goal_color, motor_commands), vision (targets, avoidance), battery 
     auto_subscription = this->create_subscription<std_msgs::msg::Bool>("mode", bool_qos, std::bind(&CatchingBlimp::auto_subscription_callback, this, _1));  // true = autonomous
-    // cal_baro_subscription = this->create_subscription<std_msgs::msg::Bool>("calibrate_barometer", bool_qos, std::bind(&CatchingBlimp::cal_baro_subscription_callback, this, _1));
     grabber_subscription = this->create_subscription<std_msgs::msg::Bool>("catching", bool_qos, std::bind(&CatchingBlimp::grab_subscription_callback, this, _1));
     shooter_subscription = this->create_subscription<std_msgs::msg::Bool>("shooting", bool_qos, std::bind(&CatchingBlimp::shoot_subscription_callback, this, _1));
     kill_subscription = this->create_subscription<std_msgs::msg::Bool>("killed", bool_qos, std::bind(&CatchingBlimp::kill_subscription_callback, this, _1));
     goal_color_subscription = this->create_subscription<std_msgs::msg::Bool>("goal_color", bool_qos, std::bind(&CatchingBlimp::goal_color_subscription_callback, this, _1));
 
     // Basestation motor commands
-    motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("motor_commands", motor_qos, std::bind(&CatchingBlimp::motor_subscription_callback, this, _1)); 
+    motor_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("motor_commands", motor_qos, std::bind(&CatchingBlimp::motor_subscription_callback, this, _1));
 
-    // Base barometer
-    // base_baro_subscription = this->create_subscription<std_msgs::msg::Float64>("/Barometer/reading", 10, std::bind(&CatchingBlimp::baro_subscription_callback, this, _1));
-
-    // Offboard ML
     targets_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("targets", 10, std::bind(&CatchingBlimp::targets_subscription_callback, this, _1));
-
-    // pixels_subscription = this->create_subscription<std_msgs::msg::Int64MultiArray>("pixels", 10, std::bind(&CatchingBlimp::pixels_subscription_callback, this, _1));
     avoidance_subscription = this->create_subscription<std_msgs::msg::Float64MultiArray>("avoidance", 10, std::bind(&CatchingBlimp::avoidance_subscription_callback, this, _1));
 
     battery_status_subscription_ = this->create_subscription<std_msgs::msg::Float32MultiArray>("battery_status", 10, std::bind(&CatchingBlimp::battery_status_callback, this, _1));
@@ -148,7 +141,6 @@ CatchingBlimp::CatchingBlimp() :
     //  Timers: heartbeat 2 Hz, IMU 100 Hz, lidar 50 Hz, state machine ~30 Hz; land service 
     timer_heartbeat = this->create_wall_timer(500ms, std::bind(&CatchingBlimp::heartbeat_timer_callback, this));
     timer_imu = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::imu_timer_callback, this));
-    // timer_baro = this->create_wall_timer(10ms, std::bind(&CatchingBlimp::baro_timer_callback, this));
     timer_lidar = this->create_wall_timer(20ms, std::bind(&CatchingBlimp::lidar_timer_callback, this));
     timer_state_machine = this->create_wall_timer(33ms, std::bind(&CatchingBlimp::state_machine_callback, this));
     land_service_ = this->create_service<std_srvs::srv::Trigger>("land", std::bind(&CatchingBlimp::land_callback, this, _1, _2));
@@ -321,42 +313,6 @@ void CatchingBlimp::imu_timer_callback() {
 
     motorControl_V2.update(forward_motor_, up_motor_, yaw_rate_motor_, roll_rate_motor_);
 }
-
-// void CatchingBlimp::baro_timer_callback() {
-
-    // BerryIMU.baro_read();
-
-    // Get current barometer reading
-    
-
-    // if (!baro_init_) return;
-
-    // cal_baro_ = 44330 * (1 - pow(((BerryIMU.comp_press - baro_calibration_offset_)/base_baro_), (1/5.255)));
-    // baro_sum_ += cal_baro_;
-    // baro_count_++;
-
-    // Average barometer every 5 samples (5Hz)
-    // if (baro_count_ == 5) {
-    //     double baro_mean_ = baro_sum_/(double)baro_count_;
-    //     // debug_msg_.data[3] = baro_mean_;
-
-    //     //rely on barometer data if drastic difference between barometer in lidar, likely because object is below blimp
-    //     if (abs(baro_mean_ - R_lid) > 1.5){
-    //         R_bar = 1.0;
-    //         R_lid = 10.0;
-    //     }
-        
-    //     z_est_.partialUpdate(baro_mean_, R_bar);
-
-    //     //Lowpass current estimate
-    //     z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
-
-    //     baro_sum_ = 0.0;
-    //     baro_count_ = 0;
-    // }
-    // z_est_.update(lidar_reading, R_lid);
-    // z_hat_ = z_lowpass_.filter(z_est_.xHat(0));
-// }
 
 /** 50 Hz: read TOF lidar, orientation-correct distance, lowpass, publish height. */
 void CatchingBlimp::lidar_timer_callback() {
@@ -539,51 +495,6 @@ void CatchingBlimp::auto_subscription_callback(const std_msgs::msg::Bool::Shared
         control_mode_ = manual;
     }
 }
-
-// void CatchingBlimp::cal_baro_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {
-//     (void) msg;
-
-//     // Barometer Calibration
-//     // Read latest pressure value
-//     BerryIMU.baro_read();
-//     lidar.TOF_read();
-//     baro_calibration_offset_ = BerryIMU.comp_press - base_baro_;
-
-//     try {
-//         lidar_calibration_offset_ = lidar.dis; //mm
-//     } catch (const std::exception& e) {
-//         std::cout << "Lidar offset error: " << e.what() << std::endl;
-//         lidar_calibration_offset_ = 0.0; // Assign fallback value
-//     }
-
-//     // Reset (zero) kalman filter
-//     z_est_.reset();
-
-//     publish_log(std::to_string(BerryIMU.comp_press));
-//     publish_log(std::to_string(base_baro_));
-//     publish_log(std::to_string(baro_calibration_offset_));
-
-//     publish_log("Calibrating Barometer");
-// }
-
-// void CatchingBlimp::baro_subscription_callback(const std_msgs::msg::Float64::SharedPtr msg) {
-//     // RCLCPP_INFO(this->get_logger(), "I heard: %.4f", msg->data);
-
-//     base_baro_ = msg->data;
-
-//     if (!baro_init_) {
-//         RCLCPP_INFO(this->get_logger(), "Base barometer initialized.");
-//         baro_init_ = true;
-//     }
-
-//     // Filter base station data
-//     // baroOffset.filter(baseBaro - BerryIMU.comp_press);
-
-//     //If teensy comes out of lost control mode, put it in manual control mode
-//     if (control_mode_ == lost) {
-//         control_mode_ = manual;
-//     }
-// }
 
 // Basestation: trigger grab (catching) — sets grabCom 0/1 for state machine
 void CatchingBlimp::grab_subscription_callback(const std_msgs::msg::Bool::SharedPtr msg) {

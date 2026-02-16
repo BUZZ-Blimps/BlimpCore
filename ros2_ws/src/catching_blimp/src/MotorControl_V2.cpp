@@ -40,17 +40,8 @@ void MotorControl_V2::update(double forward, double up, double yaw, double roll)
     double rightFwdCom = motorCom(rightForward, motorRightForward);
     double leftUpCom = motorCom(leftUp, motorLeftUp);
     double rightUpCom = motorCom(rightUp, motorRightUp);
-
-    // fprintf(stdout, "Left Fwd: %.2f, Right Fwd: %.2f, Left Up: %.2f, Right Up: %.2f\n", leftFwdCom, rightFwdCom, leftUpCom, rightUpCom);
 }
 //Turn a signed controller command (-1000 to +1000) into ESC thrust with deadband and min/max -> sent to motor
-
-/*
-MotorControl takes commands such as forward, up, yaw roll and 
-mixes them into four per-motor commands (left/right, forward/up)
-it converts each command to ESC thrust with deadband min/max and 
-sends those thrusts to four brushless ESC objects. 
-*/
 double MotorControl_V2::motorCom(double command, Brushless& motor) {
     //input from -1000, to 1000 is expected from controllers
     double adjustedCom = 1500;
