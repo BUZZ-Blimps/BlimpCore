@@ -439,6 +439,200 @@ Deleted code (declaration; may still be present as comment in .hpp):
 --------------------------------------------------------------------------------
 
 ================================================================================
+MADGWICK_FILTER, TOF_SENSE, OPTICAL_FLOW (2025-02-16)
+================================================================================
+Comment clutter removed from sensor/filter drivers; literal deleted code is
+below for each file. Classification: NO LONGER USEFUL = debug/print and
+superseded logic; USEFUL = alternate formulation or API you might restore.
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Madgwick_Filter.cpp
+Context: initialize_quaternion()
+What it did: Debug print of roll/pitch during init; two commented calls
+(normalizeQuaternion, quaternionToEuler). Removed to reduce clutter.
+Classification: NO LONGER USEFUL
+
+Deleted code:
+    std::cout << "RP: " << roll << "," << pitch << std::endl;
+    // normalizeQuaternion();
+    // quaternionToEuler();
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Madgwick_Filter.cpp
+Context: Madgwick_Update() — gyro/accel vectors and alternate coordinate frame
+What it did: Commented vectors g_W, gyro_I (and alternate gyro for "changed
+coordinates"); commented accel debug print and re-init; alternate normalized
+a_I for different axis mapping; g_lock quat update and assignment.
+Classification: USEFUL (alternate IMU mounting / coordinate frame)
+
+Deleted code:
+  // std::vector<double> g_W = {0, 0, 0, 1};
+  // std::vector<double> gyro_I = {gx * (M_PI / 180), gy * (M_PI / 180), gz * (M_PI / 180)};
+  // std::vector<double> gyro_I = {0, -gy * (M_PI / 180), gx * (M_PI / 180), gz * (M_PI / 180)};
+  // std::cout << "acc: " << a_I[0] << "," << a_I[1] << "," << a_I[2] << std::endl;
+  // initialize_quaternion(a_I[0], a_I[1], a_I[2]);
+  // std::vector<double> a_I = {0, -ay / mag_accel, ax / mag_accel, az / mag_accel};
+  // std::vector<double> angles_quat_update_g_lock = update_quat(...);
+  // q_est_g_lock = {angles_quat_update_g_lock[0], ...};
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Madgwick_Filter.cpp
+Context: Madgwick_Update() — g_lock euler and fusion
+What it did: Second quaternion state "g_lock" euler conversion; roll_new/
+pitch_new from g_lock; fusion rule (when |pitch_orig| >= 45 use g_lock roll/
+pitch). Debug Serial/cout prints for roll, pitch, yaw (orig, g_lock, final)
+and quaternion components; filter frequency print and delay.
+Classification: USEFUL (high-pitch fusion); NO LONGER USEFUL (prints)
+
+Deleted code:
+  // double roll_orig = ...; // double pitch_orig = ...; // double yaw_orig = ...;
+  // std::vector<double> angles_euler_g_lock = get_euler_angles_from_quat(q_est_g_lock[0], ...);
+  // double roll_g_lock = ...; double pitch_new = roll_g_lock;
+  // double pitch_g_lock = ...; double roll_new = pitch_g_lock; double yaw_g_lock = ...;
+  // if (abs(pitch_orig) >= 45) { roll_final = roll_new; pitch_final = pitch_new; }
+  // else { roll_final = roll_orig; pitch_final = pitch_orig; }
+  // std::cout << "q: (" << q_est_orig[0] << ", " << ...
+  // q1_ = q_est_orig[0]; ... q4_ = q_est_orig[3]; yaw_final = yaw_orig;
+  // Serial.print(roll_orig); ... Serial.println(yaw_orig);
+  // Serial.print(roll_g_lock); ... Serial.println(q_est_g_lock[3]);
+  // Serial.println("Next"); Serial.println(1 / t_interval); //delay(10);
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Madgwick_Filter.cpp
+Context: update_quat() — old Madgwick formulation
+What it did: Alternate implementation of Madgwick: q_est/gyro_I/a_I vectors,
+auxiliary _2q*/_4q*/_8q*, gradient descent del_f1..del_f4, del_q_est,
+q_dot_w (quat rate from gyro), q_est_dot fusion, Euler integration,
+normalization. Replaced by current formulation (s0..s3, qDot, beta).
+Classification: USEFUL (reference implementation)
+
+Deleted code:
+  // std::vector<double> q_est = {...}; gyro_I = {...}; a_I = {...};
+  // double _2q1 = 2.0f * q1; ... double q4q4 = q4 * q4;
+  // double del_f1 = _4q1 * q3q3 + _2q3 * a_I[1] + ...; ... double del_f4 = ...;
+  // double beta = 0.5;
+  // double del_f_norm = sqrtf(pow(del_f1, 2) + ...);
+  // std::vector<double> del_q_est = { -beta*(del_f1 / del_f_norm), ... };
+  // std::vector<double> q_dot_w = { q_est[0]*gyro_I[0] - ..., ... };
+  // q_dot_w = { 0.5f * q_dot_w[0], ... };
+  // std::vector<double> q_est_dot = { q_dot_w[0] + del_q_est[0], ... };
+  // q_est = { q_est[0] + q_est_dot[0]*t_interval, ... };
+  // double q_mag = sqrt(...); std::vector<double> q_norm = { q_est[0] / q_mag, ... };
+  // q_est = q_norm;
+  // std::vector<double> angles_quat_update = { q_est[0], q_est[1], q_est[2], q_est[3] };
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: TOF_Sense.cpp
+Context: TOF_read() after decoding
+What it did: Debug printf's for TOF id, system_time, distance, dis_status,
+signal_strength, range_precision. Removed to avoid terminal clutter.
+Classification: NO LONGER USEFUL
+
+Deleted code:
+    // printf("TOF id is:%d\r\n", this->id);
+    // printf("TOF system time is:%d ms\r\n", this->system_time);
+    // printf("TOF distance is:%d mm\r\n", this->dis);
+    // printf("TOF status is:%d\r\n", this->dis_status);
+    // printf("TOF signal strength is:%d\r\n", this->signal_strength);
+    // printf("TOF range precision is:%d\r\n\n", this->range_precision);
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: TOF_Sense.cpp
+Context: After TOF_read(), global tx_buf and TOF_Inquire_Decoding
+What it did: Query-based API: tx_buf command and full function
+TOF_Inquire_Decoding(uint8_t id) that sends query, waits, reads 16 bytes,
+decodes into TOF_0, prints. Current code uses passive read in TOF_read().
+Classification: USEFUL (alternative request/response API)
+
+Deleted code:
+// uint8_t tx_buf[8] = {0x57,0x10,0xff,0xff,0x00,0xff,0xff,0x63};
+
+// void TOF_Inquire_Decoding(uint8_t id)
+// {
+//     tx_buf[4] = id;
+//     tx_buf[7] = id + 0x63;
+//     UART_flushInput();
+//     UART_Write_nByte(tx_buf,8);
+//     DEV_Delay_ms(10);
+//     UART_Read_nByte(rx_buf,16);
+//     for (count_j = 0; count_j < 15; count_j++) { check_sum += rx_buf[count_j]; }
+//     if ((rx_buf[0] == TOF_FRAME_HEADER) && (rx_buf[1] == TOF_FUNCTION_MARK) && (check_sum == rx_buf[15])) {
+//         TOF_0.id = rx_buf[3];
+//         TOF_0.system_time = ...;
+//         TOF_0.dis = ...;
+//         TOF_0.dis_status = rx_buf[11];
+//         TOF_0.signal_strength = ...;
+//         TOF_0.range_precision = rx_buf[14];
+//         printf("TOF id is:%d\r\n", TOF_0.id);
+//         ... (more printf's and dis_status message)
+//     } else { printf("Verification failed.\r\n"); }
+//     check_sum = 0;
+// }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Optical_Flow.cpp
+Context: read_buffer(), update_flow() — Serial debug prints
+What it did: Commented Serial.println/Serial.print for raw bytes, footer/
+header, packet bytes, x_motion, y_motion, surface_quality, scaled motion,
+motion_change, final x_motion_comp/y_motion_comp. Removed to reduce clutter.
+Classification: NO LONGER USEFUL
+
+Deleted code:
+    // Serial.println(c);
+    // Serial.println("found footer"); // Serial.println(distToHead);
+    // while(headerCheck != it) { Serial.println(*headerCheck, HEX); headerCheck++; }
+    // Serial.println(*it, HEX); foundPacket = true;
+    // Serial.println(*(it-8)); // Serial.println("Found header");
+    // Serial.println("Found Packet");
+    // Serial.print(*(headerCheck),HEX); ... Serial.println(*(headerCheck+8),HEX);
+    // Serial.print(x_motion); ... Serial.println(surface_quality);
+    // Serial.print(x_motion_scaled); ... Serial.println(y_motion_scaled);
+    // Serial.print(">X motion scaled:"); ... Serial.println(x_motion_change);
+    // Serial.print(x_motion_change); ... Serial.println(y_motion_change);
+    // Serial.println(x_motion_comp); ... Serial.println(y_motion_comp);
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: Optical_Flow.cpp
+Context: Top of file (pin/serial reference)
+What it did: Inline comments for Teensy UART link and TX/RX pin numbers.
+Removed as non-essential; can be looked up in PJRC docs.
+Classification: NO LONGER USEFUL
+
+Deleted code:
+// https://www.pjrc.com/teensy/td_uart.html
+// TX pin 14
+// RX pin 15
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: TOF_Sense.cpp
+Context: uart_setup()
+What it did: Inline comment "Commented bc this should be called before any
+of this happens" above wiringPiSetup. Removed for clarity; wiringPiSetup
+left in place.
+Classification: NO LONGER USEFUL
+
+Deleted code:
+    // Commented bc this should be called before any of this happens
+--------------------------------------------------------------------------------
+
+================================================================================
 SUMMARY (2025-02-16)
 ================================================================================
 - Removed: redundant comments (node main, MotorControl block, tripleBallGrabber
@@ -447,7 +641,11 @@ SUMMARY (2025-02-16)
 - Removed and documented for possible reuse: object avoidance in searching and
   goalSearch, timeline-based search (forward/backup/rotate), vertical z-search,
   alternative search commands; barometer calibration and fusion (subscriptions,
-  timer, callbacks). Restore instructions and literal deleted code are in the
-  entries above. For line number drift, search for the "Context" or key variable
-  names in the file.
+  timer, callbacks).
+- Madgwick_Filter.cpp, TOF_Sense.cpp, Optical_Flow.cpp: removed comment clutter
+  (debug prints, alternate coordinate frame/g_lock fusion, old Madgwick formulation,
+  TOF query-based API, Serial prints, inline pin/docs comments). Literal deleted
+  code and classification are in the MADGWICK_FILTER, TOF_SENSE, OPTICAL_FLOW
+  section above.
+- For line number drift, search for the "Context" or key variable names in the file.
 ================================================================================
