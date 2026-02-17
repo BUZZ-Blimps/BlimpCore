@@ -20,14 +20,14 @@ PACKAGE STRUCTURE
 -----------------
 
 catching_blimp/
-  calibration/          - Accelerometer calibration YAML files per blimp
-  include/              - C++ header files
-  launch/                - ROS2 launch files for different blimps/venues
-  param/                 - PID and other parameter YAML files
-  scripts/               - Python utilities (e.g. battery monitor)
-  src/                   - C++ source files
-  CODE_GRAVEYARD.txt     - Log of removed/commented code (date, file, context, what it did)
-  bulkCopyCodeToPi.sh    - Deployment: copy code to multiple Pis
+  calibration/ - Accelerometer calibration YAML files per blimp
+  include/ - C++ header files
+  launch/ - ROS2 launch files for different blimps/venues
+  param/ - PID and other parameter YAML files
+  scripts/ - Python utilities (e.g. battery monitor)
+  src/ - C++ source files
+  CODE_GRAVEYARD.txt - Log of removed/commented code (date, file, context, what it did)
+  bulkCopyCodeToPi.sh - Deployment: copy code to multiple Pis
   bulkStartAllServices.sh / bulkStopAllServices.sh
   bulkStartAutonomyService.sh / bulkStopAutonomyService.sh
   bulkStartVisionService.sh / bulkStopVisionService.sh
