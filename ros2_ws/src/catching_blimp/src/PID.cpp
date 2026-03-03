@@ -94,8 +94,9 @@ double PID::calculate(double setpoint, double pv, double dt) {
     }
     double i_out = _ki * _integral;
 
+    // OPT(numerics): use std::abs for correct floating-point integral windup limiting.
     //Integral windup limit
-    if (abs(i_out) > 0) {
+    if (std::abs(i_out) > 0) {
         i_out = constrain(i_out, _i_min, _i_max);
     }
 

@@ -632,6 +632,130 @@ Deleted code:
     // Commented bc this should be called before any of this happens
 --------------------------------------------------------------------------------
 
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.cpp
+Context: Constructor, after MotorControl_V2::motor_init
+What it did: Blocking delay(2000) after motor initialization to let ESCs arm
+at 1500 us. Startup delay is now handled non-blockingly by a 5 s zero-motor
+window in imu_timer_callback().
+Classification: NO LONGER USEFUL
+
+Deleted code:
+    delay(2000);  // Let ESCs arm at 1500
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_approach_callback() ball approach PID block
+What it did: Inline PID setup and forward/z command computation for ball
+approach: bbox-area-based scaling, xPID_/yPID_ gain tuning, z_command_ from
+Z-up. This logic has been moved into CatchingBlimp::run_approach_pid() to
+share with the goal approach.
+Classification: USEFUL (logic preserved in shared helper)
+
+Deleted code:
+        // Resume forward approach using similar commands as before.
+        double x_setpoint = X_OFFSET_ANGLE;
+        double y_setpoint = 0.0;
+
+        const double bbox_align_min = 900.0;
+        const double bbox_align_max = 20000.0;
+
+        if (target_.bbox_area >= bbox_align_min) {
+            forward_command_ = GAME_BALL_CLOSE_COM;
+
+            double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
+
+            xPID_.setPGain(scaling*x_p_);
+            xPID_.setDGain(scaling*x_d_);
+
+            y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
+        } else {
+            forward_command_= GAME_BALL_CLOSURE_COM;
+
+            xPID_.setPGain(x_p_);
+            xPID_.setDGain(x_d_);
+        }
+    
+        // Regulate yaw using theta_x
+        yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
+
+        // Regulate y using Z-up
+        double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
+        z_command_ = z_hat_ + y_command*state_machine_dt_;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimpStateMachine.cpp
+Context: state_machine_approachGoal_callback() goal approach PID block
+What it did: Inline PID setup and forward/z command computation for goal
+approach using GOAL_* constants and GAME_BALL_Y_OFFSET; logic has been
+moved into CatchingBlimp::run_approach_pid().
+Classification: USEFUL (logic preserved in shared helper)
+
+Deleted code:
+        // Resume forward approach using similar commands as before.
+        double x_setpoint = X_OFFSET_ANGLE;
+        double y_setpoint = 0.0;
+
+        const double bbox_align_min = 8000.0;
+        const double bbox_align_max = 100000.0;
+
+        if (target_.bbox_area >= bbox_align_min) {
+            forward_command_ = GOAL_CLOSE_COM;
+
+            double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
+
+            xPID_.setPGain(scaling*x_p_);
+            xPID_.setDGain(scaling*x_d_);
+
+            y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
+        } else {
+            forward_command_ = GOAL_CLOSURE_COM;
+
+            xPID_.setPGain(x_p_);
+            xPID_.setDGain(x_d_);
+        }
+
+        // Regulate yaw using theta_x
+        yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
+
+        // Regulate y using Z-up
+        double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
+        z_command_ = z_hat_ + y_command*state_machine_dt_;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.hpp
+Context: CatchingBlimp private members, approach_state_
+What it did: Member variable approach_state_ (of type approachState) was
+initialized to far_approach but never read or written elsewhere. It has
+been removed; the approachState enum remains as a placeholder for future
+HFSM/sub-state work.
+Classification: NO LONGER USEFUL (member); enum kept for design reference
+
+Deleted code:
+    approachState approach_state_ = far_approach;
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Date: 2025-02-16
+File: CatchingBlimp.hpp
+Context: CatchingBlimp private members, blimpColor/goalColor definition
+What it did: blimpColor and goalColor were previously declared as int and
+initialized from BLIMP_COLOR and GOAL_COLOR macros (which are enums). They
+have been changed to the proper blimpType and goalType enum types.
+Classification: USEFUL (stronger typing)
+
+Deleted code:
+    int blimpColor = BLIMP_COLOR;
+    int goalColor = GOAL_COLOR;
+--------------------------------------------------------------------------------
+
 ================================================================================
 SUMMARY (2025-02-16)
 ================================================================================
@@ -642,10 +766,10 @@ SUMMARY (2025-02-16)
   goalSearch, timeline-based search (forward/backup/rotate), vertical z-search,
   alternative search commands; barometer calibration and fusion (subscriptions,
   timer, callbacks).
-- Madgwick_Filter.cpp, TOF_Sense.cpp, Optical_Flow.cpp: removed comment clutter
-  (debug prints, alternate coordinate frame/g_lock fusion, old Madgwick formulation,
-  TOF query-based API, Serial prints, inline pin/docs comments). Literal deleted
-  code and classification are in the MADGWICK_FILTER, TOF_SENSE, OPTICAL_FLOW
-  section above.
-- For line number drift, search for the "Context" or key variable names in the file.
+- Madgwick_Filter.cpp, TOF_Sense.cpp, Optical_Flow.cpp, CatchingBlimp.cpp,
+  CatchingBlimpStateMachine.cpp, CatchingBlimp.hpp: removed comment clutter
+  and relocated shared logic (non-blocking startup, shared approach helper,
+  stronger enum typing, dead member removal). Literal deleted code and
+  classification are in the sections above.
+- For line number drift, search for the \"Context\" or key variable names in the file.
 ================================================================================

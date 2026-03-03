@@ -103,7 +103,6 @@ CatchingBlimp::CatchingBlimp() :
     // --- Actuators: ball grabber (gate + scoring pin), 4 motors (deadband 25, turn-on 30, min/max thrust) ---
     ballGrabber.ballgrabber_init(GATE_S, PIN_SCORING);
     motorControl_V2.motor_init(PIN_LEFT_UP, PIN_LEFT_FORWARD, PIN_RIGHT_UP, PIN_RIGHT_FORWARD, 25, 30, MIN_MOTOR, MAX_MOTOR);
-    delay(2000);  // Let ESCs arm at 1500
 
     // --- ROS publishers: heartbeat, IMU, debug, height, z_velocity, state, log, heading ---
     heartbeat_publisher = this->create_publisher<std_msgs::msg::Bool>("heartbeat", 10);
@@ -290,6 +289,7 @@ void CatchingBlimp::imu_timer_callback() {
         }
     }
 
+    // OPT(startup): use a non-blocking 5 s zero-motor window instead of a blocking delay in the constructor.
     // First 5 s: zero motors so filters/ESCs settle
     if ((now - start_time_).seconds() < 5.0) {
         motorControl_V2.update(0, 0, 0, 0);
@@ -462,6 +462,45 @@ target_type CatchingBlimp::auto_state_to_desired_target_type(autoState state) {
         desired_target_type = no_target;
     }
     return desired_target_type;
+}
+
+// OPT(fsm): shared PID-based approach helper used by both ball and goal approach states.
+void CatchingBlimp::run_approach_pid(double bbox_align_min,
+                                     double bbox_align_max,
+                                     double close_com,
+                                     double closure_com,
+                                     double y_offset) {
+    double x_setpoint = X_OFFSET_ANGLE;
+    double y_setpoint = 0.0;
+
+    if (target_.bbox_area >= bbox_align_min) {
+        forward_command_ = close_com;
+
+        double scaling = math_helpers::constrain(
+            math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25),
+            0.25,
+            1.0
+        );
+
+        xPID_.setPGain(scaling * x_p_);
+        xPID_.setDGain(scaling * x_d_);
+
+        y_setpoint = math_helpers::constrain(
+            math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, y_offset),
+            0.0,
+            y_offset
+        );
+    } else {
+        forward_command_ = closure_com;
+
+        xPID_.setPGain(x_p_);
+        xPID_.setDGain(x_d_);
+    }
+
+    yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
+
+    double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
+    z_command_ = z_hat_ + y_command * state_machine_dt_;
 }
 
 // Publish a string to the log topic (basestation / UI)

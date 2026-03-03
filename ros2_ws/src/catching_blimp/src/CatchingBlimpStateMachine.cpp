@@ -213,35 +213,14 @@ void CatchingBlimp::state_machine_approach_callback() {
 
     if (target_active_ && target_.type == ball) {
 
-        // Resume forward approach using similar commands as before.
-        double x_setpoint = X_OFFSET_ANGLE;
-        double y_setpoint = 0.0;
-
-        const double bbox_align_min = 900.0;
-        const double bbox_align_max = 20000.0;
-
-        if (target_.bbox_area >= bbox_align_min) {
-            forward_command_ = GAME_BALL_CLOSE_COM;
-
-            double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
-
-            xPID_.setPGain(scaling*x_p_);
-            xPID_.setDGain(scaling*x_d_);
-
-            y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
-        } else {
-            forward_command_= GAME_BALL_CLOSURE_COM;
-
-            xPID_.setPGain(x_p_);
-            xPID_.setDGain(x_d_);
-        }
-    
-        // Regulate yaw using theta_x
-        yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
-
-        // Regulate y using Z-up
-        double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
-        z_command_ = z_hat_ + y_command*state_machine_dt_;
+        // OPT(fsm): use shared PID-based approach helper for ball approach.
+        run_approach_pid(
+            900.0,
+            20000.0,
+            GAME_BALL_CLOSE_COM,
+            GAME_BALL_CLOSURE_COM,
+            GAME_BALL_Y_OFFSET
+        );
 
         // When very close, transition into the catching state.
         if (target_.bbox_area >= BALL_GATE_OPEN_TRIGGER && !BALL_TRACKING_TESTING) {
@@ -365,35 +344,14 @@ void CatchingBlimp::state_machine_goalSearch_callback() {
 void CatchingBlimp::state_machine_approachGoal_callback() {
     if (target_active_ && target_.type == goal) {
 
-        // Resume forward approach using similar commands as before.
-        double x_setpoint = X_OFFSET_ANGLE;
-        double y_setpoint = 0.0;
-
-        const double bbox_align_min = 8000.0;
-        const double bbox_align_max = 100000.0;
-
-        if (target_.bbox_area >= bbox_align_min) {
-            forward_command_ = GOAL_CLOSE_COM;
-
-            double scaling = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 1.0, 0.25), 0.25, 1.0);
-
-            xPID_.setPGain(scaling*x_p_);
-            xPID_.setDGain(scaling*x_d_);
-
-            y_setpoint = math_helpers::constrain(math_helpers::map(target_.bbox_area, bbox_align_min, bbox_align_max, 0.0, GAME_BALL_Y_OFFSET), 0.0, GAME_BALL_Y_OFFSET);
-        } else {
-            forward_command_ = GOAL_CLOSURE_COM;
-
-            xPID_.setPGain(x_p_);
-            xPID_.setDGain(x_d_);
-        }
-
-        // Regulate yaw using theta_x
-        yaw_rate_command_ = xPID_.calculate(x_setpoint, target_.theta_x, state_machine_dt_);
-
-        // Regulate y using Z-up
-        double y_command = yPID_.calculate(y_setpoint, target_.y, state_machine_dt_);
-        z_command_ = z_hat_ + y_command*state_machine_dt_;
+        // OPT(fsm): use shared PID-based approach helper for goal approach.
+        run_approach_pid(
+            8000.0,
+            100000.0,
+            GOAL_CLOSE_COM,
+            GOAL_CLOSURE_COM,
+            GAME_BALL_Y_OFFSET
+        );
 
         if (target_.bbox_area >= GOAL_SCORE_TRIGGER) {
             score_start_time_ = state_machine_time_;

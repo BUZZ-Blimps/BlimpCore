@@ -259,8 +259,8 @@ enum blimpState {
     lost,
 };
 
-// Sub-state for finer grained approach behavior (currently
-// only partially used, but kept for tuning and extension).
+// OPT(fsm): approachState is currently unused; kept as a placeholder for future HFSM/sub-state design.
+// Sub-state for finer grained approach behavior (currently unused).
 enum approachState {
     far_approach,
     alignment,
@@ -397,9 +397,10 @@ private:
     std_msgs::msg::Int64MultiArray state_msg_;
     std_msgs::msg::Float64MultiArray debug_msg_;
 
+    // OPT(types): use strongly typed enums for blimpColor/goalColor instead of raw ints.
     //blimp game parameters
-    int blimpColor = BLIMP_COLOR;
-    int goalColor = GOAL_COLOR;
+    blimpType blimpColor = BLIMP_COLOR;
+    goalType goalColor = GOAL_COLOR;
 
     // Target detection
     bool target_detected_ = false;
@@ -443,8 +444,6 @@ private:
 
     autoState auto_state_;
     autoState last_state_ = no_state;
-
-    approachState approach_state_ = far_approach;
     rclcpp::Time alignment_start_time_;
 
     //msg for commands
@@ -517,6 +516,13 @@ private:
     void state_machine_shooting_callback();
     void state_machine_scored_callback();
     void state_machine_default_callback();
+
+    // OPT(fsm): shared PID-based approach helper used by both ball and goal approach states.
+    void run_approach_pid(double bbox_align_min,
+                          double bbox_align_max,
+                          double close_com,
+                          double closure_com,
+                          double y_offset);
 
     void land_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
