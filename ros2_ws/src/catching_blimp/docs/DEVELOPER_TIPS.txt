@@ -7,7 +7,7 @@ Notes for future reference and getting the hang of things:
     main directory: root@core-opi-#: ~# , you can run the following to start the
     blimp services: ./run_catching_blimp.sh
 
-    Updating Code:
+Updating Code:
     
     * Let's say you make changes to code or want to test a branch you made on getting
 
@@ -25,3 +25,16 @@ Notes for future reference and getting the hang of things:
     * To see if code successfully updated, navigate through the pi directories to
     reach the directories you edited, and nano a file you remember editing to
     confirm changes
+
+Base Station:
+
+    * Split into two terminals
+
+        Left Terminal: br
+        Right Terminal: fr
+
+    In a browser (google, safari, firefox; whichever one wants to work):
+        go to http://192.168.0.211:8080 to access base Station
+
+    For manual testing, use linux laptop, connect controller and use controller
+    keybinds to test functionality
