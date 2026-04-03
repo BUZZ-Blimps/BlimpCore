@@ -1,0 +1,27 @@
+Notes for future reference and getting the hang of things:
+
+    1. To connect to a blimps PI (hardware that signals components of blimp),
+    run ssh root@[PI IP address] : e.g. ssh root@192.168.0.105
+
+    2. You are now inside a specific blimp (as designated by the IP); from the
+    main directory: root@core-opi-#: ~# , you can run the following to start the
+    blimp services: ./run_catching_blimp.sh
+
+    Updating Code:
+    
+    * Let's say you make changes to code or want to test a branch you made on getting
+
+    1. To copy code onto the PI, on your local machine (not ssh into the PI), go
+    to the corressponding directory for which has the .copyCodeToPi.sh file.
+    e.g. BlimpCore/ros2_ws/src/catching_blimp/src/, 
+
+        then run ./copyCodeToPi.sh [PI IP]
+        e.g. ./copyCodeToPi.sh 192.168.0.105
+
+    2. You must then build it in the main directory of the PI.
+        - ssh back into the pi you want to test
+        - run: colcon build to update the pi's code
+
+    * To see if code successfully updated, navigate through the pi directories to
+    reach the directories you edited, and nano a file you remember editing to
+    confirm changes
