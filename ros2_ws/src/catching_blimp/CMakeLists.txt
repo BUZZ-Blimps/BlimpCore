@@ -89,7 +89,17 @@ install(
 )
 
 install(
+  PROGRAMS vision_test.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME vision_test
+)
+
+install(
   CODE "execute_process(COMMAND chmod +x ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}/battery_monitor_node.py)"
+)
+
+install(
+  CODE "execute_process(COMMAND chmod +x ${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}/vision_test)"
 )
 
 ament_package()
